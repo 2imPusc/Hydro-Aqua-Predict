@@ -1,0 +1,47 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[vietnamese]{babel}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{caption}
+\geometry{a4paper, margin=1in}
+
+% Box cảnh báo / kết luận
+\definecolor{warnbg}{RGB}{255,247,230}
+\newcommand{\warnbox}[1]{%
+  \par\noindent\colorbox{warnbg}{%
+    \begin{minipage}{0.97\linewidth}\vspace{2pt}#1\vspace{2pt}\end{minipage}}\par}
+
+\lstset{basicstyle=\ttfamily\small, breaklines=true, frame=single,
+  backgroundcolor=\color{gray!5}, columns=fullflexible, keepspaces=true}
+
+\title{\textbf{BÁO CÁO TÍCH HỢP DỮ LIỆU QUAN TRẮC THỜI GIAN THỰC GREENLAB\\
+VÀO HỆ THỐNG ĐÁNH GIÁ MỨC ĐỘ PHÙ HỢP NUÔI TRỒNG THỦY SẢN}}
+\author{Đồ án tốt nghiệp --- DATN-20225064\\Module: \texttt{lab/realtime\_greenlab/}}
+\date{20/06/2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Báo cáo trình bày quá trình tích hợp nguồn dữ liệu cảm biến môi trường thời gian thực (GreenLab IoT, thu thập $\sim$3--5 phút/lần qua MongoDB Atlas) vào pipeline đánh giá mức độ phù hợp nuôi trồng thủy sản ven biển. Do cảm biến chỉ cung cấp 5 chỉ số (COD, NH4, pH, nhiệt độ, TSS) trong khi mô hình phân loại cần 19 chỉ số (cá giò Hải Phòng) đến 20 chỉ số (hàu Quảng Ninh), chúng tôi xây dựng module thực nghiệm độc lập gồm quy đổi hóa học NH4$^+\to$NH3, kiểm soát chất lượng cảm biến, nội suy thích nghi \emph{theo vùng} (per-region adaptive) và phân loại. Phân tích dữ liệu thực bộc lộ hai vấn đề then chốt: cảm biến COD đã \emph{hỏng} (bão hòa trần 558{,}8 từ 11/06, chiếm 77{,}7\% bản ghi) và đơn vị NH4 chưa được xác nhận. Về nội suy, việc \emph{tách huấn luyện theo vùng} (HP-only cho trạm Cát Bà thay vì gộp QN+HP) cứu được dự đoán DO --- chỉ số quan trọng nhất --- từ $R^2<0$ lên $R^2=0{,}535$. Tuy vậy độ muối và kim loại nặng vẫn dùng trung vị, nên nhãn phù hợp còn chịu chi phối bởi hằng số --- hạn chế cần nêu rõ trước khi dùng cho ra quyết định.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\input{sections/01_modau}
+\input{sections/02_phuongphap}
+\input{sections/03_ketqua}
+\input{sections/04_ketluan}
+
+\end{document}

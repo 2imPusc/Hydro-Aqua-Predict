@@ -1,0 +1,67 @@
+\section{Dashboard và vận hành}
+
+\begin{frame}{Dashboard chuyển mô hình thành quyết định dễ đọc}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Thông tin dành cho người vận hành}
+        \begin{itemize}
+          \item Trạng thái: Ổn định / Cần theo dõi / Cảnh báo sớm.
+          \item Mốc rủi ro sớm nhất: ví dụ $+15$ phút.
+          \item Cửa sổ dự báo hiện có: tối đa 60 phút.
+          \item Biểu đồ lịch sử + đường dự báo cho từng chỉ số.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Thông tin kỹ thuật thu gọn}
+        \begin{itemize}
+          \item Lý do model nội suy bị chặn.
+          \item Cờ chất lượng sensor, data contract.
+          \item Shadow ledger và MAE/RMSE khi có actual.
+        \end{itemize}
+        Không làm nhiễu màn hình vận hành chính.
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.4em}
+  \begin{alertblock}{Nguyên tắc hiển thị}
+    Không hiển thị \texttt{None} như một giá trị môi trường; thay vào đó nêu rõ
+    ``chưa khả dụng'' và lý do chặn mô hình.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Từ shadow đến cảnh báo vận hành}
+  \begin{center}
+  \resizebox{0.95\textwidth}{!}{%
+  \begin{tikzpicture}[
+    >=Stealth, node distance=1.0cm and 1.2cm,
+    box/.style={draw, rounded corners, minimum width=3.2cm, minimum height=1cm, align=center, fill=cyan!10},
+    arrow/.style={->, thick}]
+    \node[box] (shadow) {Shadow forecast\\ghi timeline + outcome};
+    \node[box, right=of shadow] (eval) {Đánh giá theo horizon\\MAE, RMSE, bias};
+    \node[box, right=of eval, fill=teal!15] (gate) {Xác nhận policy\\false alarm / recall};
+    \node[box, right=of gate, fill=orange!20] (notify) {Notification\\khi triển khai thực tế};
+    \draw[arrow] (shadow) -- (eval);
+    \draw[arrow] (eval) -- (gate);
+    \draw[arrow] (gate) -- (notify);
+  \end{tikzpicture}
+  }
+  \end{center}
+  \begin{block}{Trạng thái hiện tại trong lab}
+    Dashboard và advisory đang hoạt động; notification ngoài hệ thống chưa bật.
+    Đây là cách tách an toàn giữa nghiên cứu, đánh giá và vận hành thực tế.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Thông điệp chính}
+  \begin{alertblock}{Cảnh báo không chỉ là một ngưỡng cố định}
+    Hệ thống kết hợp \textbf{dự báo tương lai}, \textbf{quy tắc rủi ro},
+    \textbf{gate chất lượng} và \textbf{ngữ cảnh nguồn dữ liệu}.
+  \end{alertblock}
+  \begin{enumerate}
+    \item Dự báo sensor trước, sau đó mới suy luận \DO{} và độ mặn tại từng horizon.
+    \item Tách đo trực tiếp, quy đổi hóa học và nội suy mô hình để giải thích được kết quả.
+    \item Chỉ nâng cấp cảnh báo DO khi model đạt gate và rủi ro có tính bền vững/stress kép.
+    \item Dùng shadow ledger để chứng minh hiệu quả trước khi mở notification thực tế.
+  \end{enumerate}
+\end{frame}

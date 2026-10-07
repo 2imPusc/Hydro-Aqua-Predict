@@ -1,0 +1,22 @@
+% main.tex — orchestrator file. Compile this with: pdflatex main.tex (run twice)
+% setup.tex contains \documentclass and the entire preamble.
+\input{setup}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\input{1_GioiThieu}
+\input{2_CongViecThucHien}
+\input{3_KetQua}
+\input{4_KetLuan}
+
+% Final thanks slide (plain = no header/footer chrome)
+\begin{frame}[plain]
+  \centering
+  {\Huge \textbf{Xin cảm ơn}}
+\end{frame}
+
+\end{document}

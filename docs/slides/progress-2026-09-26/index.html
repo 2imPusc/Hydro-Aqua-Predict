@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Báo cáo tiến độ · Dự báo và cảnh báo điều kiện nuôi</title>
+<style>
+:root{--bg:#091722;--panel:#122633;--line:#29404e;--ink:#f2f6f7;--muted:#aec2ce;--teal:#55e0be;--amber:#ffca7a;--red:#ffa397;--blue:#91c8ff}
+*{box-sizing:border-box}body{margin:0;background:#050d14;color:var(--ink);font-family:"Segoe UI",Arial,sans-serif}button,a{touch-action:manipulation}button{font:inherit;cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid var(--teal);outline-offset:4px}#viewport{height:calc(100dvh - 56px);display:grid;place-items:center;overflow:hidden}#deck{position:relative;width:1280px;height:720px;flex-shrink:0;transform-origin:center;box-shadow:0 20px 70px #0006}.slide{position:absolute;inset:0;background:var(--bg);padding:46px 64px 56px;display:none;overflow:hidden}.slide.active{display:block}.slide:before{content:"";position:absolute;top:0;left:0;width:100%;height:4px;background:linear-gradient(90deg,var(--teal) 0 28%,#233e4c 28% 100%)}.eyebrow{font-size:14px;letter-spacing:2.6px;text-transform:uppercase;color:var(--teal);font-weight:700;margin:0 0 14px}.slide h1{font-size:54px;line-height:1.16;letter-spacing:-1.5px;margin:0;font-weight:650}.slide h2{font-size:38px;line-height:1.24;letter-spacing:-.8px;margin:0 0 14px;font-weight:650}.slide h3{font-size:24px;line-height:1.3;margin:0 0 14px;font-weight:650}.lead{font-size:22px;color:var(--muted);line-height:1.5;margin:0 0 28px;max-width:1050px}p{line-height:1.45}.muted{color:var(--muted)}.teal{color:var(--teal)}.amber{color:var(--amber)}.red{color:var(--red)}.small{font-size:16px}.tiny{font-size:13px}.grid{display:grid;gap:20px}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}.card p{font-size:20px;margin:10px 0}.card .small{font-size:16px}.pill{display:inline-block;padding:6px 12px;border-radius:30px;font-size:14px;font-weight:600;letter-spacing:.2px;background:#193b36;color:var(--teal)}.pill.warn{background:#463827;color:var(--amber)}.pill.gray{background:#273c49;color:var(--muted)}.number{font-size:56px;letter-spacing:-2px;font-weight:650;color:var(--teal);line-height:1.15}.band{margin-top:22px;padding:16px 22px;border-left:4px solid var(--teal);background:#122e34;font-size:21px;line-height:1.4}.band.warn{border-color:var(--amber);background:#2e2b25}.slide-footer{position:absolute;left:64px;right:64px;bottom:22px;border-top:1px solid var(--line);padding-top:11px;display:flex;justify-content:space-between;color:var(--muted);font-size:12px;letter-spacing:.3px}.source{font-size:12px;color:#91a9b8;line-height:1.4;margin-top:12px}.source a{color:inherit}.cover{display:grid;grid-template-columns:1.4fr 1fr;gap:34px;margin-top:26px}.cover .lead{margin-top:22px;font-size:24px}.cover-art{position:relative;min-height:390px;border:1px solid var(--line);border-radius:24px;overflow:hidden;background:radial-gradient(ellipse at 80% 20%,#1c4f57 0,transparent 58%),#102631}.cover-art svg{width:100%;position:absolute;bottom:0;left:0}.cover-art .orbit{position:absolute;left:28px;right:28px;top:28px}.cover-art .orbit p{font-size:19px;color:var(--muted)}.cover-art .orbit strong{font-size:28px;display:block;line-height:1.3}.cover-meta{margin-top:24px;font-size:17px;color:var(--muted)}.question{font-size:24px;margin:12px 0}.label{font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}.node{padding:18px;border:1px solid #386657;border-radius:12px;background:#13332f;min-height:108px}.node.dev{border:1px dashed #947044;background:#302e28}.node b{font-size:20px;display:block;margin-bottom:8px}.node span{font-size:16px;color:var(--muted)}.pipe{display:grid;grid-template-columns:1fr 34px 1fr 34px 1.1fr;align-items:center;gap:6px;margin-top:17px}.arrow{text-align:center;font-size:27px;color:var(--muted)}.legend{display:flex;gap:24px;font-size:15px;margin-top:17px;color:var(--muted)}.dot{display:inline-block;width:9px;height:9px;background:var(--teal);border-radius:50%;margin-right:8px}.dot.warn{background:var(--amber)}.inventory{width:100%;border-collapse:collapse;font-size:19px}.inventory th{text-align:left;color:var(--muted);font-weight:500;font-size:15px;padding:12px 0;border-bottom:1px solid var(--line)}.inventory td{padding:15px 0;border-bottom:1px solid var(--line)}.inventory td:last-child{text-align:right}.timeline{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:center;margin:16px 0;font-size:17px}.track{background:#243843;border-radius:8px;height:28px;position:relative}.track .fill{height:28px;border-radius:8px;background:var(--teal);opacity:.65}.track .mark{position:absolute;height:28px;width:4px;background:var(--amber);top:0}.status-row{display:grid;grid-template-columns:44px 1fr 164px;gap:12px;align-items:center;padding:15px 0;border-bottom:1px solid var(--line);font-size:20px}.status-row .index{color:var(--teal);font-size:15px}.status-row .pill{text-align:center}.chart-wrap{background:var(--panel);border-radius:16px;padding:22px 26px;min-height:295px}.chart-key{display:flex;gap:25px;font-size:15px;color:var(--muted);margin-bottom:18px}.swatch{display:inline-block;width:20px;height:8px;margin-right:8px;background:var(--teal)}.swatch.base{background:#8098a8}.bar-row{display:grid;grid-template-columns:64px 1fr 80px;gap:12px;align-items:center;margin-bottom:21px}.bars{display:grid;gap:6px}.bar{height:17px;border-radius:3px;background:var(--teal);min-width:4px}.bar.base{background:#8098a8}.bar-values{font-size:15px;line-height:1.7;color:var(--muted)}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:34px}.step{border-top:3px solid var(--line);padding-top:19px}.step .number{font-size:40px;margin-bottom:14px}.step p{font-size:20px;color:var(--muted);line-height:1.5}.step.active-step{border-color:var(--amber)}.big-code{font:600 24px/1.7 Consolas,monospace;color:var(--amber);padding:14px 0}.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-top:34px}.roadmap .card{padding:21px}.roadmap .number{font-size:36px;margin-bottom:18px}.roadmap h3{font-size:22px}.roadmap p{font-size:18px}.metric{padding:13px 0;border-bottom:1px solid var(--line);font-size:21px}.metric span{display:block;color:var(--muted);font-size:17px;margin-top:5px}.questions{counter-reset:item}.questions p{font-size:21px;margin:0;padding:18px 0;border-bottom:1px solid var(--line)}.questions p:before{counter-increment:item;content:"0" counter(item) "  ";color:var(--teal)}.event{background:var(--panel);padding:21px;border-radius:12px}.event time{font-family:Consolas,monospace;font-size:28px;color:var(--teal)}.event p{font-size:20px;margin:10px 0 0}.field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:17px}.field-grid .card{min-height:150px}.field-grid h3{font-size:22px}.field-grid p{font-size:18px;color:var(--muted)}
+#controls{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:#0b1720;border-top:1px solid #263a46;gap:10px}#controls button{background:transparent;border:1px solid #34505f;color:var(--ink);border-radius:7px;padding:7px 12px;font-size:14px}#controls button:hover{background:#1a3442}#controls button:disabled{opacity:.35;cursor:default}.control-group{display:flex;align-items:center;gap:9px}#counter{font-size:14px;color:var(--muted);min-width:62px;text-align:center}#hint{font-size:12px;color:#8ba4b4}#progress{position:fixed;bottom:55px;left:0;height:2px;background:var(--teal);width:0;transition:width .15s}dialog{background:#112633;color:var(--ink);border:1px solid #426270;border-radius:16px;padding:30px;width:min(850px,94vw);max-height:85vh;box-shadow:0 20px 80px #000b}dialog::backdrop{background:#000a}dialog h2{font-size:24px;margin:0 0 15px}dialog p{font-size:19px;line-height:1.65}dialog button{color:var(--ink);background:#1d3c4b;border:1px solid #456471;border-radius:7px;padding:8px 12px}.dialog-header{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:18px}#slide-list{display:grid;grid-template-columns:1fr 1fr;gap:10px}#slide-list button{text-align:left;font-size:16px;padding:15px}#slide-list button[aria-current=true]{border-color:var(--teal)}.notes{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:720px){#hint{display:none}#controls{padding:0 8px}#controls button{font-size:12px;padding:7px 8px}#slide-list{grid-template-columns:1fr}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}@media print{@page{size:320mm 180mm;margin:0}html,body{background:var(--bg);width:320mm;height:auto;print-color-adjust:exact;-webkit-print-color-adjust:exact}#viewport{display:block;height:auto;overflow:visible}#deck{width:320mm;height:auto;transform:none!important;box-shadow:none}.slide,.slide.active{display:block!important;position:relative;width:1280px;height:720px;zoom:.94488;break-after:page;page-break-after:always}.slide:last-child{break-after:auto;page-break-after:auto}#controls,#progress,dialog,#live{display:none!important}}
+</style>
+</head>
+<body>
+<main id="viewport" aria-label="Bộ slide báo cáo tiến độ"><div id="deck">
+
+<section class="slide" active data-title="Mục tiêu và phạm vi" aria-label="Slide 1">
+<p class="eyebrow">Báo cáo tiến độ nghiên cứu · 26 / 09 / 2026</p>
+<div class="cover"><div><h1>Dự báo &amp; cảnh báo<br><span class="teal">điều kiện nuôi</span><br>từ sensor và thời tiết</h1><p class="lead">Từ quan trắc nước tại trạm<br>đến hỗ trợ vận hành lồng nuôi.</p><div class="pill">Pilot một trạm · Hải Phòng · Cá giò</div><p class="cover-meta">Đỗ Minh Phúc · MSSV 20225064<br>Báo cáo tiến độ với giảng viên hướng dẫn</p></div><div class="cover-art"><div class="orbit"><span class="label">Câu hỏi nghiên cứu</span><p><strong>Thời tiết có giúp<br>cảnh báo sớm hơn?</strong></p><p>Giám sát → Dự báo → Kiểm chứng</p></div><svg viewBox="0 0 420 190" role="img" aria-label="Minh họa lồng nuôi trên mặt nước"><path d="M0 86 Q52 60 105 86T210 86T315 86T420 86V190H0Z" fill="#164653"/><path d="M0 112 Q52 86 105 112T210 112T315 112T420 112M0 143 Q52 117 105 143T210 143T315 143T420 143" fill="none" stroke="#3b7c86" stroke-width="2"/><path d="M110 72H295L270 159H135Z" fill="#205b65" stroke="#55e0be" stroke-width="2"/><path d="M125 75L145 154M160 75L173 157M195 75L201 157M230 75L229 157M265 75L256 157M120 103H285M128 130H278" stroke="#55e0be" opacity=".35"/><path d="M97 72H308M116 57H290" stroke="#dcebe9" stroke-width="6" stroke-linecap="round"/><path d="M140 57V28M265 57V28M140 29H265" stroke="#dcebe9" stroke-width="3"/><circle cx="265" cy="25" r="7" fill="#ffca7a"/></svg></div></div>
+<aside class="notes">Thời lượng gợi ý: 45 giây. Em báo cáo tiến độ của nhánh lab-realtime, hướng tới hỗ trợ vận hành lồng cá giò tại Hải Phòng. Mục tiêu là liên kết quan trắc nước với dự báo thời tiết để biết nguy cơ sớm hơn. Trong báo cáo, em phân biệt chức năng đã có, kết quả hồi cứu và những phần còn phải kiểm chứng. Minh họa lồng nuôi là sơ đồ, không phải ảnh hiện trường.</aside>
+</section>
+
+<section class="slide" data-title="Bài toán thực tế" aria-label="Slide 2">
+<p class="eyebrow">01 · Bài toán</p><h2>Người nuôi cần biết khi nào phải kiểm tra lồng</h2><p class="lead">Ba câu hỏi vận hành: hiện tại ra sao, sắp có nguy cơ gì, cần kiểm tra lúc nào?</p>
+<div class="grid two"><div class="card"><span class="pill">Chất lượng nước</span><h3 style="margin-top:20px">Biến động môi trường nuôi</h3><p>Nhiệt độ, pH, NH₄ và TSS thay đổi.</p><p>DO và độ mặn cần quan trắc đối chiếu.</p><p class="small muted">Sensor → phát hiện bất thường → dự báo chỉ số.</p></div><div class="card"><span class="pill warn">Điều kiện bên ngoài</span><h3 style="margin-top:20px">Thời tiết và vận hành lồng</h3><p>Mưa, gió; mở rộng sang sóng, dòng chảy.</p><p>Cần xác định cửa sổ tác động 6–24 giờ.</p><p class="small muted">Bản tin dự báo → ngữ cảnh → ưu tiên kiểm tra.</p></div></div>
+<div class="band">Đầu ra mong muốn: <strong>mức nguy cơ + thời điểm + lý do + hành động kiểm tra.</strong></div>
+<aside class="notes">Thời lượng gợi ý: 55 giây. Bài toán được giới hạn ở điều kiện vận hành lồng đang nuôi, chưa phải lựa chọn vị trí dài hạn hay dự báo tỷ lệ chết. Nhánh chất lượng nước và nhánh thời tiết có loại bằng chứng khác nhau. Hướng tới hỗ trợ người nuôi kiểm tra đúng lúc, thay vì chỉ hiển thị một giá trị hoặc một nhãn phù hợp.</aside>
+</section>
+
+<section class="slide" data-title="Dữ liệu đầu vào" aria-label="Slide 3">
+<p class="eyebrow">03 · Dữ liệu đầu vào</p>
+<h2>Đặc tả các nguồn dữ liệu độc lập cấu thành hệ thống</h2>
+<p class="lead">Chi tiết về tham số quan trắc, phương pháp tiền xử lý và vai trò của từng nguồn.</p>
+
+<div class="grid three" style="margin-top:15px">
+    <div class="card">
+        <span class="pill">Cảm biến (Sensor)</span>
+        <h3 style="margin-top:12px">Quan trắc tại trạm</h3>
+        <p class="small muted"><strong>Thông số:</strong> Nhiệt độ, pH, NH4, TSS, COD.</p>
+        <p class="small muted"><strong>Tiền xử lý:</strong> Điền khuyết (imputation) tạo chuỗi thời gian liên tục; ước lượng tham số chưa có (DO, độ mặn).</p>
+        <p class="small teal"><strong>Vai trò:</strong> Dữ liệu gốc để đánh giá chất lượng môi trường nước.</p>
+    </div>
+    <div class="card">
+        <span class="pill">Dự báo khí tượng</span>
+        <h3 style="margin-top:12px">Open-Meteo API</h3>
+        <p class="small muted"><strong>Thông số:</strong> Mưa, Gió, Sóng, Mây, Áp suất.</p>
+        <p class="small muted"><strong>Tiền xử lý:</strong> Rút trích snapshot, ghép nối chặt chẽ theo <code>retrieved_at</code> (thời điểm khả dụng) để chống rò rỉ dữ liệu.</p>
+        <p class="small teal"><strong>Vai trò:</strong> Cung cấp ngữ cảnh khí tượng (external context).</p>
+    </div>
+    <div class="card">
+        <span class="pill warn">Ground Truth</span>
+        <h3 style="margin-top:12px">Nhật ký thực địa</h3>
+        <p class="small muted"><strong>Thông số:</strong> Chỉ số DO đo tay; biểu hiện sinh lý của cá (bỏ ăn, nổi đầu).</p>
+        <p class="small muted"><strong>Thu thập:</strong> Ghi nhận qua biểu mẫu; đối chiếu thời-không gian để gán nhãn cho sự kiện.</p>
+        <p class="small amber"><strong>Vai trò:</strong> Nhãn (Label) để kiểm chứng độ chính xác cảnh báo.</p>
+    </div>
+</div>
+<aside class="notes">Về dữ liệu đầu vào, em phân định rõ 3 thành phần. Sensor đóng vai trò đo đạc môi trường trực tiếp. Khí tượng cung cấp ngữ cảnh rủi ro ngoại cảnh. Và cuối cùng là Ground Truth từ thực địa dùng làm thang đo hiệu năng cho hệ thống, đánh giá xem cảnh báo có khớp với thực tế lồng nuôi hay không.</aside>
+</section>
+<section class="slide" data-title="Dữ liệu và giới hạn" aria-label="Slide 4">
+<p class="eyebrow">03 · Dữ liệu (Tiếp)</p><h2>Dữ liệu sensor và thời tiết chưa phủ đồng thời đủ dài</h2>
+<div class="grid two" style="margin-top:25px"><div class="card"><div class="number">80.670</div><p>timestamp trong cache sensor đã kiểm tra</p><p class="small muted">29/05–05/09/2026 (giờ Việt Nam), có khoảng trống.<br>Số timestamp không phải số sự kiện độc lập.</p><table class="inventory"><tr><th>Nguồn giá trị</th><th style="text-align:right">Chỉ số</th></tr><tr><td>Đo trực tiếp</td><td>Nhiệt độ, pH, NH₄,<br>TSS, COD</td></tr><tr><td>Suy ra từ mô hình</td><td>DO, độ mặn</td></tr></table></div><div class="card"><h3>Độ phủ cần được kiểm chứng</h3><div class="timeline"><span>Sensor</span><div class="track"><div class="fill" style="width:75%"></div><span style="position:absolute; left:0; top:30px; font-size:12px; color:#8ba4b4;">Tháng 5</span><span style="position:absolute; left:75%; top:30px; font-size:12px; color:#8ba4b4; transform:translateX(-50%);">Tháng 9</span></div></div><div class="timeline"><span>Weather</span><div class="track"><i class="mark" style="left:49%"></i><i class="mark" style="left:75%"></i><i class="mark" style="left:79%"></i><i class="mark" style="left:88%"></i><i class="mark" style="left:97%"></i></div></div><p class="small muted">Sơ đồ minh họa, không thể hiện mật độ thực.</p><p>Kho weather đã có snapshot từ 01/08, nhưng có khoảng trống dài.</p><p class="amber">Chưa có tập sự kiện thực địa để chấm hiệu quả cảnh báo.</p></div></div>
+<p class="source">Nguồn: kiểm kê cache và rà soát kho snapshot ngày 26/09/2026. NH₄ còn cần xác nhận đơn vị và cơ sở báo cáo.</p>
+<aside class="notes">Thời lượng gợi ý: 70 giây. 80.670 là số timestamp trong cache đã đọc, không phải toàn bộ dữ liệu sau hợp nhất và không bảo đảm chuỗi liên tục. Timestamp cuối là 04/09 lúc 23:05:55 UTC, tương ứng sáng 05/09 giờ Việt Nam. Dữ liệu thời tiết bắt đầu có từ tháng 8 nhưng bị gián đoạn. COD là chỉ số sensor có trong nguồn, chưa phải mục tiêu của benchmark dự báo bốn biến. DO/độ mặn hiện là ước lượng; chưa được coi là phép đo độc lập.</aside>
+</section>
+
+<section class="slide" data-title="Kiến trúc hệ thống" aria-label="Slide 5">
+<p class="eyebrow">04 · Kiến trúc</p><h2>Hai luồng dữ liệu hội tụ tại lớp hỗ trợ quyết định</h2><p class="lead">Nhánh nghiên cứu <strong>lab-realtime</strong> · trạng thái cập nhật tại đợt rà soát 26/09.</p>
+<div class="pipe"><div class="node"><b>Sensor tại trạm</b><span>GreenLab · cache · MongoDB</span></div><div class="arrow">→</div><div class="node"><b>Kiểm tra &amp; dự báo</b><span>QC · sensor 15/30/60 phút</span></div><div class="arrow">→</div><div class="node"><b>Dashboard / sổ dự báo</b><span>Hiển thị · ghép kết quả đo sau đó</span></div></div>
+<div class="pipe"><div class="node"><b>API thời tiết</b><span>Open-Meteo · dự báo theo giờ</span></div><div class="arrow">→</div><div class="node"><b>Lưu bản tin &amp; advisory</b><span>Thời điểm nhận · mưa / gió</span></div><div class="arrow">→</div><div class="node dev"><b>Đánh giá rủi ro tổng hợp</b><span>Đã có khung · chưa nghiệm thu</span></div></div>
+<div class="legend"><span><i class="dot"></i>Đã có mã / artifact; chất lượng còn cần kiểm chứng</span><span><i class="dot warn"></i>Đang hoàn thiện</span></div><div class="band warn">Mô hình kết hợp thời tiết <strong>B5</strong> đang kiểm chứng; chưa phát cảnh báo tự động.</div>
+<aside class="notes">Thời lượng gợi ý: 70 giây. Em đã có các thành phần thu sensor, dự báo ngắn hạn, lưu dự báo và lấy thời tiết. Advisory là thông tin khuyến nghị trên dashboard. B5 nghĩa là bộ đặc trưng bổ sung bản tin thời tiết vào mô hình sensor. Phần kết hợp rủi ro đang ở dạng khung và chưa được nghiệm thu đầy đủ. Nhánh lab-realtime phục vụ nghiên cứu; webapp vẫn là entrypoint vận hành chính của repo.</aside>
+</section>
+
+<section class="slide" data-title="Pipeline hệ thống" aria-label="Slide 6">
+<p class="eyebrow">04 · Kiến trúc (Tiếp)</p>
+<h2>Pipeline đánh giá rủi ro: từ dữ liệu thô đến hệ thống cảnh báo</h2>
+<p class="lead">Kiến trúc lai (Hybrid) kết hợp mô hình Học máy (ML) và Hệ luật (Rule-based).</p>
+
+<div style="display:flex; flex-wrap:wrap; gap:15px; margin-top:15px; align-items:center; justify-content:center;">
+    <div class="node" style="width:28%;"><b>1. Dữ liệu Sensor</b><span class="small">Truy xuất thô từ GreenLab API</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="width:28%;"><b>2. Tiền xử lý dữ liệu</b><span class="small">Lọc nhiễu, điền khuyết (Imputation)</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="width:28%; border-color:var(--teal);"><b>3. Đánh giá Môi trường</b><span class="small">Mô hình ML đánh giá rủi ro nước</span></div>
+    
+    <div style="width:100%; height:5px;"></div>
+    
+    <div class="node" style="width:28%; border-color:var(--amber);"><b>4. Khí tượng (Snapshot)</b><span class="small">Đồng bộ mốc thời gian dự báo</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="width:28%; border-color:var(--amber);"><b>5. Hệ luật (Rule Engine)</b><span class="small">Tích hợp ngưỡng rủi ro thời tiết</span></div>
+    <div class="arrow">→</div>
+    <div class="node" style="width:28%; background:#2e2b25; border-color:var(--red);"><b>6. Quyết định Cảnh báo</b><span class="small">Mức độ rủi ro &amp; Hành động</span></div>
+</div>
+<div class="band">Kiến trúc lai giúp hệ thống vừa học được tính quy luật của nước, vừa linh hoạt phản ứng với biến động thời tiết cực đoan bằng các luật cụ thể.</div>
+<aside class="notes">Đây là sơ đồ chi tiết pipeline. Dữ liệu sensor sau khi làm sạch sẽ được đưa qua mô hình ML để phân tích chất lượng nước. Kết quả này tiếp tục được đối chiếu với dữ liệu khí tượng thông qua Hệ luật (Rule Engine) để tổng hợp thành quyết định cảnh báo cuối cùng, tăng tính minh bạch và độ tin cậy.</aside>
+</section>
+<section class="slide" data-title="Tiến độ thực hiện" aria-label="Slide 7">
+<p class="eyebrow">05 · Tiến độ</p><h2>Đã có luồng chạy thử; còn thiếu kiểm chứng đầu cuối</h2><p class="lead">Shadow: ghi kết quả để đánh giá, chưa gửi thông báo tới người nuôi.</p>
+<div class="status-row"><span class="index">01</span><span>Thu sensor, cache dữ liệu và kiểm tra chất lượng</span><span class="pill">Đã có</span></div>
+<div class="status-row"><span class="index">02</span><span>Dự báo sensor ngắn hạn và sổ forecast / outcome</span><span class="pill">Đã có</span></div>
+<div class="status-row"><span class="index">03</span><span>Lấy bản tin thời tiết và theo dõi độ mới</span><span class="pill">Chạy được bước đầu</span></div>
+<div class="status-row"><span class="index">04</span><span>Hợp nhất dữ liệu và kiểm chứng mô hình B5</span><span class="pill warn">Đang sửa</span></div>
+<div class="status-row"><span class="index">05</span><span>Đánh giá cảnh báo theo sự kiện thực địa</span><span class="pill gray">Chưa có bằng chứng</span></div>
+<div class="band">Mốc tiếp theo: <strong>dữ liệu đúng → B5 chạy hết luồng → đo hiệu quả thực tế.</strong></div>
+<aside class="notes">Thời lượng gợi ý: 50 giây. Đã có thành phần phần mềm không đồng nghĩa đã chứng minh chất lượng vận hành. Các đợt kiểm tra gần đây tập trung vào dữ liệu, tính đúng theo thời gian và tính tái lập. Bộ test hiện có chạy qua nhưng còn thiếu tình huống đầu cuối và dữ liệu thực. Em đang bổ sung các kiểm chứng này trước khi mở rộng chức năng.</aside>
+</section>
+
+<section class="slide" data-title="Kết quả hồi cứu nhiệt độ" aria-label="Slide 8">
+<p class="eyebrow">06 · Kết quả đã lưu</p><h2>Nhiệt độ có tín hiệu cải thiện trong đánh giá hồi cứu</h2><p class="lead">Ridge + độ trễ sensor + thời gian · MAE nhiệt độ (°C), càng thấp càng tốt.</p>\n<div class="band warn" style="margin-bottom: 20px; margin-top: 0;"><strong>Lưu ý:</strong> Đây là kết quả cũ chưa bao gồm bản fix rò rỉ dữ liệu - Cần chạy lại để tái xác nhận.</div>
+<div class="grid" style="grid-template-columns:1.45fr 1fr"><div class="chart-wrap"><div class="chart-key"><span><i class="swatch base"></i>Giữ nguyên giá trị gần nhất</span><span><i class="swatch"></i>Ridge + thời gian</span></div><div class="bar-row"><b>+15′</b><div class="bars"><div class="bar base" style="width:81.73%"></div><div class="bar" style="width:65.36%"></div></div><div class="bar-values">0,1798<br><span class="teal">0,1438</span></div></div><div class="bar-row"><b>+30′</b><div class="bars"><div class="bar base" style="width:84.16%"></div><div class="bar" style="width:68.48%"></div></div><div class="bar-values">0,1852<br><span class="teal">0,1506</span></div></div><div class="bar-row"><b>+60′</b><div class="bars"><div class="bar base" style="width:92.79%"></div><div class="bar" style="width:76.60%"></div></div><div class="bar-values">0,2041<br><span class="teal">0,1685</span></div></div><p class="small muted">Cùng gốc 0 · thang chung 0–0,22 °C</p></div><div class="card"><div class="number">17–20%</div><p>MAE thấp hơn baseline<br>trên tập kiểm tra đã lưu.</p><p class="small muted">Dữ liệu: 29/05–26/07/2026.<br>Kiểm tra: 14 ngày cuối; khoảng 17,4–17,6 nghìn cặp / chân trời.</p></div></div>
+<p class="source">Nguồn: detailed-temperature-b1-ridge / detailed_lockbox_overall.csv và manifest.json (forecast-v2). Chưa thể suy ra hiệu quả thời tiết hay cảnh báo.</p>
+<aside class="notes">Thời lượng gợi ý: 85 giây. Đây là kết quả hồi cứu đã lưu trước các thay đổi chuẩn hóa gần đây; em đã đối chiếu bảng CSV với manifest. Baseline persistence giữ giá trị sensor gần nhất. MAE giảm khoảng 20,0%, 18,6% và 17,4% ở 15, 30, 60 phút. Các điểm dự báo phụ thuộc theo thời gian, không phải 17 nghìn mẫu độc lập. Đây là bằng chứng sơ bộ cho nhiệt độ, không phải kết quả B5. NH4 có cải thiện nhỏ trong báo cáo cũ; pH và TSS chưa ổn định qua fold. Với TSS, sai số vùng giá trị cao còn xấu hơn baseline nên chưa chọn làm mô hình cảnh báo. Không diễn giải các con số này là kết quả đánh giá pipeline vòng 3.</aside>
+</section>
+
+<section class="slide" data-title="Kết quả kỹ thuật" aria-label="Slide 9">
+<p class="eyebrow">06 · Kết quả (Tiếp)</p>
+<h2>Hệ thống đã tự động hóa hoàn toàn luồng đánh giá giả lập (Shadow)</h2>
+<p class="lead">Hoàn thiện nền tảng mã nguồn sẵn sàng cho việc nghiệm thu mô hình.</p>
+
+<div class="grid three">
+    <div class="card">
+        <div class="number">100%</div>
+        <h3 style="margin-top:10px">Tự động hóa Test</h3>
+        <p>21/21 ca kiểm thử vượt qua.</p>
+        <p class="small muted">Bao gồm test nghiêm ngặt về logic ghép bảng và rò rỉ thời gian.</p>
+    </div>
+    <div class="card">
+        <div class="number teal">#72</div>
+        <h3 style="margin-top:10px">Weather Collector</h3>
+        <p>Thu thập và Healthcheck.</p>
+        <p class="small muted">Hệ thống đã tự động quét API thời tiết, phát hiện gián đoạn > 2h.</p>
+    </div>
+    <div class="card">
+        <div class="number amber">Shadow</div>
+        <h3 style="margin-top:10px">Cơ chế chạy ngầm</h3>
+        <p>Quyết định không nhiễu.</p>
+        <p class="small muted">Engine cảnh báo đã ghi nhận rủi ro ra file, không báo giả cho user.</p>
+    </div>
+</div>
+<div class="source">Kết quả cập nhật sau đợt review mã nguồn (Vòng 3) ngày 26/09/2026.</div>
+</section>
+<section class="slide" data-title="Mức độ tích hợp thời tiết" aria-label="Slide 10">
+<p class="eyebrow">07 · Tích hợp thời tiết</p><h2>Đã có ngữ cảnh thời tiết; hiệu quả B5 chưa được chứng minh</h2><p class="lead">Ba mức tích hợp cần được nghiệm thu riêng.</p>
+<div class="steps"><div class="step"><div class="number">01</div><span class="pill">Đã có</span><h3 style="margin-top:18px">Hiển thị &amp; lưu bản tin</h3><p>Thu API, lưu giờ nhận,<br>tổng hợp mưa và gió.</p></div><div class="step active-step"><div class="number amber">02</div><span class="pill warn">Đang kiểm chứng</span><h3 style="margin-top:18px">Thời tiết vào mô hình</h3><p>B5 = sensor + bản tin<br>đã có tại lúc dự báo.</p></div><div class="step"><div class="number muted">03</div><span class="pill gray">Chưa đủ dữ liệu</span><h3 style="margin-top:18px">Đo giá trị bổ sung</h3><p>So B5 với sensor-only<br>trên cùng thời điểm.</p></div></div>
+<div class="band warn">Hiện chưa có benchmark B5 hợp lệ để kết luận <strong>“thời tiết giúp dự báo tốt hơn”.</strong></div>
+<aside class="notes">Thời lượng gợi ý: 65 giây. As-issued nghĩa là chỉ dùng bản tin thực sự đã sẵn có tại thời điểm hệ thống dự báo. Advisory mưa/gió là ngữ cảnh vận hành; nó chưa chứng minh rằng chỉ số nước sẽ thay đổi. Đường B5 cần test tích hợp CSV sensor → ghép snapshot → huấn luyện → xuất metric. Sau đó mới có thể đo giá trị bổ sung của thời tiết trên cùng tập mẫu với sensor-only.</aside>
+</section>
+
+<section class="slide" data-title="Luật cảnh báo thời tiết" aria-label="Slide 11">
+<p class="eyebrow">08 · Tích hợp Thời tiết</p>
+<h2>Cơ chế hoạt động của Hệ luật (Rule Engine) Khí tượng</h2>
+<p class="lead">Quy trình trích xuất và cấp ngữ cảnh rủi ro từ bản tin Open-Meteo theo thời gian thực.</p>
+
+<div class="grid three" style="margin-top:20px">
+    <div class="card">
+        <span class="pill">1. Cửa sổ thời gian</span>
+        <h3 style="margin-top:15px">Rolling Windows</h3>
+        <p>Tính toán lượng tích lũy và giá trị cực trị cho các cửa sổ dự báo: <strong>3h, 6h, 12h, 24h</strong>.</p>
+        <p class="small muted">Yêu cầu tính toàn vẹn: dữ liệu phải <em>complete</em> (không khuyết mẫu) trong cửa sổ.</p>
+    </div>
+    <div class="card">
+        <span class="pill warn">2. Cơ chế kích hoạt</span>
+        <h3 style="margin-top:15px">Ngưỡng rủi ro</h3>
+        <p>Hệ thống liên tục kiểm tra các biến số khí tượng. Nếu bất kỳ chỉ số nào vượt ngưỡng sinh thái (được cố định trước), cờ cảnh báo sẽ bật.</p>
+        <p class="small muted" style="margin-top:15px;">Mức độ: <strong>THEO DÕI (WATCH)</strong>.</p>
+    </div>
+    <div class="card">
+        <span class="pill gray">3. Khuyến nghị</span>
+        <h3 style="margin-top:15px">Hành động vận hành</h3>
+        <p>Khi đạt mức WATCH, hệ thống tự động gán khuyến nghị:</p>
+        <p class="small teal"><em>"Theo dõi điều kiện lồng bè, cập nhật đo nước sau đợt mưa/gió."</em></p>
+    </div>
+</div>
+
+<div class="band">Hệ luật hoạt động độc lập (Advisory Context) để cung cấp ngữ cảnh thời tiết trước khi ra quyết định tổng hợp.</div>
+</section>
+<section class="slide" data-title="Cấu hình tham số thời tiết" aria-label="Slide 12">
+<p class="eyebrow">08 · Tích hợp Thời tiết (Tiếp)</p>
+<h2>Các ngưỡng tham số thời tiết đang được áp dụng (Hardcoded)</h2>
+<p class="lead">Ngưỡng cảnh báo được thiết lập tĩnh dựa trên đặc tính sinh thái của cá giò và lồng bè.</p>
+
+<div class="grid two" style="margin-top:20px">
+    <div class="card" style="border-top:4px solid var(--blue);">
+        <h3>Lượng mưa (Precipitation)</h3>
+        <div class="metric">Tham số đánh giá<span>Tổng lượng mưa lũy kế trong 6 giờ (<code>rain_sum_mm</code>)</span></div>
+        <div class="metric">Ngưỡng kích hoạt (WATCH)<span><strong>≥ 10 mm / 6 giờ</strong> (Mưa diện rộng hoặc mưa to cục bộ)</span></div>
+        <p class="small muted" style="margin-top:15px"><strong>Tác động dự kiến:</strong> Mưa lớn gây phân tầng nước, làm giảm đột ngột độ mặn và nhiệt độ tầng mặt, cản trở quang hợp của tảo dẫn đến tụt DO.</p>
+    </div>
+    <div class="card" style="border-top:4px solid var(--teal);">
+        <h3>Tốc độ gió cực đại (Max Wind)</h3>
+        <div class="metric">Tham số đánh giá<span>Sức gió cực đại trong 6 giờ (<code>wind_speed</code>)</span></div>
+        <div class="metric">Ngưỡng kích hoạt (WATCH)<span><strong>≥ 35 km/h</strong> (Tương đương cấp 5 - cấp 6)</span></div>
+        <p class="small muted" style="margin-top:15px"><strong>Tác động dự kiến:</strong> Gió giật cấp 6 tạo sóng lớn, gây xáo trộn đáy làm tăng độ đục (TSS) và tạo áp lực cơ học gây stress hoặc bỏ ăn ở cá.</p>
+    </div>
+</div>
+
+<div class="band warn">Trong giai đoạn Pilot, các ngưỡng này đang được gán tĩnh (fixed) để kiểm chứng tính hiệu quả, trước khi tối ưu bằng học máy.</div>
+</section>
+<section class="slide" data-title="Tiêu chí và xin ý kiến" aria-label="Slide 13">
+<p class="eyebrow">09 · Định hướng nghiên cứu</p><h2>Đánh giá cả sai số dự báo và giá trị của cảnh báo</h2>
+<div class="grid two" style="margin-top:25px"><div class="card"><h3>Tiêu chí nghiệm thu</h3><div class="metric">Dữ liệu đúng và đủ<span>Độ phủ · độ trễ · không mất timestamp</span></div><div class="metric">Dự báo vượt baseline<span>MAE / RMSE · sai số vùng nguy cơ cao</span></div><div class="metric">Cảnh báo có ích<span>Bỏ sót · báo giả / tuần · thời gian báo trước</span></div></div><div class="card"><h3 class="teal">Các đề xuất xin ý kiến duyệt</h3><div class="questions">
+    <p><strong>Đề xuất 1:</strong> Dùng chỉ số DO và TSS trực tiếp làm mục tiêu phát hiện sự kiện thay vì dự báo giá trị liên tục.</p>
+    <p><strong>Đề xuất 2:</strong> Tập trung đánh giá mô hình tại chân trời 6-12 giờ để người nuôi kịp can thiệp.</p>
+    <p><strong>Đề xuất 3:</strong> Chỉ nghiệm thu pilot khi có ít nhất 10 sự kiện ghi nhận từ nhật ký thực địa.</p>
+</div></div></div>
+<div class="band">Mục tiêu giai đoạn tới: <strong>một pilot có thể tái lập và đánh giá bằng dữ liệu thực.</strong></div>
+<aside class="notes">Thời lượng gợi ý: 70 giây. Em xin ý kiến về trọng tâm nghiên cứu và khả năng phối hợp thu mẫu. Hiện đề xuất ưu tiên điều kiện vận hành một lồng/trạm, dùng chỉ số đo trực tiếp làm đầu ra đánh giá. Sau khi nền dữ liệu ổn định, chọn chân trời phù hợp và thu nhãn sự kiện độc lập. Sai số trung bình tốt chưa đủ cho cảnh báo: cần biết mô hình có bỏ sót đợt nguy hiểm và có gây quá nhiều báo giả hay không. Kết thúc phần chính ở đây; hai trang sau phục vụ hỏi đáp.</aside>
+</section>
+
+<section class="slide" data-title="Dự phòng · Ghép thời gian" aria-label="Slide 14">
+<p class="eyebrow">Dự phòng A · Phương pháp đánh giá</p><h2>Chỉ dùng dữ liệu đã có tại thời điểm ra quyết định</h2><p class="lead">Ví dụ minh họa: dự báo lúc 10:00 cho chất lượng nước lúc 11:00.</p>
+<div class="grid three"><div class="event"><time>09:50</time><p>Đã nhận bản tin weather<br><span class="teal">Được dùng</span></p></div><div class="event"><time>10:00</time><p>Ra quyết định dự báo<br><span class="amber">Đóng băng đầu vào</span></p></div><div class="event"><time>10:05</time><p>Nhận một bản tin mới<br><span class="red">Không dùng cho mốc 10:00</span></p></div></div>
+<div class="card" style="margin-top:24px"><h3>Tại 11:00: ghép dự báo với quan trắc hợp lệ để chấm điểm</h3><p class="muted">Giữ ID đầu vào, thời điểm nhận, thời điểm dự báo có hiệu lực và phiên bản mô hình.</p></div>
+<div class="band">Train trước test · chặn nhãn vượt ranh giới · so sánh các mô hình trên cùng thời điểm.</div>
+<aside class="notes">Dùng khi thầy hỏi về rò rỉ dữ liệu. Có ba loại thời gian khác nhau: thời điểm quan trắc, thời điểm hệ thống nhận dữ liệu và thời điểm dự báo có hiệu lực. Dự báo nhận lúc 09:50 cho 11:00 có thể dùng ở origin 10:00; dự báo nhận 10:05 không được dùng ở origin đó. Giờ khởi tạo một mô hình thời tiết cũng không phải giờ kết quả có thể truy cập. Khi đánh giá sensor, target tương lai của mẫu train không được chạm vào kỳ test. Các con số trên trang này là ví dụ minh họa.</aside>
+</section>
+
+<section class="slide" data-title="Dự phòng · Dữ liệu thực địa" aria-label="Slide 15">
+<p class="eyebrow">Dự phòng B · Kiểm chứng thực địa</p><h2>Mỗi cảnh báo cần một kết quả đối chiếu độc lập</h2><p class="lead">Bộ thông tin tối thiểu đề xuất cho trạm pilot.</p>
+<div class="field-grid"><div class="card"><h3>Khi nào, ở đâu?</h3><p>Thời gian bắt đầu / kết thúc;<br>trạm, lồng, vị trí đo.</p></div><div class="card"><h3>Đo được gì?</h3><p>DO đo trực tiếp; mẫu lab;<br>đơn vị và chất lượng phép đo.</p></div><div class="card"><h3>Quan sát gì?</h3><p>Dấu hiệu cá, giảm ăn;<br>mưa / gió tại chỗ.</p></div><div class="card"><h3>Đã xử lý gì?</h3><p>Cho ăn, sục khí, thay nước;<br>thời điểm can thiệp.</p></div><div class="card"><h3>Ai xác nhận?</h3><p>Người ghi, bằng chứng;<br>mức chắc chắn của nhãn.</p></div><div class="card"><h3>Hệ thống báo gì?</h3><p>ID quyết định, thời gian báo;<br>nguồn dữ liệu đã sử dụng.</p></div></div>
+<div class="band warn">Có lịch kiểm tra cả lúc bình thường; không tạo nhãn thực tế từ chính dự báo.</div>
+<aside class="notes">Dùng khi thầy hỏi cách đánh giá cảnh báo. Cần lấy mẫu có lịch cố định và khi có sự kiện để giảm thiên lệch chỉ kiểm tra nơi hệ thống đã báo. Ghi hành động vận hành vì can thiệp có thể làm nguy cơ biến mất; không nên tự gán cảnh báo giả chỉ vì sau sục khí không còn DO thấp. DO suy ra bởi mô hình không phải ground truth. Thu ở một trạm trước, sau đó mới kiểm tra khả năng khái quát sang trạm khác.</aside>
+</section>
+
+</div></main>
+<div id="progress" aria-hidden="true"></div>
+<nav id="controls" aria-label="Điều khiển trình chiếu"><div class="control-group"><button id="prev" aria-label="Slide trước">←</button><span id="counter">01 / 15</span><button id="next" aria-label="Slide tiếp theo">→</button></div><span id="hint">← → chuyển slide · N ghi chú · G mục lục · F toàn màn hình</span><div class="control-group"><button id="contents">Mục lục</button><button id="notes-button">Ghi chú</button><button id="fullscreen">Toàn màn hình</button><button id="print">In / PDF</button></div></nav>
+<dialog id="notes-dialog" aria-labelledby="notes-title"><div class="dialog-header"><h2 id="notes-title">Ghi chú thuyết trình</h2><button data-close>Đóng · Esc</button></div><div id="notes-content"></div></dialog>
+<dialog id="contents-dialog" aria-labelledby="contents-title"><div class="dialog-header"><h2 id="contents-title">10 slide chính + 2 dự phòng</h2><button data-close>Đóng · Esc</button></div><div id="slide-list"></div></dialog>
+<div id="live" class="sr-only" aria-live="polite"></div>
+<script>
+(()=>{'use strict';const slides=[...document.querySelectorAll('.slide')],deck=document.getElementById('deck'),viewport=document.getElementById('viewport');let current=0;const notes=document.getElementById('notes-dialog'),contents=document.getElementById('contents-dialog');
+slides.forEach((slide,i)=>{const foot=document.createElement('footer');foot.className='slide-footer';foot.innerHTML='<span>ĐỖ MINH PHÚC · BÁO CÁO TIẾN ĐỘ · 26.09.2026</span><span>'+(i<10?'PHẦN CHÍNH':'DỰ PHÒNG')+' / '+String(i+1).padStart(2,'0')+'</span>';slide.append(foot);const b=document.createElement('button');b.textContent=String(i+1).padStart(2,'0')+' · '+slide.dataset.title;b.addEventListener('click',()=>{contents.close();show(i)});document.getElementById('slide-list').append(b)});
+function scale(){const k=Math.min(viewport.clientWidth/1280,viewport.clientHeight/720);deck.style.transform='scale('+k+')'}
+function show(index){current=Math.max(0,Math.min(slides.length-1,index));slides.forEach((s,i)=>{s.classList.toggle('active',i===current);s.setAttribute('aria-hidden',i===current?'false':'true')});document.getElementById('counter').textContent=String(current+1).padStart(2,'0')+' / '+slides.length;document.getElementById('prev').disabled=current===0;document.getElementById('next').disabled=current===slides.length-1;document.getElementById('progress').style.width=((current+1)/slides.length*100)+'%';document.querySelectorAll('#slide-list button').forEach((b,i)=>b.setAttribute('aria-current',String(i===current)));document.getElementById('notes-title').textContent='Slide '+(current+1)+' · '+slides[current].dataset.title;const p=document.createElement('p');p.textContent=slides[current].querySelector('.notes').textContent;document.getElementById('notes-content').replaceChildren(p);document.getElementById('live').textContent='Slide '+(current+1)+': '+slides[current].dataset.title;if(location.hash!=='#'+(current+1))history.replaceState(null,'','#'+(current+1))}
+function toggleNotes(){if(notes.open)notes.close();else{if(contents.open)contents.close();notes.showModal()}}
+function toggleContents(){if(contents.open)contents.close();else{if(notes.open)notes.close();contents.showModal()}}
+async function full(){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch{document.getElementById('live').textContent='Có thể dùng phím F11 để mở toàn màn hình.'}}
+document.getElementById('prev').onclick=()=>show(current-1);document.getElementById('next').onclick=()=>show(current+1);document.getElementById('notes-button').onclick=toggleNotes;document.getElementById('contents').onclick=toggleContents;document.getElementById('fullscreen').onclick=full;document.getElementById('print').onclick=()=>window.print();document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('dialog').close());document.addEventListener('keydown',e=>{if(e.ctrlKey||e.altKey||e.metaKey)return;if(notes.open||contents.open)return;if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();show(current+1)}else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();show(current-1)}else if(e.key==='Home'){e.preventDefault();show(0)}else if(e.key==='End'){e.preventDefault();show(slides.length-1)}else if(e.key.toLowerCase()==='n')toggleNotes();else if(e.key.toLowerCase()==='g')toggleContents();else if(e.key.toLowerCase()==='f')full()});let touchX=null;viewport.addEventListener('touchstart',e=>{touchX=e.changedTouches[0].clientX},{passive:true});viewport.addEventListener('touchend',e=>{if(touchX===null)return;const dx=e.changedTouches[0].clientX-touchX;if(Math.abs(dx)>65)show(current+(dx<0?1:-1));touchX=null},{passive:true});addEventListener('resize',scale);addEventListener('hashchange',()=>{const n=Number(location.hash.slice(1));if(Number.isInteger(n)&&n>=1&&n<=slides.length)show(n-1)});const start=Number(location.hash.slice(1));show(Number.isInteger(start)&&start>=1&&start<=slides.length?start-1:0);scale();
+})();
+</script>
+</body>
+</html>

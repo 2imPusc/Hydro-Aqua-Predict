@@ -1,0 +1,162 @@
+% NOTE: setup.tex is preamble only; compile main.tex
+\documentclass[aspectratio=1610,10pt]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{vietnam}
+\usepackage{amsmath}
+\usefonttheme[onlymath]{serif}
+\DeclareTextFontCommand{\textit}{\slshape}
+\usepackage{tikz}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{comment}
+\usepackage{tabularx}
+\usepackage{mathtools}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{booktabs} % for \toprule, \midrule, \bottomrule in tables
+\setbeamertemplate{caption}[numbered]
+\usepackage{makecell}
+\usepackage{fnpct}
+\usepackage{multirow}
+\usepackage{bbm}
+\usepackage{pgfpages}
+\usepackage{handoutWithNotes}
+\usepackage{calc}
+\usepackage{changepage}
+\usepackage{amssymb}
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\usepackage{pgfplots}
+\usetikzlibrary{positioning, arrows.meta, calc}
+\pgfplotsset{compat=1.18}
+
+
+% Đổi tên "Algorithm" (nếu bị Việt hoá)
+\floatname{algorithm}{Algorithm}
+
+% Require/Ensure giống ảnh
+\algrenewcommand\algorithmicrequire{\textbf{Require:}}
+\algrenewcommand\algorithmicensure{\textbf{Ensure:}}
+
+% Nếu bạn muốn chữ if/then/end đậm giống ảnh:
+\algrenewcommand\algorithmicif{\textbf{if}}
+\algrenewcommand\algorithmicthen{\textbf{then}}
+\algrenewcommand\algorithmicelse{\textbf{else}}
+\algrenewcommand\algorithmicwhile{\textbf{while}}
+\algrenewcommand\algorithmicdo{\textbf{do}}
+\algrenewcommand\algorithmicend{\textbf{end}}
+\algrenewcommand\algorithmicreturn{\textbf{return}}
+
+\usepackage{multicol} % để tạo nhiều cột
+
+% Chỉnh màu theme tổng quát
+\usetheme{Madrid}
+\vbadness=10000
+\vfuzz=200pt
+
+% Tạo khung Ví dụ riêng
+\setbeamercolor{block title example}{fg=white,bg=blue!80!black}
+\setbeamercolor{block body example}{fg=black,bg=blue!5!white}
+
+% Bỏ thanh mờ mờ góc phải
+\setbeamertemplate{navigation symbols}{}
+
+\setbeamercolor{section in head/foot}{bg=cyan!5, fg=cyan!50}
+\setbeamercolor{author in head/foot}{bg=cyan!5, fg=black}
+
+\setbeamerfont{section in head/foot}{size=\small}
+\setbeamerfont{author in head/foot}{size=\small}
+
+\setbeamertemplate{footline}{
+  \begin{beamercolorbox}[ht=5ex,dp=3ex,right]{author in head/foot}
+    \usebeamerfont{author in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+  \end{beamercolorbox}
+}
+
+\setbeamertemplate{headline}{
+  \begin{beamercolorbox}[wd=\paperwidth,ht=6ex,dp=3.5ex]{section in head/foot}
+    \usebeamerfont{section in head/foot}\hspace{1 ex}
+    \insertsectionhead
+    \ifx\insertsubsectionhead\empty
+    \else
+    \,---\,\insertsubsectionhead
+    \fi
+  \end{beamercolorbox}%
+}
+
+\everymath{\displaystyle}
+
+\setbeamerfont{title}{size=\fontsize{26}{12}}
+
+% Tạo màu cho các block
+\setbeamercolor{block title example}{fg=white, bg=teal!80!}
+\setbeamercolor{block body example}{ bg=teal!20}
+\setbeamercolor{block title alerted}{fg=white, bg=orange}
+\setbeamercolor{block body alerted}{ bg=orange!25}
+\setbeamercolor{block title}{bg=cyan, fg=white}
+\setbeamercolor{block body}{bg=cyan!10}
+
+% Dấu tròn trước item
+\setbeamertemplate{itemize item}{\textbullet}
+
+% --- TITLE / AUTHOR placeholders — UPDATE FOR EACH NEW PROJECT ---
+\title[Đánh giá Phóng chiếu Không gian]{\huge Thực nghiệm Đánh giá Đặc trưng Ngoại lai \& So sánh MICE vs XGBoost}
+\author[Sinh viên thực hiện]{%
+  \texorpdfstring{%
+    \begin{tabular}{@{}ll@{}}
+      Sinh viên: & Đỗ Minh Phúc\\
+    \end{tabular}%
+  }{Sinh viên thực hiện}%
+}
+\date{\today}
+
+\newlength{\customwidth}
+
+\setbeamertemplate{frametitle}{
+  \settowidth{\customwidth}{\insertframetitle\hspace{6mm}}
+  \begin{tcolorbox}[
+      enhanced,
+      colback=orange!10,
+      colframe=white,
+      boxrule=0mm,
+      arc=3mm,
+      auto outer arc,
+      boxsep=1mm,
+      left=0mm, right=1mm, top=5mm, bottom=1mm,
+      width=\customwidth,
+      enlarge left by=-3mm,
+      overlay={
+        \node[anchor=west] at ([xshift=1mm]frame.west) {\color{orange}\insertframetitle};
+      }
+    ]
+  \end{tcolorbox}
+}
+
+\input{macro}
+
+\AtBeginSection[]{
+  \begin{frame}{}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+% --- Paper title macro — UPDATE FOR EACH NEW PROJECT ---
+\newcommand{\papertitle}{Báo cáo công việc hàng tuần}
+
+% --- Footline: trái = tiêu đề bài báo, phải = số trang ---
+\setbeamertemplate{footline}{
+  \leavevmode
+  \ifnum\insertframenumber>0\relax
+  \hbox{%
+    \begin{beamercolorbox}[wd=.78\paperwidth,ht=5ex,dp=3ex,left]{author in head/foot}
+      \hspace{1ex}\usebeamerfont{author in head/foot}\papertitle
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.22\paperwidth,ht=5ex,dp=3ex,right]{author in head/foot}
+      \usebeamerfont{author in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \end{beamercolorbox}%
+  }
+  \fi
+}

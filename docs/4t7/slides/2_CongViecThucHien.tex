@@ -1,0 +1,17 @@
+\section{Công việc thực hiện}
+
+\begin{frame}{Giải pháp: Làm giàu dữ liệu (Data Enrichment)}
+  \begin{itemize}
+    \item \textbf{Ý tưởng cốt lõi:} Cung cấp thêm "bối cảnh môi trường" cho mô hình Học máy (XGBoost) để nhận diện phương sai.
+    \item \textbf{Khai thác dữ liệu ngoại lai (Exogenous Features):}
+      \begin{itemize}
+        \item \textbf{Độ sâu (Depth):} Trích xuất và nội suy từ bản đồ vệ tinh GIS (Yếu tố bất biến theo thời gian - Time-invariant).
+        \item \textbf{Thời tiết:} Tích hợp lượng Mưa, Sức Gió, Sóng (Yếu tố biến thiên theo thời gian - Time-variant). Dữ liệu được tính trung vị (Median) theo từng quý để triệt tiêu nhiễu.
+      \end{itemize}
+    \item \textbf{Thiết kế Thử nghiệm (Ablation Study):}
+      \begin{itemize}
+        \item So sánh cấu hình Base (chỉ dùng cảm biến gốc) vs Cấu hình có Thời tiết.
+        \item Đối chứng sức mạnh của \textbf{XGBoost} so với Baseline của nhóm là \textbf{MICE} (Linear BayesianRidge Imputer).
+      \end{itemize}
+  \end{itemize}
+\end{frame}

@@ -1,0 +1,60 @@
+# GreenLab monitoring stations — Thai Binh University project
+# Source: thongtin tram.png (2026-06-20)
+# Sensors per station: COD, NH4, pH, Temperature, TSS (5 params, ~3-min interval)
+
+stations:
+  - serial: "06M26042804"
+    name_vi: "Đại Học Thái Bình 1"
+    location_vi: "Làng bè anh Toàn, Cát Bà, Hải Phòng"
+    region: haiphong
+    water_type: coastal_marine # làng bè — nuôi lồng bè ven biển
+    aquaculture_relevant: true
+    in_mongodb: true # đã có 15,470 docs từ 2026-05-29
+    expected_cadence_minutes: 1
+    max_staleness_minutes: 10
+    notes: "COD/NH4 rất cao — khả năng ô nhiễm cục bộ gần lồng bè"
+    # Deployment GPS is not yet surveyed; NB1 is the explicit map/model anchor.
+    map_reference_station: NB1
+    map_coordinate_source: historical_station_reference
+    weather_location:
+      # NB1 (cảng cá Cát Bà) là điểm tham chiếu gần vị trí sensor hiện tại.
+      # Thay bằng GPS tại vị trí lắp đặt khi có để phục vụ mô hình theo trạm.
+      latitude: 20.71894498573044
+      longitude: 107.042635855355
+      accuracy: nearby_reference_station
+      source: map_station_NB1
+
+  - serial: "06M26042803"
+    name_vi: "Đại Học Thái Bình 3"
+    location_vi: "Làng bè anh Phú, Vân Đồn"
+    region: quangninh
+    water_type: coastal_marine # vịnh Vân Đồn — trùng lab/vandon-daily
+    aquaculture_relevant: true
+    in_mongodb: false # chưa xác nhận có data trong DB
+    notes: "Vân Đồn — cùng khu vực với lab/vandon-daily experiment"
+
+  - serial: "06M26042802"
+    name_vi: "Đại Học Thái Bình 2"
+    location_vi: "Cổng Muối, Đông Thụy Anh, Hưng Yên"
+    region: DongThuyAnh-HY
+    water_type: inland # nội địa, không phải vùng biển
+    aquaculture_relevant: false
+    in_mongodb: false
+    notes: "Nước ngọt/nội địa — ngoài scope nuôi trồng thủy sản biển"
+
+  - serial: "06M26042801"
+    name_vi: "Đại Học Thái Bình 4"
+    location_vi: "Cổng nắng của Thái Ninh, Hưng Yên"
+    region: ThaiNinh-HY
+    water_type: inland
+    aquaculture_relevant: false
+    in_mongodb: false
+    notes: "Nước ngọt/nội địa — ngoài scope"
+
+# Params available from all stations (hardware-fixed)
+sensor_params:
+  COD: { unit: "mg/L", qcvn10_b1_max: 10 }
+  NH4: { unit: "raw µg/L (×0.001 -> mg/L)", qcvn10_b1_max: 0.1, maps_to: NH3 }
+  pH: { unit: "-", qcvn10_b1_min: 6.5, qcvn10_b1_max: 8.5 }
+  Temperature: { unit: "°C", qcvn10_b1_max: 30 }
+  TSS: { unit: "mg/L", qcvn10_b1_max: 50 }

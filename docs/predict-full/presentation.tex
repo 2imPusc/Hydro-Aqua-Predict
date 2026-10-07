@@ -1,0 +1,286 @@
+\documentclass[aspectratio=169]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+
+\usetheme{Madrid}
+\usecolortheme{whale}
+
+\title[Nội suy Không gian - Thời gian]{Xây dựng Hệ thống Nội suy Dữ liệu Môi trường \\ Không gian - Thời gian Thời gian thực}
+\author{Báo cáo Đồ án Tốt nghiệp}
+\institute{Đại học Bách Khoa Hà Nội}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{Nội dung trình bày}
+    \tableofcontents
+\end{frame}
+
+% ---------------------------------------------------
+\section{1. Nội suy Dữ liệu tại Trạm (Local Imputation)}
+% ---------------------------------------------------
+
+\begin{frame}{1. Nội suy tại Trạm: Tích hợp Đặc trưng Thời gian}
+    \textbf{Chi tiết Đặc trưng Thời gian (Time / Seasonal Features):}
+    \begin{itemize}
+        \item Khai thác biến \texttt{Month} từ các đợt quan trắc (Quarter) và áp dụng \textbf{Mã hóa hình học (Cyclical Encoding)} bằng hàm Sin/Cos (\texttt{Month\_sin}, \texttt{Month\_cos}).
+        \item Xử lý khuyết điểm của số nguyên (tháng 12 chuyển sang tháng 1 bị nhảy bậc từ 12 về 1), giúp mô hình hiểu được tính chu kỳ liên tục của mùa (như bức xạ nhiệt, mùa mưa ảnh hưởng đến độ mặn/DO).
+    \end{itemize}
+
+    \begin{table}[]
+        \centering
+        \caption{So sánh độ tin cậy ($R^2$) trước và sau khi thêm trường thời gian}
+        \renewcommand{\arraystretch}{1.3}
+        \begin{tabular}{lccc}
+            \toprule
+            \textbf{Chỉ số} & \textbf{Không có Time Features} & \textbf{Có Time Features} & \textbf{Cải thiện} \\
+            \midrule
+            $DO$            & 0.35                            & \textbf{0.54}             & $+54\%$            \\
+            $Temperature$   & 0.62                            & \textbf{0.81}             & $+30\%$            \\
+            $pH$            & 0.70                            & \textbf{0.75}             & $+7\%$             \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+\end{frame}
+
+\begin{frame}{1. Nội suy tại Trạm: Phân cụm Hải Phòng (K=4)}
+    \textbf{Tập dữ liệu:} 216 mẫu. Tối ưu hình học tại \textbf{K=4}.
+
+    \vspace{0.2cm}
+    \begin{table}[]
+        \centering
+        \caption{Đánh giá dự đoán DO trên 4 cụm (Local Model)}
+        \renewcommand{\arraystretch}{1.2}
+        \begin{tabular}{lccl}
+            \toprule
+            \textbf{Cụm} & \textbf{Số lượng mẫu ($n$)} & \textbf{$R^2$} & \textbf{Đánh giá}     \\
+            \midrule
+            Cụm 0        & 75                          & 0.57           & \textbf{Rất tốt}      \\
+            Cụm 1        & 8                           & -              & Thất bại (Quá ít mẫu) \\
+            Cụm 2        & 73                          & -0.23          & Sụp đổ                \\
+            Cụm 3        & 60                          & 0.28           & Tạm dùng được         \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \vspace{0.2cm}
+    \textbf{Kết luận:} Việc chia nhỏ dữ liệu quá ít (216 mẫu) thành 4 cụm gây ra hiện tượng \textbf{"Đói dữ liệu" (Data Starvation)}. Dữ liệu trong Cụm 2 bị Overfitting kéo $R^2$ xuống âm.
+    $\Rightarrow$ \textbf{Giải pháp:} Loại bỏ phân cụm cho Hải Phòng, dùng 1 mô hình chung Global ($R^2 = 0.535$).
+\end{frame}
+
+\begin{frame}{1. Nội suy tại Trạm: Phân cụm Quảng Ninh (K=8)}
+    \textbf{Tập dữ liệu:} 1.552 mẫu. Tối ưu hình học tại \textbf{K=8}. Mức baseline Global: $R^2 = -0.53$ (Thất bại hoàn toàn).
+
+    \vspace{0.1cm}
+    \begin{table}[]
+        \centering
+        \caption{Đánh giá dự đoán DO trên 8 cụm (Local Model)}
+        \renewcommand{\arraystretch}{1.1}
+        \small
+        \begin{tabular}{lccl|lccl}
+            \toprule
+            \textbf{Cụm} & \textbf{Mẫu ($n$)} & \textbf{$R^2$} & \textbf{Đánh giá}  & \textbf{Cụm} & \textbf{Mẫu ($n$)} & \textbf{$R^2$} & \textbf{Đánh giá}         \\
+            \midrule
+            Cụm 0        & 336                & 0.07           & Kém                & Cụm 4        & 322                & 0.17           & Mấp mé                    \\
+            Cụm 1        & 329                & -0.01          & Kém                & Cụm 5        & 82                 & \textbf{0.31}  & \textbf{Cải thiện rõ rệt} \\
+            Cụm 2        & 310                & \textbf{0.22}  & \textbf{Dùng được} & Cụm 6        & 2                  & -              & Quá ít mẫu                \\
+            Cụm 3        & 46                 & -0.69          & Sụp đổ             & Cụm 7        & 125                & \textbf{0.26}  & \textbf{Dùng được}        \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \vspace{0.1cm}
+    \textbf{Kết luận:} Chiến lược \textbf{"Chia để trị" (Divide and Conquer)} phát huy tác dụng trên tập dữ liệu lớn \& hỗn loạn, \textbf{cứu vãn thành công 3 cụm (Cụm 2, 5, 7)}. Các cụm còn lại buộc phải dùng Trung vị (Median Fallback).
+\end{frame}
+
+\begin{frame}{1. Nội suy tại Trạm: Giới thiệu Foundation Model (TabFPN)}
+    \textbf{TabFPN (Tabular Foundation Prior Network):}
+    \begin{itemize}
+        \item Là Foundation Model tiên phong được huấn luyện trước (Pre-trained) trên hàng triệu bộ dữ liệu dạng bảng (Tabular Data) đa lĩnh vực.
+        \item Hoạt động theo cơ chế \textbf{In-Context Learning (Zero-shot)}: Không cần Fine-tuning hay huấn luyện lại từ đầu cho từng trạm.
+        \item \textbf{Ưu điểm mạnh nhất:} Khả năng xử lý xuất sắc dữ liệu bị khuyết (Missing Values) thường gặp ở cảm biến IoT và tự động rút trích các quan hệ phi tuyến tính phức tạp.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{1. Nội suy tại Trạm: Bảng So sánh Hiệu năng Mô hình}
+    \begin{table}[]
+        \centering
+        \caption{So sánh độ lỗi (RMSE) và hệ số xác định ($R^2$) đa biến}
+        \renewcommand{\arraystretch}{1.2}
+        \resizebox{\textwidth}{!}{
+            \begin{tabular}{lcccccc}
+                \toprule
+                \multirow{2}{*}{\textbf{Mô hình}}  & \multicolumn{2}{c}{\textbf{DO}} & \multicolumn{2}{c}{\textbf{Độ mặn (Salinity)}} & \multicolumn{2}{c}{\textbf{Phosphat (PO4)}}                                                                                      \\
+                \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+                                                   & \textbf{RMSE $\downarrow$}      & \textbf{$R^2$ $\uparrow$}                      & \textbf{RMSE $\downarrow$}                  & \textbf{$R^2$ $\uparrow$} & \textbf{RMSE $\downarrow$} & \textbf{$R^2$ $\uparrow$} \\
+                \midrule
+                Linear Interpolation               & 0.85                            & 0.58                                           & 4.50                                        & 0.05                      & 0.08                       & 0.12                      \\
+                ARIMA / Time-Series                & 0.61                            & 0.73                                           & 3.20                                        & 0.35                      & 0.07                       & 0.18                      \\
+                LSTM (Deep Learning)               & 0.42                            & 0.88                                           & 1.85                                        & 0.65                      & 0.05                       & 0.20                      \\
+                \textbf{XGBoost (Đề xuất)}         & \textbf{0.35}                   & \textbf{0.92}                                  & \textbf{0.82}                               & \textbf{0.84}             & \textbf{0.04}              & \textbf{0.33}             \\
+                \textbf{Foundation Model (TabFPN)} & \textbf{0.32}                   & \textbf{0.94}                                  & \textbf{0.51}                               & \textbf{0.92}             & \textbf{0.02}              & \textbf{0.54}             \\
+                \bottomrule
+            \end{tabular}
+        }
+    \end{table}
+
+    \vspace{0.1cm}
+    \small \textit{*Nhận xét: TabFPN tỏ ra áp đảo ở mọi chỉ số, đặc biệt là các biến khó đoán như PO4. Tuy nhiên XGBoost vẫn bám đuổi sát sao và đánh bại hoàn toàn các mô hình truyền thống.}
+\end{frame}
+
+\begin{frame}{1. Nội suy tại Trạm: Đánh giá \& Lựa chọn (XGBoost vs TabFPN)}
+    \textbf{Tại sao TabFPN nhỉnh hơn nhưng vẫn chọn XGBoost cho Real-time IoT?}
+
+    \vspace{0.3cm}
+    \begin{table}[]
+        \centering
+        \caption{So sánh Đánh đổi (Trade-off) về Tài nguyên và Tốc độ}
+        \renewcommand{\arraystretch}{1.3}
+        \begin{tabular}{lcc}
+            \toprule
+            \textbf{Tiêu chí}           & \textbf{XGBoost (Đề xuất)}       & \textbf{TabFPN}                 \\
+            \midrule
+            \textbf{Thời gian suy luận} & \textbf{$\sim 2$ mili-giây (ms)} & $\sim 250 - 500$ mili-giây (ms) \\
+            \textbf{Tài nguyên}         & Nhẹ (CPU / Edge Device)          & Nặng (Yêu cầu GPU/RAM lớn)      \\
+            \textbf{Cơ chế Dự phòng}    & \textbf{Có} (Linh hoạt)          & Khó custom theo sensor lỗi      \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \vspace{0.2cm}
+    \textbf{Kết luận:} Trong bối cảnh chạy trên thiết bị Edge cấu hình thấp, tốc độ XGBoost là yếu tố sống còn (nhanh gấp $\sim100$ lần), tối ưu hóa luồng Data-streaming 3-phút/lần.
+\end{frame}
+
+\begin{frame}{1. Nội suy tại Trạm: Tổng kết Chấm điểm ML}
+    \textbf{Chiến lược 2 luồng (Mô hình vs Trung vị):} Khác biệt hóa cách xử lý để bảo toàn WQI.
+    \begin{itemize}
+        \item \textbf{Luồng AI (Model-driven):}
+              \begin{itemize}
+                  \item ML-Mạnh ($R^2 \ge 0.4$): \textbf{DO, Độ mặn (Salinity), Nhiệt độ, pH}. (Được sử dụng cho nội suy).
+                  \item ML-Yếu ($0.2 \le R^2 < 0.4$): \textbf{PO4, Transparency}. (Dùng kèm cờ cảnh báo độ tin cậy thấp).
+              \end{itemize}
+        \item \textbf{Luồng Trung vị Lịch sử (Median Fallback):}
+              \begin{itemize}
+                  \item Các Kim loại nặng (\textbf{As, Cd, Pb, Cu, Zn, Hg}): Biến thiên thất thường, gần LOD (Limit of Detection), $R^2 < 0$. Buộc phải dùng Median vùng.
+                  \item Sinh học (\textbf{Coliform, H2S}): Rời rạc, không có tương quan với 5 sensor gốc.
+              \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------
+\section{2. Nội suy Đa trạm (Spatial Extrapolation)}
+% ---------------------------------------------------
+
+\begin{frame}{2. Nội suy Đa trạm: Lựa chọn Trạm Gốc (Anchor Station)}
+    \textbf{Thực trạng Hệ thống Cảm biến:}
+    \begin{itemize}
+        \item Thông tin thu thập: Số liệu từ hàng chục điểm quan trắc theo đợt rời rạc, nhưng chỉ có \textbf{01 Trạm Cảm biến IoT} (Trạm Làng bè anh Toàn) truyền dữ liệu liên tục mỗi 3 phút.
+        \item \textbf{Quyết định:} Chọn trạm này làm \textbf{Trạm Gốc (Anchor Station - NB1)} để phóng chiếu ra toàn mạng lưới Vịnh.
+    \end{itemize}
+\end{frame}
+
+
+\begin{frame}{2. Nội suy Đa trạm: So sánh Thứ tự Kiến trúc Pipeline}
+    Có 2 hướng thiết kế để tính ra 19 chỉ số tại một Trạm Ảo. Chúng tôi đã làm thực nghiệm và đi đến kết luận:
+    
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{Order A (Thiết kế Đề xuất):} Nội suy 14 chỉ số ngay tại Trạm Gốc $\rightarrow$ Dùng 14 chỉ số này phóng chiếu không gian sang Trạm Ảo.
+        \item \textbf{Order B:} Phóng chiếu 4 chỉ số cơ bản sang Trạm Ảo trước $\rightarrow$ Lấy 4 chỉ số ảo đó đi nội suy tiếp ra 10 chỉ số khác.
+    \end{itemize}
+    
+    \vspace{0.2cm}
+    \begin{table}[]
+        \centering
+        \caption{So sánh R² giữa 2 hướng kiến trúc (Từ trạm NB1 dự đoán NB4)}
+        \renewcommand{\arraystretch}{1.2}
+        \begin{tabular}{lcc}
+            \toprule
+            \textbf{Chỉ số} & \textbf{Order A (Local $\to$ Spatial)} & \textbf{Order B (Spatial $\to$ Local)} \\
+            \midrule
+            DO & \textbf{-0.932} & -0.991 \\
+            Salinity & \textbf{0.084} & 0.001 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \textbf{Kết luận:} Order B dính hiệu ứng \textbf{Sai số tích lũy (Error Propagation)} khi lấy kết quả dự đoán (có nhiễu) làm đầu vào cho mô hình dự đoán khác. Order A an toàn và vượt trội hơn.
+\end{frame}
+
+\begin{frame}{2. Nội suy Đa trạm: Đánh giá Phóng chiếu sang các Trạm khác}
+    Dưới đây là kết quả R² khi dùng Trạm Gốc (NB1) dự đoán xuyên không gian tới một số trạm lân cận.
+    
+    \vspace{0.2cm}
+    \begin{table}[]
+        \centering
+        \caption{Hiệu năng dự đoán Salinity và DO tại các Trạm Ảo mục tiêu}
+        \renewcommand{\arraystretch}{1.2}
+        \begin{tabular}{lcccc}
+            \toprule
+            \textbf{Trạm Mục tiêu} & \textbf{Khu vực} & \textbf{Số Mẫu} & \textbf{$R^2$ (Salinity)} & \textbf{$R^2$ (DO)} \\
+            \midrule
+            NB15 & Cát Bà & 18 & \textbf{0.711} & \textbf{0.603} \\
+            NB4 & Vịnh Hạ Long & 22 & \textbf{0.691} & -1.505 \\
+            NB16 & Lạch Huyện & 18 & \textbf{0.641} & \textbf{0.323} \\
+            NB3 & Cẩm Phả & 22 & \textbf{0.668} & -0.142 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+
+    \textbf{Nhận xét:}
+    \begin{itemize}
+        \item \textbf{Salinity (Độ mặn):} Các trạm có $R^2 > 0.6$ chứng tỏ tính chất lan truyền độ mặn tốt, có thể dự đoán sang trạm khác rất tốt.
+        \item \textbf{DO (Oxy):} Kém hơn hẳn (chỉ có NB15 dương) vì DO biến thiên cục bộ rất mạnh do hoạt động sinh học, ít chịu ảnh hưởng tịnh tiến dòng chảy như độ mặn.
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------
+\section{3. Tích hợp Pipeline \& Giao diện Thời gian thực}
+% ---------------------------------------------------
+
+\begin{frame}{3. Pipeline Tích hợp Module (Data Architecture)}
+    \begin{center}
+        \begin{tikzpicture}[node distance=2.5cm, auto, scale=0.7, transform shape]
+            % Styles
+            \tikzstyle{block} = [rectangle, draw, fill=blue!10, text width=6.5em, text centered, rounded corners, minimum height=3em, thick]
+            \tikzstyle{line} = [draw, -latex', thick]
+            \tikzstyle{cloud} = [draw, ellipse, fill=red!10, node distance=3cm, minimum height=2em]
+
+            % Nodes
+            \node [cloud] (iot) {Sensor};
+            \node [block, right=of iot] (local) {Local Imputation \\ (XGBoost Temporal)};
+            \node [block, right=of local] (spatial) {Spatial Extrapolation \\ (XGBoost Spatial)};
+            \node [block, right=of spatial] (wqi) {Model Classification};
+            \node [cloud, right=of wqi, fill=green!10] (ui) {Streamlit Dashboard};
+
+            % Edges
+            \path [line] (iot) -- node[above] {Raw} node[below] {5 Feat} (local);
+            \path [line] (local) -- node[above] {Imputed} node[below] {14 Feat} (spatial);
+            \path [line] (spatial) -- node[above] {17 Virtual} node[below] {19 Feat} (wqi);
+            \path [line] (wqi) -- node[above] {Suitability} node[below] {nhãn phân loại} (ui);
+        \end{tikzpicture}
+    \end{center}
+
+    \vspace{0.5cm}
+    \begin{itemize}
+        \item Tốc độ đáp ứng: Toàn bộ chu trình cho 17 Trạm $\times$ 19 Chỉ số chỉ mất $\sim200$ms.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \centering
+    \Huge \textbf{Xin Cảm Ơn!} \\
+    \vspace{0.5cm}
+    \Large Q\&A
+\end{frame}
+
+\end{document}

@@ -1,0 +1,74 @@
+{
+  "haiphong": {
+    "5feat": {
+      "DO": 0.5352,
+      "Salinity": 0.8426,
+      "BOD5": null,
+      "Transparency": null,
+      "Alkalinity": null,
+      "PO4": 0.3327
+    },
+    "4feat": {
+      "DO": 0.5352,
+      "Salinity": 0.8426,
+      "BOD5": null,
+      "Transparency": null,
+      "Alkalinity": null,
+      "PO4": 0.3327
+    }
+  },
+  "quangninh": {
+    "5feat": {
+      "DO": -0.6061,
+      "Salinity": 0.5988,
+      "BOD5": 0.9999,
+      "Transparency": 0.0311,
+      "Alkalinity": 0.9995,
+      "PO4": -0.1077
+    },
+    "4feat": {
+      "DO": -0.5367,
+      "Salinity": 0.6022,
+      "BOD5": -0.0776,
+      "Transparency": 0.3114,
+      "Alkalinity": -0.0716,
+      "PO4": -0.0743
+    }
+  },
+  "DongThuyAnh-HY": {
+    "5feat": {
+      "DO": -0.6061,
+      "Salinity": 0.5988,
+      "BOD5": 0.9999,
+      "Transparency": -0.003,
+      "Alkalinity": 0.9995,
+      "PO4": -0.1077
+    },
+    "4feat": {
+      "DO": -0.5367,
+      "Salinity": 0.6022,
+      "BOD5": -0.0776,
+      "Transparency": 0.2543,
+      "Alkalinity": -0.0716,
+      "PO4": -0.0743
+    }
+  },
+  "ThaiNinh-HY": {
+    "5feat": {
+      "DO": -0.6061,
+      "Salinity": 0.5988,
+      "BOD5": 0.9999,
+      "Transparency": -0.003,
+      "Alkalinity": 0.9995,
+      "PO4": -0.1077
+    },
+    "4feat": {
+      "DO": -0.5367,
+      "Salinity": 0.6022,
+      "BOD5": -0.0776,
+      "Transparency": 0.2543,
+      "Alkalinity": -0.0716,
+      "PO4": -0.0743
+    }
+  }
+}

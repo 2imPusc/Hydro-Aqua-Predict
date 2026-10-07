@@ -1,0 +1,61 @@
+{
+  "haiphong": {
+    "5feat": [
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ],
+    "4feat": [
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ]
+  },
+  "quangninh": {
+    "5feat": [
+      "COD",
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ],
+    "4feat": [
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ]
+  },
+  "DongThuyAnh-HY": {
+    "5feat": [
+      "COD",
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ],
+    "4feat": [
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ]
+  },
+  "ThaiNinh-HY": {
+    "5feat": [
+      "COD",
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ],
+    "4feat": [
+      "NH3",
+      "pH",
+      "Temperature",
+      "TSS"
+    ]
+  }
+}

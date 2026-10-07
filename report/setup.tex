@@ -1,0 +1,101 @@
+% NOTE: setup.tex is preamble only; compile main.tex with pdflatex.
+\documentclass[aspectratio=1610,10pt]{beamer}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{vietnam}
+\usepackage{amsmath}
+\usefonttheme[onlymath]{serif}
+\DeclareTextFontCommand{\textit}{\slshape}
+\usepackage{tikz}
+\usepackage[most]{tcolorbox}
+\usepackage{listings}
+\usepackage{comment}
+\usepackage{tabularx}
+\usepackage{mathtools}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\setbeamertemplate{caption}[numbered]
+\usepackage{makecell}
+\usepackage{fnpct}
+\usepackage{multirow}
+\usepackage{bbm}
+\usepackage{pgfpages}
+\usepackage{handoutWithNotes}
+\usepackage{xcolor}
+\usepackage{calc}
+\usepackage{changepage}
+\usepackage{amsmath, amssymb}
+\usepackage{tcolorbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usetikzlibrary{positioning, arrows.meta, calc}
+\pgfplotsset{compat=1.18}
+\floatname{algorithm}{Algorithm}
+\algrenewcommand\algorithmicrequire{\textbf{Require:}}
+\algrenewcommand\algorithmicensure{\textbf{Ensure:}}
+\algrenewcommand\algorithmicif{\textbf{if}}
+\algrenewcommand\algorithmicthen{\textbf{then}}
+\algrenewcommand\algorithmicelse{\textbf{else}}
+\algrenewcommand\algorithmicwhile{\textbf{while}}
+\algrenewcommand\algorithmicdo{\textbf{do}}
+\algrenewcommand\algorithmicend{\textbf{end}}
+\algrenewcommand\algorithmicreturn{\textbf{return}}
+\usepackage{multicol}
+\usetheme{Madrid}
+\vbadness=10000
+\vfuzz=200pt
+\setbeamercolor{block title example}{fg=white,bg=blue!80!black}
+\setbeamercolor{block body example}{fg=black,bg=blue!5!white}
+\setbeamertemplate{navigation symbols}{}
+\setbeamercolor{section in head/foot}{bg=cyan!5, fg=cyan!50}
+\setbeamercolor{author in head/foot}{bg=cyan!5, fg=black}
+\setbeamerfont{section in head/foot}{size=\small}
+\setbeamerfont{author in head/foot}{size=\small}
+\setbeamertemplate{headline}{
+  \begin{beamercolorbox}[wd=\paperwidth,ht=6ex,dp=3.5ex]{section in head/foot}
+    \usebeamerfont{section in head/foot}\hspace{1 ex}\insertsectionhead
+    \ifx\insertsubsectionhead\empty\else\,---\,\insertsubsectionhead\fi
+  \end{beamercolorbox}%
+}
+\everymath{\displaystyle}
+\setbeamerfont{title}{size=\fontsize{26}{12}}
+\setbeamercolor{block title example}{fg=white, bg=teal!80!}
+\setbeamercolor{block body example}{bg=teal!20}
+\setbeamercolor{block title alerted}{fg=white, bg=orange}
+\setbeamercolor{block body alerted}{bg=orange!25}
+\setbeamercolor{block title}{bg=cyan, fg=white}
+\setbeamercolor{block body}{bg=cyan!10}
+\setbeamertemplate{itemize item}{\textbullet}
+
+\title[Cảnh báo GreenLab]{\huge Cơ chế cảnh báo dựa trên\\chỉ số dự báo trong GreenLab realtime}
+\author[Đỗ Minh Phúc]{\texorpdfstring{\begin{tabular}{@{}ll@{}}
+  Sinh viên: & Đỗ Minh Phúc
+\end{tabular}}{Đỗ Minh Phúc}}
+\date{\today}
+
+\newlength{\customwidth}
+\setbeamertemplate{frametitle}{
+  \settowidth{\customwidth}{\insertframetitle\hspace{6mm}}
+  \begin{tcolorbox}[enhanced,colback=orange!10,colframe=white,boxrule=0mm,
+    arc=3mm,auto outer arc,boxsep=1mm,left=0mm,right=1mm,top=5mm,bottom=1mm,
+    width=\customwidth,enlarge left by=-3mm,
+    overlay={\node[anchor=west] at ([xshift=1mm]frame.west) {\color{orange}\insertframetitle};}]
+  \end{tcolorbox}
+}
+
+\input{macro}
+\AtBeginSection[]{\begin{frame}{}\tableofcontents[currentsection]\end{frame}}
+\newcommand{\papertitle}{Cảnh báo dự báo -- GreenLab realtime}
+\setbeamertemplate{footline}{
+  \leavevmode\ifnum\insertframenumber>0\relax
+  \hbox{\begin{beamercolorbox}[wd=.78\paperwidth,ht=5ex,dp=3ex,left]{author in head/foot}
+    \hspace{1ex}\usebeamerfont{author in head/foot}\papertitle
+  \end{beamercolorbox}%
+  \begin{beamercolorbox}[wd=.22\paperwidth,ht=5ex,dp=3ex,right]{author in head/foot}
+    \usebeamerfont{author in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+  \end{beamercolorbox}}\fi
+}

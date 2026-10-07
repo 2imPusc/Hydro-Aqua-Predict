@@ -1,0 +1,65 @@
+{
+  "version": "hp-contextual-v1-shadow",
+  "mode": "shadow",
+  "targets": {
+    "DO": {
+      "artifact": "contextual_hp_do_extratrees_v1.pkl",
+      "features": [
+        "NH3",
+        "pH",
+        "Temperature",
+        "TSS"
+      ],
+      "feature_bounds": {
+        "NH3": [
+          0.02,
+          0.7649999999999999
+        ],
+        "pH": [
+          7.074999999999999,
+          8.4
+        ],
+        "Temperature": [
+          16.38193915039301,
+          32.65611742436886
+        ],
+        "TSS": [
+          6.25,
+          32.2
+        ]
+      }
+    },
+    "Salinity": {
+      "artifact": "contextual_hp_salinity_extratrees_v1.pkl",
+      "features": [
+        "NH3",
+        "pH",
+        "Temperature",
+        "TSS",
+        "month"
+      ],
+      "feature_bounds": {
+        "NH3": [
+          0.02,
+          0.7649999999999999
+        ],
+        "pH": [
+          7.074999999999999,
+          8.4
+        ],
+        "Temperature": [
+          16.38193915039301,
+          32.65611742436886
+        ],
+        "TSS": [
+          6.25,
+          32.2
+        ],
+        "month": [
+          2.0,
+          12.0
+        ]
+      }
+    }
+  }
+}

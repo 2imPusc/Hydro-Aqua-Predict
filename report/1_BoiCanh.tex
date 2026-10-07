@@ -1,0 +1,36 @@
+\section{Bối cảnh và mục tiêu}
+
+\begin{frame}{Bài toán: cảnh báo sớm khi chỉ có 5 sensor}
+  \begin{block}{Đầu vào thực tế tại nhà bè Cát Bà}
+    Mỗi phút nhận: \textbf{pH, nhiệt độ, NH4, TSS, COD}.\newline
+    \DO{} và độ mặn không được đo trực tiếp.
+  \end{block}
+  \begin{alertblock}{Rủi ro vận hành}
+    Nhiệt độ cao, \NH{} tăng hoặc \DO{} thấp có thể gây stress; chờ ngưỡng tức thời
+    dễ bỏ lỡ thời gian chuẩn bị sục khí/kiểm tra thực địa.
+  \end{alertblock}
+  \begin{exampleblock}{Mục tiêu}
+    Dự báo các chỉ số sensor tại $+15$, $+30$, $+60$ phút, sau đó đánh giá rủi ro
+    có giải thích và không phát sinh cảnh báo giả từ chỉ số suy luận không đủ tin cậy.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Nguyên tắc thiết kế: tách nguồn dữ liệu và độ tin cậy}
+  \begin{center}
+  \begin{tabular}{lll}
+    \toprule
+    Lớp dữ liệu & Ví dụ & Vai trò trong cảnh báo \\
+    \midrule
+    Đo trực tiếp & pH, nhiệt độ, NH4, TSS & Nguồn chính \\
+    Quy đổi hóa học & $\NH = f(\mathrm{NH4}, pH, T)$ & Có provenance \\
+    Nội suy mô hình & \DO{}, độ mặn & Advisory có gate \\
+    Không đủ điều kiện & OOD / thiếu feature & Không tạo giá trị \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{0.5em}
+  \begin{alertblock}{Điểm cốt lõi}
+    \textbf{Không thay thế giá trị thiếu bằng số mặc định.} Khi nội suy bị từ chối,
+    dashboard hiển thị lý do thay vì báo \texttt{None} hoặc nâng cấp cảnh báo.
+  \end{alertblock}
+\end{frame}

@@ -1,0 +1,78 @@
+\section{Kết quả Thực nghiệm}
+
+\begin{frame}{Phase 1: Local Imputation (Mô hình Toàn cục - N=216)}
+  \begin{itemize}
+    \item \textbf{Mục tiêu:} Đánh giá khả năng suy diễn thông số nước khi gom chung dữ liệu toàn Vịnh Hải Phòng.
+    \item \textbf{Phát hiện:} Yếu tố thời tiết (Thời gian) giúp cải thiện đáng kể khả năng dự báo của XGBoost, nhưng không ảnh hưởng nhiều đến MICE.
+  \end{itemize}
+
+  \vspace{0.3cm}
+  \begin{table}[]
+    \centering
+    \small
+    \begin{tabular}{lcccccc}
+        \toprule
+        \textbf{Cấu hình} & \textbf{XGB DO} & \textbf{XGB Salinity} & \textbf{XGB PO4} & \textbf{MICE DO} & \textbf{MICE Salinity} & \textbf{MICE PO4} \\ \midrule
+        Base (Có Time Feat) & 0.365 & 0.784 & 0.302 & 0.133 & 0.519 & 0.261 \\
+        \rowcolor{green!10}
+        \textbf{Base + Thời tiết} & \textbf{0.404} & \textbf{0.849} & \textbf{0.370} & 0.131 & 0.510 & 0.274 \\ \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \vspace{0.2cm}
+  \textit{*Các chỉ số Sinh học (Coliform) và Kim loại nặng (Cd, Pb, Zn...) có $R^2 < 0$, buộc phải dùng thuật toán Trung vị (Median Fallback).}
+\end{frame}
+
+\begin{frame}{Phase 2: Nội suy Đa trạm - Lựa chọn Trạm Gốc}
+    \textbf{Thực trạng Hệ thống Cảm biến:}
+    \begin{itemize}
+        \item Số liệu từ hàng chục điểm quan trắc thu thập theo đợt rời rạc (1 quý/lần).
+        \item Chỉ có \textbf{01 Trạm Cảm biến IoT} (Trạm Làng bè anh Toàn) truyền dữ liệu liên tục mỗi 3 phút.
+        \item \textbf{Quyết định Kiến trúc:} Chọn trạm này làm \textbf{Trạm Gốc (Anchor Station - NB1)} để phóng chiếu ra toàn mạng lưới Vịnh thay vì cắm IoT ở mọi nơi (giảm chi phí).
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Phase 2: Bóc tách Từng Trạm (Chỉ số Độ mặn)}
+  \begin{itemize}
+    \item \textbf{Thực trạng ($R^2 < 0$):} Việc thêm nhiều trường thông tin thời tiết vào tập dữ liệu quá nhỏ (16 mẫu) đã làm mất khả năng tổng quát hóa, dẫn đến sai số khổng lồ khi dự đoán ở các trạm khác.
+    \item \textbf{So sánh trạm:} Hầu hết kết quả của các trạm đều giảm đi khi thêm biến thời tiết
+  \end{itemize}
+
+  \vspace{0.3cm}
+  \begin{table}[]
+    \centering
+    \small
+    \begin{tabular}{lcc}
+        \toprule
+        \textbf{Trạm Đích} & \textbf{XGB Base} & \textbf{XGB + Thời tiết} \\ \midrule
+        \rowcolor{green!10}
+        \textbf{NB4 (Vịnh Hạ Long)} & \textbf{0.739} & 0.619 \\
+        \textbf{NB3 (Cẩm Phả)} & \textbf{0.451} & -0.458 \\
+        \textbf{NB15 (Cát Bà)} & \textbf{0.441} & -1.170 \\
+        \textbf{NB16 (Lạch Huyện)} & \textbf{0.249} & 0.039 \\ \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\begin{frame}{Phase 2: Nội suy Đa trạm - Đánh giá Phóng chiếu Đa chỉ số}  
+  \vspace{0.2cm}
+  \begin{table}[]
+    \caption{Hiệu năng dự đoán Salinity, DO và PO4 tại các Trạm Ảo mục tiêu}
+    \centering
+    \small
+    \begin{tabular}{llcccc}
+        \toprule
+        \textbf{Trạm Mục tiêu} & \textbf{Khu vực} & \textbf{Số Mẫu} & \textbf{$R^2$ (Salinity)} & \textbf{$R^2$ (DO)} & \textbf{$R^2$ (PO4)} \\ \midrule
+        NB4 & Vịnh Hạ Long & 16 & \textbf{0.739} & -0.980 & -0.231 \\
+        NB3 & Cẩm Phả & 16 & \textbf{0.451} & -1.087 & -7.920 \\
+        NB15 & Cát Bà & 16 & \textbf{0.441} & -1.751 & -5.377 \\
+        NB16 & Lạch Huyện & 16 & \textbf{0.249} & -2.153 & -3.382 \\ \bottomrule
+    \end{tabular}
+  \end{table}
+
+  \textbf{Nhận xét:}
+  \begin{itemize}
+      \item \textbf{Salinity (Độ mặn):} Các trạm có $R^2$ khá (đặc biệt NB4 đạt 0.74) chứng tỏ tính chất lan truyền vật lý hải dương học tốt, có thể dự đoán sang trạm khác khá tốt.
+      \item \textbf{DO, PO4 (Sinh hóa):} Kém hơn hẳn ($R^2$ âm rất sâu) vì các chỉ số này biến thiên cục bộ rất mạnh do xả thải và vi khí hậu. Bắt buộc phải dùng nội suy địa thống kê (Kriging).
+  \end{itemize}
+\end{frame}
