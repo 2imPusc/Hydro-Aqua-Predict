@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 import pkgutil
 import sys
 from pathlib import Path
@@ -20,9 +21,11 @@ FORBIDDEN = ("DATN-20225064", "lab-realtime", "realtime-data")
 def main() -> int:
     problems: list[str] = []
 
+    # Explicit HAP_* overrides (e.g. data on another drive) are allowed roots.
+    allowed = [ROOT] + [Path(v).expanduser().resolve() for k, v in os.environ.items() if k.startswith("HAP_") and v.strip()]
     for name, value in vars(paths).items():
         if name.isupper() and isinstance(value, Path):
-            if not value.resolve().is_relative_to(ROOT):
+            if not any(value.resolve().is_relative_to(root) for root in allowed):
                 problems.append(f"path {name} outside project: {value}")
 
     for package in ("core", "hap_shared"):

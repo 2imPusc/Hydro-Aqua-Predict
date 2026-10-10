@@ -41,6 +41,8 @@ powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1
 ## Tài liệu
 
 - [AGENTS.md](AGENTS.md): lệnh chạy, quy tắc, lưu ý miền (dành cho người và AI agent)
+- [docs/roadmap.md](docs/roadmap.md): lộ trình phát triển, thứ tự ưu tiên 1 → 2 → 4 → 3
+- [docs/decisions.md](docs/decisions.md): nhật ký quyết định kiến trúc
 - [docs/data-policy.md](docs/data-policy.md): dữ liệu nào lên git, dữ liệu nào giữ local
 - [docs/guide/00-tong-quan-du-an.md](docs/guide/00-tong-quan-du-an.md): tổng quan dự án
 - [docs/guide/06-runbook.md](docs/guide/06-runbook.md): vận hành

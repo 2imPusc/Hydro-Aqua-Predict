@@ -26,7 +26,9 @@ if (-not (Test-Path -LiteralPath $runner)) {
 $action = New-ScheduledTaskAction -Execute $powershell -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$runner`" -Station `"$Station`""
 $startAt = (Get-Date).AddMinutes(2)
 $trigger = New-ScheduledTaskTrigger -Once -At $startAt -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew
+# Run on battery too: the B5 study needs an unbroken hourly as-issued record,
+# and the default "no start on batteries" silently queued captures on laptops.
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description "Append-only as-issued Open-Meteo forecast capture for sensor $Station (research/shadow only)." -Force | Out-Null
 Get-ScheduledTask -TaskName $TaskName | Select-Object TaskName, State, TaskPath

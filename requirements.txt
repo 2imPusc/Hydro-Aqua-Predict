@@ -15,6 +15,7 @@ pyshp==2.3.1
 shapely==2.0.6
 xarray==2025.1.2
 h5netcdf==1.4.1
+h5py==3.12.1
 streamlit==1.64.0
 streamlit-folium==0.27.3
 folium==0.20.0

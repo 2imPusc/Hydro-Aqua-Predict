@@ -1,6 +1,7 @@
 from shapely.geometry import MultiPolygon, Point, box, shape
 
 import pandas as pd
+import pytest
 
 from core.spatial_overlay import display_water_position, geodesic_disk, legacy_hsi_demo_overlays, water_clipped_band, water_path_band, water_path_nearest_partition
 
@@ -55,6 +56,7 @@ def test_water_path_partition_has_one_deterministic_owner_per_cell():
     assert {"A", "B"}.issubset(set(owners))
 
 
+@pytest.mark.requires_data
 def test_legacy_demo_builds_all_complete_historical_stations():
     period, overlays = legacy_hsi_demo_overlays()
     assert period == "2024-11-01"

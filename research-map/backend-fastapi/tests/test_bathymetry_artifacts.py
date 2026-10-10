@@ -16,7 +16,7 @@ def _raw_file(tmp_path):
         coords={"latitude": [20.0, 20.01, 20.02, 20.03], "longitude": [107.0, 107.01, 107.02, 107.03]},
     )
     path = tmp_path / "source.nc"
-    dataset.to_netcdf(path)
+    dataset.to_netcdf(path, engine="h5netcdf")
     return path
 
 

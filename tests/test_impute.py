@@ -14,11 +14,13 @@ def measured_no_cod():
     # COD chết → đường 4-feature
     return {"NH3": 0.05, "pH": 7.8, "Temperature": 28.0, "TSS": 20.0}
 
+@pytest.mark.requires_data
 def test_build_training_data_per_region():
     df = build_training_data("haiphong")
     for f in ["NH3", "pH", "Temperature", "TSS"]:
         assert f in df.columns
 
+@pytest.mark.requires_data
 def test_build_training_data_no_null_features():
     df = build_training_data("haiphong")
     cols = [c for c in ["NH3", "pH", "Temperature", "TSS"] if c in df.columns]

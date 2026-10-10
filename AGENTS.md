@@ -42,6 +42,7 @@ Two virtualenvs on purpose: streamlit 1.64 pins a starlette that breaks fastapi 
 py -3.11 -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
 cd research-map\backend-fastapi; py -3.11 -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
 cd ..\frontend; npm ci
+cd ..\..\ingest; npm ci          # GreenLab fetchers (fetch_api.js)
 Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 ```
 
@@ -52,13 +53,13 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 135 tests (~30 s)
+.venv\Scripts\python -m pytest -q                       # 136 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
 powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1   # api :8010, vite :5173, postgres :5434 (docker)
 .venv\Scripts\python scripts\check_isolation.py         # no imports/paths escape the repo
-cd research-mapackend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests (own venv)
+cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (14)
 ```
 
 `GREENLAB_FETCH_MODE=cache` gives a stable offline run from local history (no API calls);
@@ -68,6 +69,16 @@ research-map Docker: compose reads `research-map/.env` only (not the root `.env`
 worker polls GreenLab only if `TK_DHTB`/`MK_DHTB` are set there. The compose project is
 named `research-map` — the same name DATN used — so it reuses the existing Postgres
 volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
+
+## Scheduled jobs on the dev machine
+
+- `HAP-WeatherSnapshot-06M26042804` — hourly Open-Meteo as-issued capture into
+  `artifacts/experiments/forecast-v2/weather-snapshots.jsonl` (append-only; runs on battery).
+  Install/remove: `experiments/install_weather_snapshot_task.ps1 [-Remove]`.
+  Health: `python experiments/weather_snapshot_health.py --station 06M26042804`.
+- DATN's `DATN-WeatherSnapshot-06M26042804` is **disabled** since the cut-over (2026-10-10). Do not re-enable.
+
+CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests, frontend build.
 
 ## Hard rules
 
@@ -94,6 +105,9 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
   data. The research map shows 14 historical stations, but all 14 reuse that single
   sensor's readings; only weather differs per point.
 - **COD rail 558.8 = dead sensor**, not pollution. `core/quality.py` flags rail/flatline.
+  Caveat: on 2026-09-20 COD read 189.8, so the sensor may have recovered; re-check (roadmap D0.5).
+- **Sensor history has gaps.** Files end 2026-07-26; research-map Postgres holds only the
+  days its worker ran. `ingest/fetch_api.js by-date` can backfill (roadmap D0.1).
 - **NH4 unit**: raw NH4 treated as µg/L ×0.001 → mg/L, then Emerson un-ionised fraction
   (pH, Temperature) → NH3. Gated by `NH4_CONVERSION_CONFIRMED`; vendor confirmation
   is still pending, so keep the basis visible in outputs.
@@ -107,13 +121,16 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
 
 ## Known issues
 
-- `tests/test_observations.py::test_unverified_nh4_to_nh3_conversion_basis_is_visible`
-  fails whenever `.env` sets `NH4_CONVERSION_CONFIRMED=true` (test reads live env).
 - A machine-wide `PGSSLMODE=require` breaks the local Postgres; `dev-local.ps1` overrides it.
 - `app/demo_app.py` runs the full pipeline twice on first load (`st.rerun`) — slow.
 - `experiments/archive/` scripts need extras (torch, tabpfn) and are not maintained.
-- research-map backend: 2 bathymetry tests fail — xarray needs a netCDF engine
-  (`netCDF4` or `scipy`) that the backend venv lacks. Same in DATN.
+
+## Direction of work
+
+Read **`docs/roadmap.md`** before starting feature work. Priority order (owner decision
+2026-10-10): **1 forecast depth → 2 weather-aware advisory → 4 reliability map → 3 zoning map**,
+all gated by Phase 0 (complete sensor history + ground truth). Record new architectural
+choices in `docs/decisions.md` (append-only log).
 
 ## Docs map
 
