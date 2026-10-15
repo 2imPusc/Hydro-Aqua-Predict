@@ -73,9 +73,18 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
 ## Scheduled jobs on the dev machine
 
 - `HAP-WeatherSnapshot-06M26042804` — hourly Open-Meteo as-issued capture into
-  `artifacts/experiments/forecast-v2/weather-snapshots.jsonl` (append-only; runs on battery).
+  `artifacts/experiments/forecast-v2/weather-snapshots.jsonl` (append-only; runs on battery, wakes the machine).
   Install/remove: `experiments/install_weather_snapshot_task.ps1 [-Remove]`.
   Health: `python experiments/weather_snapshot_health.py --station 06M26042804`.
+  Health `status` is `degraded` when 7-day coverage < 90%. Wake timers must be enabled in the
+  power plan: `powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 1` (and
+  `/setdcvalueindex`), then `powercfg /setactive SCHEME_CURRENT`.
+- `HAP-SensorCollector-06M26042804` — daily 06:13 `scripts/backfill_sensor.py --since-last`
+  into `data/greenlab/exports/intervals/` (append-only, catches up after missed days).
+  Install/remove: `scripts/install_sensor_collector_task.ps1 [-Remove]`.
+  Health: `python scripts/sensor_coverage.py --station 06M26042804 --last-days 7 --no-write`.
+  `--since-last` resumes from the newest interval file: never write a probe file ahead of it
+  (use `--start/--end` to fill behind); the coverage report catches any gap that slips through.
 - DATN's `DATN-WeatherSnapshot-06M26042804` is **disabled** since the cut-over (2026-10-10). Do not re-enable.
 
 CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests, frontend build.
