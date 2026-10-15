@@ -25,6 +25,21 @@ def test_check_series_healthy():
     status = check_series("COD", s)
     assert status == "VALID"
 
+def test_check_series_stuck_at_zero_is_flatline():
+    # Sensor dính cứng đúng 0.0 (mean == 0 nên CV không xét được) → INVALID
+    s = pd.Series([0.0] * 10)
+    assert check_series("COD", s) == "INVALID"
+
+def test_check_series_varying_with_zeros_valid():
+    # Có số 0 nhưng chuỗi vẫn dao động → không phải flatline
+    s = pd.Series([0, 0.5, 1.2, 0, 2.0, 0.3])
+    assert check_series("COD", s) == "VALID"
+
+def test_check_series_few_zeros_keeps_valid():
+    # < 5 điểm: quá ít để kết luận flatline → giữ hành vi cũ (VALID)
+    s = pd.Series([0.0, 0.0, 0.0])
+    assert check_series("COD", s) == "VALID"
+
 def test_check_series_empty():
     assert check_series("COD", pd.Series([], dtype=float)) == "INVALID"
 

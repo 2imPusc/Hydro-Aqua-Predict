@@ -41,6 +41,9 @@ def check_series(param: str, series: pd.Series) -> str:
     s_valid = s[in_range]
     if len(s_valid) >= 5:
         mean = s_valid.mean()
+        # Dính cứng đúng 0.0: mean == 0 nên CV không xác định → xét riêng bằng std == 0
+        if s_valid.std() == 0:
+            return "INVALID"
         if mean != 0:
             cv = s_valid.std() / abs(mean)
             if cv < _FLATLINE_CV:
