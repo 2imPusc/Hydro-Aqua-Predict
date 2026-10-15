@@ -1,4 +1,5 @@
 import pandas as pd
+import pytest
 
 from core import greenlab_api
 
@@ -27,3 +28,51 @@ def test_append_snapshot_is_idempotent_and_loadable(tmp_path, monkeypatch):
     result = greenlab_api.load_cached_history("06M26042804")
     assert len(result) == 1
     assert result.iloc[0]["Temperature"] == 30.0
+
+
+_LONG_CSV = (
+    "Date,DeviceSerialNumber,SensorType,Value,Unit,Status\r\n"
+    "2026-07-27 00:00,06M26042804,pH,8.01,,Good\r\n"
+)
+
+
+def _patch_credentials(monkeypatch):
+    monkeypatch.setattr(greenlab_api, "GREENLAB_API_USERNAME", "user")
+    monkeypatch.setattr(greenlab_api, "GREENLAB_API_PASSWORD", "password")
+
+
+def test_fetch_by_date_csv_requests_range_and_returns_text(monkeypatch):
+    seen = {}
+
+    class Response:
+        text = "\ufeff" + _LONG_CSV
+        def raise_for_status(self): pass
+
+    def fake_get(url, **kwargs):
+        seen["url"] = url
+        seen.update(kwargs)
+        return Response()
+
+    _patch_credentials(monkeypatch)
+    monkeypatch.setattr(greenlab_api.requests, "get", fake_get)
+    text = greenlab_api.fetch_by_date_csv("06M26042804", "2026-07-27", "2026-08-02")
+    assert seen["url"].endswith("/Datums/DataByDate")
+    assert seen["params"] == {"DeviceSerialNumber": "06M26042804", "StartDate": "2026-07-27", "EndDate": "2026-08-02"}
+    assert text == _LONG_CSV
+
+
+def test_fetch_by_date_csv_rejects_unexpected_payload(monkeypatch):
+    class Response:
+        text = "<html>login</html>"
+        def raise_for_status(self): pass
+
+    _patch_credentials(monkeypatch)
+    monkeypatch.setattr(greenlab_api.requests, "get", lambda *args, **kwargs: Response())
+    with pytest.raises(RuntimeError, match="greenlab_by_date_unexpected_payload"):
+        greenlab_api.fetch_by_date_csv("06M26042804", "2026-07-27", "2026-07-28")
+
+
+def test_fetch_by_date_csv_requires_credentials(monkeypatch):
+    monkeypatch.setattr(greenlab_api, "GREENLAB_API_USERNAME", "")
+    with pytest.raises(RuntimeError, match="greenlab_api_credentials_missing"):
+        greenlab_api.fetch_by_date_csv("06M26042804", "2026-07-27", "2026-07-28")

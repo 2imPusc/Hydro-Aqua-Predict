@@ -45,6 +45,28 @@ def fetch_latest_snapshot(station_serial: str) -> pd.DataFrame:
     return pivot[["device", "fetchedAt", *_PARAMS]]
 
 
+_LONG_HEADER = "Date,DeviceSerialNumber,SensorType,Value"
+
+
+def fetch_by_date_csv(station_serial: str, start: str, end: str) -> str:
+    """Long-format CSV for ``start``..``end`` (YYYY-MM-DD) from /Datums/DataByDate.
+
+    Returned as text so the caller can store the provider's bytes unchanged.
+    """
+    if not GREENLAB_API_USERNAME or not GREENLAB_API_PASSWORD:
+        raise RuntimeError("greenlab_api_credentials_missing")
+    response = requests.get(
+        f"{GREENLAB_API_BASE_URL.rstrip('/')}/Datums/DataByDate",
+        params={"DeviceSerialNumber": station_serial, "StartDate": start, "EndDate": end},
+        auth=(GREENLAB_API_USERNAME, GREENLAB_API_PASSWORD), timeout=180,
+    )
+    response.raise_for_status()
+    text = response.text.lstrip("﻿")
+    if not text.startswith(_LONG_HEADER):
+        raise RuntimeError("greenlab_by_date_unexpected_payload")
+    return text
+
+
 def _daily_path(station_serial: str, timestamp: pd.Timestamp) -> Path:
     return GREENLAB_API_CACHE_DIR / station_serial / f"{timestamp.tz_convert('Asia/Ho_Chi_Minh'):%Y%m%d}.jsonl"
 
