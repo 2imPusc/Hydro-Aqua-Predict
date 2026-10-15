@@ -53,7 +53,7 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 136 tests; requires_data ones skip without data/
+.venv\Scripts\python -m pytest -q                       # 161 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
@@ -113,10 +113,14 @@ CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests,
 - **One live station.** Only `06M26042804` (Cát Bà, Hải Phòng; anchor `NB1`) streams
   data. The research map shows 14 historical stations, but all 14 reuse that single
   sensor's readings; only weather differs per point.
-- **COD rail 558.8 = dead sensor**, not pollution. `core/quality.py` flags rail/flatline.
-  Caveat: on 2026-09-20 COD read 189.8, so the sensor may have recovered; re-check (roadmap D0.5).
-- **Sensor history has gaps.** Files end 2026-07-26; research-map Postgres holds only the
-  days its worker ran. `ingest/fetch_api.js by-date` can backfill (roadmap D0.1).
+- **COD sensor is NOT recovered** (station 06M26042804): 05-29→06-06 valid ≈ 10 mg/L; 06-07 drift;
+  06-08→08-12 rail 558.8; 08-13→09-16 stuck at exactly 0.0; 09-17→09-19 in range (24–44);
+  from ≈09-20 to 10-14 rail 558.8 again (the 189.8 on 09-20 was a transition value).
+  `check_series` in `core/quality.py` now also flags a sensor stuck at 0.
+- **Sensor history** is continuous 2026-05-29 → 2026-10-14 (`scripts/backfill_sensor.py`); 16 days are
+  partial because of provider-side gaps (listed in `experiments/RESULTS.md`). HAP-SensorCollector
+  does the daily catch-up. Research-map Postgres holds only the days its worker ran.
+- GreenLab export timestamps (`all_data/`, `intervals/`) are naive local time (`docs/decisions.md` #12).
 - **NH4 unit**: raw NH4 treated as µg/L ×0.001 → mg/L, then Emerson un-ionised fraction
   (pH, Temperature) → NH3. Gated by `NH4_CONVERSION_CONFIRMED`; vendor confirmation
   is still pending, so keep the basis visible in outputs.
