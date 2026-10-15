@@ -8,6 +8,7 @@ Gate: each local day has >= 90 % of 1,440 one-minute readings.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import sys
 from pathlib import Path
 
@@ -24,7 +25,7 @@ LOCAL_TZ = "Asia/Ho_Chi_Minh"
 COLUMNS = ["date", "minutes", "coverage", "meets_gate", "cod_status", "cod_median", "cod_in_range_share", "cod_rail_share"]
 
 
-def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9) -> pd.DataFrame:
+def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9, until: dt.date | None = None) -> pd.DataFrame:
     if history.empty:
         return pd.DataFrame(columns=COLUMNS)
     frame = history.copy()
@@ -39,13 +40,14 @@ def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9) -> pd.DataF
             "minutes": minutes,
             "coverage": round(minutes / MINUTES_PER_DAY, 3),
             "meets_gate": minutes / MINUTES_PER_DAY >= min_fraction,
-            "cod_status": check_series("COD", cod),
+            "cod_status": check_series("COD", cod) if len(cod) else "NO_DATA",
             "cod_median": round(float(cod.median()), 2) if len(cod) else float("nan"),
             "cod_in_range_share": round(float(cod.map(lambda v: is_in_range("COD", v)).mean()), 3) if len(cod) else float("nan"),
             "cod_rail_share": round(float((cod.round(1) == COD_RAIL).mean()), 3) if len(cod) else float("nan"),
         })
     out = pd.DataFrame(rows).set_index("date")
-    all_days = pd.date_range(min(out.index), max(out.index), freq="D").date
+    last_day = max(max(out.index), until) if until is not None else max(out.index)
+    all_days = pd.date_range(min(out.index), last_day, freq="D").date
     out = out.reindex(all_days)
     out["minutes"] = out["minutes"].fillna(0).astype(int)
     out["coverage"] = out["coverage"].fillna(0.0)
@@ -60,12 +62,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--last-days", type=int, help="only judge the last N complete local days")
     parser.add_argument("--no-write", action="store_true")
     args = parser.parse_args(argv)
+    if args.last_days is not None and args.last_days < 1:
+        parser.error("--last-days must be >= 1")
 
-    report = daily_coverage(load_cached_history(args.station))
+    today = pd.Timestamp.now(tz=LOCAL_TZ).date()
+    report = daily_coverage(load_cached_history(args.station), until=today - dt.timedelta(days=1))
     if report.empty:
         print("no sensor history")
         return 1
-    today = pd.Timestamp.now(tz=LOCAL_TZ).date()
     report = report[report["date"] < today]  # today is never complete
     judged = report.tail(args.last_days) if args.last_days else report
 
