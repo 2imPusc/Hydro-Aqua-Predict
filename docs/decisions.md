@@ -53,3 +53,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Kết quả kiểm tra:** so dữ liệu `DataByDate` vừa backfill với cache live (có múi giờ UTC) trên 7 mốc trùng: dịch −7 h khớp tuyệt đối (sai lệch trung vị Temperature/pH/TSS = 0/0/0); 0 h lệch 1.0/0.03/4.65. File `all_data/*_All.csv` khớp với `intervals/` ở 0 h, tức cùng quy ước. Các ngày ở ranh giới file chỉ có 1.020/1.440 phút khi chia theo ngày địa phương.
 - **Quyết định:** giá trị thời gian không có múi giờ trong `all_data/` và `intervals/` (cột `Date` và `fetchedAt`) là giờ Asia/Ho_Chi_Minh; `core.greenlab_api._normalize_export` localize rồi đổi sang UTC. Giá trị đã có múi giờ giữ nguyên.
 - **Hệ quả:** mọi kết quả trước ngày này dựng từ các file export (forecast-v2, weather-risk-pilot, retrospective…) dùng mốc lệch 7 h: ghép thời tiết và đặc trưng giờ trong ngày bị sai; chuỗi gộp với cache live bị lệch giữa hai nguồn. Phải chạy lại trên bản xuất mới (Task 10). `core/forecast_train.py` (mô hình XGBoost cũ) vẫn đọc `all_data` trực tiếp, chưa sửa — việc tiếp theo.
+
+## #11 — 2026-10-15 · Kho lịch sử sensor chuẩn
+
+- **Quyết định:** nguồn chuẩn là các file append-only trong `data/greenlab/exports/` (`all_data/`, `intervals/`, `live-cache/`), gộp bằng `core.greenlab_api.load_cached_history()`. Postgres của research-map chỉ phục vụ bản đồ. Benchmark đọc bản xuất cố định từ `scripts/export_sensor_history.py` (có sha256 trong manifest).
+- **Lý do:** Postgres chỉ có những ngày worker chạy; `DataByDate` lấy lại được mọi ngày.
+- **Hệ quả:** `HAP-SensorCollector` (Task 9) giữ kho này liên tục.
