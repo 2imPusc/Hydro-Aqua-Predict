@@ -87,12 +87,24 @@ def append_snapshot(snapshot: pd.DataFrame) -> None:
                 output.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+_EXPORT_TZ = "Asia/Ho_Chi_Minh"
+
+
+def _export_time(values: pd.Series) -> pd.Series:
+    """GreenLab exports write naive local time (decisions #12); aware values are kept."""
+    parsed = pd.to_datetime(values)
+    if parsed.dt.tz is None:
+        parsed = parsed.dt.tz_localize(_EXPORT_TZ)
+    return parsed.dt.tz_convert("UTC")
+
+
 def _normalize_export(path: Path, station_serial: str) -> pd.DataFrame:
     frame = pd.read_csv(path)
     if {"device", "fetchedAt"}.issubset(frame.columns):
         frame = frame.rename(columns=_ALIASES)
+        frame["fetchedAt"] = _export_time(frame["fetchedAt"])
     elif {"Date", "DeviceSerialNumber", "SensorType", "Value"}.issubset(frame.columns):
-        frame["fetchedAt"] = pd.to_datetime(frame["Date"], utc=True)
+        frame["fetchedAt"] = _export_time(frame["Date"])
         frame["SensorType"] = frame["SensorType"].replace(_ALIASES)
         frame = frame.groupby(["fetchedAt", "DeviceSerialNumber", "SensorType"], as_index=False)["Value"].median().pivot(
             index=["fetchedAt", "DeviceSerialNumber"], columns="SensorType", values="Value"
@@ -101,7 +113,6 @@ def _normalize_export(path: Path, station_serial: str) -> pd.DataFrame:
         return pd.DataFrame()
     frame["device"] = frame["device"].astype(str)
     frame = frame[frame["device"].eq(station_serial)].copy()
-    frame["fetchedAt"] = pd.to_datetime(frame["fetchedAt"], utc=True)
     for param in _PARAMS:
         if param not in frame:
             frame[param] = float("nan")

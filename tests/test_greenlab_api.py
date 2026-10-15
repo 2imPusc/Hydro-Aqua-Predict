@@ -76,3 +76,37 @@ def test_fetch_by_date_csv_requires_credentials(monkeypatch):
     monkeypatch.setattr(greenlab_api, "GREENLAB_API_USERNAME", "")
     with pytest.raises(RuntimeError, match="greenlab_api_credentials_missing"):
         greenlab_api.fetch_by_date_csv("06M26042804", "2026-07-27", "2026-07-28")
+
+
+def test_long_format_date_is_local_time(tmp_path):
+    path = tmp_path / "06M26042804_HAIPHONG_20261008_to_20261008.csv"
+    path.write_text(
+        "Date,DeviceSerialNumber,SensorType,Value,Unit,Status\n"
+        "2026-10-08 15:00,06M26042804,pH,8.0,,Good\n",
+        encoding="utf-8",
+    )
+    frame = greenlab_api._normalize_export(path, "06M26042804")
+    assert frame.iloc[0]["fetchedAt"] == pd.Timestamp("2026-10-08 08:00", tz="UTC")
+
+
+def test_wide_format_naive_fetchedat_is_local_time(tmp_path):
+    path = tmp_path / "06M26042804_HAIPHONG_All.csv"
+    path.write_text(
+        "device,fetchedAt,COD,NH4,TSS,Temp,pH\n"
+        "06M26042804,2026-07-01 15:00,1,2,3,30,8\n",
+        encoding="utf-8",
+    )
+    frame = greenlab_api._normalize_export(path, "06M26042804")
+    assert frame.iloc[0]["fetchedAt"] == pd.Timestamp("2026-07-01 08:00", tz="UTC")
+    assert frame.iloc[0]["Temperature"] == 30
+
+
+def test_wide_format_tz_aware_fetchedat_kept(tmp_path):
+    path = tmp_path / "06M26042804_HAIPHONG_All.csv"
+    path.write_text(
+        "device,fetchedAt,COD,NH4,TSS,Temp,pH\n"
+        "06M26042804,2026-07-26T07:57:22.000Z,1,2,3,30,8\n",
+        encoding="utf-8",
+    )
+    frame = greenlab_api._normalize_export(path, "06M26042804")
+    assert frame.iloc[0]["fetchedAt"] == pd.Timestamp("2026-07-26 07:57:22", tz="UTC")
