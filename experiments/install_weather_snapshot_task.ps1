@@ -28,7 +28,10 @@ $startAt = (Get-Date).AddMinutes(2)
 $trigger = New-ScheduledTaskTrigger -Once -At $startAt -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration (New-TimeSpan -Days 3650)
 # Run on battery too: the B5 study needs an unbroken hourly as-issued record,
 # and the default "no start on batteries" silently queued captures on laptops.
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+# WakeToRun: the laptop sleeps between uses; without it the hourly record has
+# multi-day holes (7-day coverage was ~32% on 2026-10-15). Wake timers must
+# also be enabled in the power plan (see AGENTS.md).
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Minutes 5) -MultipleInstances IgnoreNew -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Description "Append-only as-issued Open-Meteo forecast capture for sensor $Station (research/shadow only)." -Force | Out-Null
 Get-ScheduledTask -TaskName $TaskName | Select-Object TaskName, State, TaskPath
