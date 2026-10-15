@@ -115,8 +115,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("pass --start or --since-last")
 
     results = run_backfill(args.station, args.region, start, end, paths.GREENLAB_INTERVALS_DIR)
-    written = sum(r["status"] == "written" for r in results)
-    print(f"{written} written, {len(results) - written} skipped; range {start} .. {end}")
+    counts = {s: sum(r["status"] == s for r in results) for s in ("written", "exists", "empty")}
+    print(f"{counts['written']} written, {counts['exists']} already present, {counts['empty']} empty; range {start} .. {end}")
+    if counts["empty"]:
+        print("WARNING: empty chunks were not written; check scripts/sensor_coverage.py for gaps")
     return 0
 
 
