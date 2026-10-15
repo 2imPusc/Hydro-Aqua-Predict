@@ -274,9 +274,7 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
                     if feature_set == EXTERNAL_FEATURE_SET:
                         eligible_origins = len(frame.dropna(subset=[c for c in frame if c.startswith("external_")]))
                         if eligible_origins == 0:
-                            import json
-                            Path("artifacts/experiments/weather-risk-pilot/round3/b5_coverage.json").parent.mkdir(parents=True, exist_ok=True)
-                            Path("artifacts/experiments/weather-risk-pilot/round3/b5_coverage.json").write_text(json.dumps({"eligible_origins": 0, "verdict": "insufficient_evidence"}))
+                            (output / "b5_coverage.json").write_text(json.dumps({"eligible_origins": 0, "verdict": "insufficient_evidence"}), encoding="utf-8")
                             # don't run B5 since it's 0 origins
                             frame = pd.DataFrame()
     
