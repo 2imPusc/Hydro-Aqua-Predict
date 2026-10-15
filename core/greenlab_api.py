@@ -51,7 +51,7 @@ _LONG_HEADER = "Date,DeviceSerialNumber,SensorType,Value"
 def fetch_by_date_csv(station_serial: str, start: str, end: str) -> str:
     """Long-format CSV for ``start``..``end`` (YYYY-MM-DD) from /Datums/DataByDate.
 
-    Returned as text so the caller can store the provider's bytes unchanged.
+    Returned as decoded text (UTF-8, BOM stripped) so the caller can store it as-is.
     """
     if not GREENLAB_API_USERNAME or not GREENLAB_API_PASSWORD:
         raise RuntimeError("greenlab_api_credentials_missing")
@@ -61,7 +61,7 @@ def fetch_by_date_csv(station_serial: str, start: str, end: str) -> str:
         auth=(GREENLAB_API_USERNAME, GREENLAB_API_PASSWORD), timeout=180,
     )
     response.raise_for_status()
-    text = response.text.lstrip("﻿")
+    text = response.content.decode("utf-8-sig")
     if not text.startswith(_LONG_HEADER):
         raise RuntimeError("greenlab_by_date_unexpected_payload")
     return text

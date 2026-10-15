@@ -45,7 +45,7 @@ def test_fetch_by_date_csv_requests_range_and_returns_text(monkeypatch):
     seen = {}
 
     class Response:
-        text = "\ufeff" + _LONG_CSV
+        content = ("\ufeff" + _LONG_CSV).encode("utf-8")
         def raise_for_status(self): pass
 
     def fake_get(url, **kwargs):
@@ -63,7 +63,7 @@ def test_fetch_by_date_csv_requests_range_and_returns_text(monkeypatch):
 
 def test_fetch_by_date_csv_rejects_unexpected_payload(monkeypatch):
     class Response:
-        text = "<html>login</html>"
+        content = b"<html>login</html>"
         def raise_for_status(self): pass
 
     _patch_credentials(monkeypatch)
