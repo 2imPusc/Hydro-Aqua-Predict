@@ -82,3 +82,13 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định:** thử một bộ tiêu chí gần bờ bên cạnh bộ của Ghaderi. Ngưỡng phải đặt trước, theo tài liệu và thực tế nuôi lồng ven bờ, **không** chỉnh để khớp với các vùng nuôi OSM dùng làm kiểm chứng.
 - **Hệ quả:** mọi thử nghiệm ghi vào `docs/research-log.md` (nhật ký nghiên cứu, ngắn gọn, đủ thông tin).
 
+## #16 — 2026-10-16 · Gate đánh giá dự báo cho chân trời dài (H1.2)
+
+- **Quyết định:**
+  - Bỏ điều kiện "MASE < 1": MASE chuẩn hóa theo sai số naive 1 bước, nên ở chân trời 720 phút chính persistence cũng có MASE ≈ 12.
+  - Gate mới: thắng persistence ở ≥ 4/5 fold, và kiểm định Diebold–Mariano trên lockbox với loss tuyệt đối, kernel **rectangular**, p < 0.05.
+  - Purge = max(60 phút, chân trời).
+  - Không nhãn nào của fold trượt được chạm vào lockbox.
+- **Lý do:** mô phỏng Monte Carlo cho thấy kernel Bartlett bác bỏ sai giả thuyết đúng tới 8–11 % (danh nghĩa 5 %), theo hướng có lợi cho mô hình. Kernel rectangular cho 5–7 %.
+- **Hệ quả:** kết quả H1.1 (RL-03) dùng purge cũ và fold 5 có nhãn lấn sang lockbox. So với H1.2, các con số 15/30/60 phút có thể lệch nhẹ.
+
