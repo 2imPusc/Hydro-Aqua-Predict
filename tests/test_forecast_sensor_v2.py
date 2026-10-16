@@ -163,3 +163,32 @@ def test_rolling_fold_labels_never_reach_the_lockbox(horizon):
     for train, test in rolling_folds(frame):
         assert test.valid_at.max() < lock_start
         assert train.valid_at.max() < lock_start
+
+
+def test_tide_features_interpolate_and_mask_outside_series():
+    from experiments.forecast_sensor_v2 import tide_features
+
+    tide = pd.DataFrame({"valid_at": pd.to_datetime(["2026-01-01 00:00", "2026-01-01 01:00", "2026-01-01 02:00"], utc=True),
+                         "sea_level_m": [0.0, 1.0, 0.0]})
+    frame = pd.DataFrame({"issued_at": pd.to_datetime(["2026-01-01 01:00", "2026-01-01 01:30"], utc=True),
+                          "valid_at": pd.to_datetime(["2026-01-01 01:30", "2026-01-01 03:00"], utc=True)})
+    out = tide_features(frame, tide)
+    assert out.tide_issue.tolist() == [1.0, 0.5]
+    assert out.tide_valid.iloc[0] == 0.5 and np.isnan(out.tide_valid.iloc[1])
+    assert out.tide_delta.iloc[0] == -0.5
+    assert out.tide_slope_1h.iloc[0] == 1.0
+
+
+def test_b6_tide_runs_and_requires_tide_csv(tmp_path):
+    from experiments.forecast_sensor_v2 import run_benchmark
+
+    path = _synthetic_csv(tmp_path)
+    hours = pd.date_range("2025-12-31", "2026-03-31", freq="h", tz="UTC")
+    tide_csv = tmp_path / "tide.csv"
+    pd.DataFrame({"valid_at": hours, "sea_level_m": np.sin(np.arange(len(hours)) * 2 * np.pi / 24.8)}).to_csv(tide_csv, index=False)
+    common = dict(fast=True, selected_feature_sets=("B4_quality", "B6_tide"), selected_models=("ridge",), selected_targets=("Temperature",), selected_horizons=(60,))
+    with pytest.raises(ValueError, match="tide_feature_set_requires_tide_csv"):
+        run_benchmark(path, "s", tmp_path / "no_tide", **common)
+    run_benchmark(path, "s", tmp_path / "tide", tide_path=tide_csv, **common)
+    metrics = pd.read_csv(tmp_path / "tide" / "metrics_per_fold.csv")
+    assert {"B4_quality", "B6_tide"} <= set(metrics.feature_set)

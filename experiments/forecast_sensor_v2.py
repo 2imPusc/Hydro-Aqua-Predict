@@ -30,7 +30,33 @@ LAGS_MINUTES = (1, 3, 5, 10, 15, 30, 60)
 WINDOWS_MINUTES = (5, 15, 30, 60)
 FEATURE_SETS = ("B0_lags", "B1_calendar", "B2_dynamics", "B3_cross_sensor", "B4_quality")
 EXTERNAL_FEATURE_SET = "B5_external_as_issued"
-AVAILABLE_FEATURE_SETS = FEATURE_SETS + (EXTERNAL_FEATURE_SET,)
+TIDE_FEATURE_SET = "B6_tide"
+AVAILABLE_FEATURE_SETS = FEATURE_SETS + (EXTERNAL_FEATURE_SET, TIDE_FEATURE_SET)
+ADDON_FEATURE_SETS = (EXTERNAL_FEATURE_SET, TIDE_FEATURE_SET)
+
+
+def tide_features(frame: pd.DataFrame, tide: pd.DataFrame) -> pd.DataFrame:
+    """B6: modelled sea level (hourly, interpolated) at issue and valid time.
+
+    The tide at valid_at is a known-in-advance driver (astronomical tide is predictable); the
+    modelled series also carries surge, a small labelled approximation (research-log RL-07).
+    """
+    out = frame.copy()
+    series = tide.dropna(subset=["sea_level_m"]).sort_values("valid_at")
+    x = series["valid_at"].astype("int64").to_numpy() / 1e9
+    y = series["sea_level_m"].to_numpy()
+    def at(times: pd.Series) -> np.ndarray:
+        s = times.astype("int64").to_numpy() / 1e9
+        v = np.interp(s, x, y)
+        return np.where((s < x.min()) | (s > x.max()), np.nan, v)
+    out["tide_issue"] = at(out["issued_at"])
+    out["tide_valid"] = at(out["valid_at"])
+    out["tide_delta"] = out["tide_valid"] - out["tide_issue"]
+    out["tide_slope_1h"] = out["tide_issue"] - at(out["issued_at"] - pd.Timedelta(hours=1))
+    return out
+
+
+TIDE_COLUMNS = ("tide_issue", "tide_valid", "tide_delta", "tide_slope_1h")
 TOLERANCE = pd.Timedelta(minutes=2)
 PURGE = pd.Timedelta(minutes=60)
 LOCKBOX_DAYS = 14
@@ -293,7 +319,7 @@ def feature_subset(all_features: list[str], target: str, feature_set: str) -> li
     return [name for name in groups[feature_set] if name in all_features]
 
 
-def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path | None = None, *, write_predictions: bool = False, fast: bool = False, selected_feature_sets: tuple[str, ...] | None = None, selected_models: tuple[str, ...] | None = None, selected_targets: tuple[str, ...] | None = None, selected_horizons: tuple[int, ...] | None = None, prediction_models: tuple[str, ...] | None = None, prediction_feature_sets: tuple[str, ...] | None = None) -> dict:
+def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path | None = None, *, write_predictions: bool = False, fast: bool = False, selected_feature_sets: tuple[str, ...] | None = None, selected_models: tuple[str, ...] | None = None, selected_targets: tuple[str, ...] | None = None, selected_horizons: tuple[int, ...] | None = None, prediction_models: tuple[str, ...] | None = None, prediction_feature_sets: tuple[str, ...] | None = None, tide_path: Path | None = None) -> dict:
     raw = load_sensor_data(path, station)
     output.mkdir(parents=True, exist_ok=True)
     all_predictions, summary = [], []
@@ -319,14 +345,23 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
         snapshots = read_snapshots(snapshots_path)
     if EXTERNAL_FEATURE_SET in feature_sets and (snapshots is None or snapshots.empty):
         raise ValueError("external_snapshot_feature_set_requires_snapshots")
+    tide = None
+    if TIDE_FEATURE_SET in feature_sets:
+        if tide_path is None:
+            raise ValueError("tide_feature_set_requires_tide_csv")
+        tide = pd.read_csv(tide_path)
+        tide["valid_at"] = pd.to_datetime(tide["valid_at"], utc=True)
     for target in targets:
         for horizon in horizons:
-            base_feature_sets = [value for value in feature_sets if value != EXTERNAL_FEATURE_SET]
+            base_feature_sets = [value for value in feature_sets if value not in ADDON_FEATURE_SETS]
             build_level = max(base_feature_sets, key=FEATURE_SETS.index) if base_feature_sets else "B4_quality"
             full_frame, all_features = build_frame(raw, target, horizon, build_level, station=station)
             for feature_set in feature_sets:
                 frame = full_frame.copy()
-                features = feature_subset(all_features, target, build_level if feature_set == EXTERNAL_FEATURE_SET else feature_set)
+                features = feature_subset(all_features, target, build_level if feature_set in ADDON_FEATURE_SETS else feature_set)
+                if feature_set == TIDE_FEATURE_SET:
+                    frame = tide_features(frame, tide).dropna(subset=list(TIDE_COLUMNS))
+                    features += list(TIDE_COLUMNS)
                 if feature_set == EXTERNAL_FEATURE_SET and snapshots is not None:
                     frame = join_as_issued(frame, snapshots, prefix="external")
                     if feature_set == EXTERNAL_FEATURE_SET:
@@ -379,15 +414,15 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
     if not predictions.empty:
         strata = predictions.groupby(["split", "target", "horizon_minutes", "feature_set", "model", "gap", "night"], dropna=False, observed=True).agg(n=("actual", "size"), mae=("absolute_error", "mean"), p95_ae=("absolute_error", lambda x: x.quantile(.95))).reset_index()
         strata.to_csv(output / "metrics_strata.csv", index=False)
-    manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "prediction_feature_sets": sorted(prediction_feature_keep), "predictions_format": "parquet", "external_snapshots": None if snapshots_path is None else str(snapshots_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "effective_purge_minutes": {str(h): int(effective_purge(h).total_seconds() / 60) for h in horizons}, "purge_rule": "train valid_at < test_start - max(purge_minutes, horizon)", "synthetic_data_policy": "rejected", "runtime_changed": False}
+    manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "prediction_feature_sets": sorted(prediction_feature_keep), "predictions_format": "parquet", "external_snapshots": None if snapshots_path is None else str(snapshots_path), "tide": None if tide_path is None else str(tide_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "effective_purge_minutes": {str(h): int(effective_purge(h).total_seconds() / 60) for h in horizons}, "purge_rule": "train valid_at < test_start - max(purge_minutes, horizon)", "synthetic_data_policy": "rejected", "runtime_changed": False}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     return manifest
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("csv", type=Path); parser.add_argument("--station", required=True); parser.add_argument("--output", type=Path, required=True); parser.add_argument("--snapshots", type=Path); parser.add_argument("--write-predictions", action="store_true"); parser.add_argument("--fast", action="store_true", help="research preset: 60 ExtraTrees / 40 XGBoost estimators"); parser.add_argument("--feature-set", choices=AVAILABLE_FEATURE_SETS, action="append"); parser.add_argument("--model", choices=("ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--target", choices=TARGETS, action="append"); parser.add_argument("--horizon", choices=HORIZONS, type=int, action="append"); parser.add_argument("--prediction-model", choices=MODEL_NAMES, action="append"); parser.add_argument("--prediction-feature-set", choices=AVAILABLE_FEATURE_SETS, action="append", help="keep predictions only for these feature sets (default: all)")
-    args = parser.parse_args(); print(json.dumps(run_benchmark(args.csv, args.station, args.output, args.snapshots, write_predictions=args.write_predictions, fast=args.fast, selected_feature_sets=tuple(args.feature_set) if args.feature_set else None, selected_models=tuple(args.model) if args.model else None, selected_targets=tuple(args.target) if args.target else None, selected_horizons=tuple(args.horizon) if args.horizon else None, prediction_models=tuple(args.prediction_model) if args.prediction_model else None, prediction_feature_sets=tuple(args.prediction_feature_set) if args.prediction_feature_set else None), indent=2))
+    parser.add_argument("csv", type=Path); parser.add_argument("--station", required=True); parser.add_argument("--output", type=Path, required=True); parser.add_argument("--snapshots", type=Path); parser.add_argument("--tide", type=Path, help="CSV valid_at,sea_level_m for B6_tide"); parser.add_argument("--write-predictions", action="store_true"); parser.add_argument("--fast", action="store_true", help="research preset: 60 ExtraTrees / 40 XGBoost estimators"); parser.add_argument("--feature-set", choices=AVAILABLE_FEATURE_SETS, action="append"); parser.add_argument("--model", choices=("ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--target", choices=TARGETS, action="append"); parser.add_argument("--horizon", choices=HORIZONS, type=int, action="append"); parser.add_argument("--prediction-model", choices=MODEL_NAMES, action="append"); parser.add_argument("--prediction-feature-set", choices=AVAILABLE_FEATURE_SETS, action="append", help="keep predictions only for these feature sets (default: all)")
+    args = parser.parse_args(); print(json.dumps(run_benchmark(args.csv, args.station, args.output, args.snapshots, write_predictions=args.write_predictions, fast=args.fast, selected_feature_sets=tuple(args.feature_set) if args.feature_set else None, selected_models=tuple(args.model) if args.model else None, selected_targets=tuple(args.target) if args.target else None, selected_horizons=tuple(args.horizon) if args.horizon else None, prediction_models=tuple(args.prediction_model) if args.prediction_model else None, prediction_feature_sets=tuple(args.prediction_feature_set) if args.prediction_feature_set else None, tide_path=args.tide), indent=2))
 
 
 if __name__ == "__main__":
