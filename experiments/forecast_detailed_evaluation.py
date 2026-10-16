@@ -28,6 +28,8 @@ def _metrics(frame: pd.DataFrame) -> dict[str, float | int]:
 def evaluate(predictions: Path, output: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
     if Path(predictions).suffix == ".parquet":
         data = pd.read_parquet(predictions)
+        # Label columns are stored as categoricals; plain strings keep groupby semantics.
+        data = data.astype({column: object for column in data.select_dtypes("category").columns})
     else:
         data = pd.read_csv(predictions, parse_dates=["issued_at", "valid_at"], low_memory=False)
     data = data[data["split"] == "lockbox"].copy()

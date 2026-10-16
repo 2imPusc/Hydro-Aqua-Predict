@@ -88,11 +88,11 @@ def dm_table(predictions: pd.DataFrame, *, loss: str = "abs", alpha: float = 0.0
     lockbox["error"] = lockbox["prediction"] - lockbox["actual"]
     key = ["target", "horizon_minutes", "feature_set"]
     rows = []
-    for values, group in lockbox.groupby(key, sort=True):
+    for values, group in lockbox.groupby(key, sort=True, observed=True):
         persistence = group[group["model"].eq("persistence")][["issued_at", "error"]]
         if persistence.empty:
             continue
-        for model, candidate in group[~group["model"].eq("persistence")].groupby("model", sort=True):
+        for model, candidate in group[~group["model"].eq("persistence")].groupby("model", sort=True, observed=True):
             paired = candidate[["issued_at", "error"]].merge(persistence, on="issued_at", suffixes=("_model", "_base"), validate="one_to_one").sort_values("issued_at")
             paired = paired.dropna(subset=["error_model", "error_base"])
             horizon = int(values[1])

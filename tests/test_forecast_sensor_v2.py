@@ -68,8 +68,12 @@ def test_vectorised_prediction_block_matches_per_row_logic():
     assert "actual_at" not in blocks[1].columns
     actual = pd.concat(blocks, ignore_index=True)
     assert list(actual.columns) == list(expected.columns)
-    pd.testing.assert_frame_equal(actual, expected, check_dtype=False)
+    labels = {column: object for column in ("split", "target", "feature_set", "model")}
+    pd.testing.assert_frame_equal(actual.astype(labels), expected, check_dtype=False)
     assert actual["gap"].dtype == bool
+    # Fixed categorical dtypes survive concat, keeping ~60 bytes per row.
+    for column in ("split", "target", "feature_set", "model"):
+        assert isinstance(actual[column].dtype, pd.CategoricalDtype), column
     assert actual["night"].isin([0, 1]).all()
 
 
@@ -99,6 +103,7 @@ def test_predictions_written_as_parquet_and_metrics_unchanged(tmp_path):
     assert predictions[predictions.split.eq("rolling")]["actual_at"].notna().all()
     # metrics_strata still derives from the prediction rows.
     strata = pd.read_csv(tmp_path / "with" / "metrics_strata.csv")
+    assert (strata["n"] > 0).all()
     lock_ridge = lockbox[lockbox.model.eq("ridge")]
     lock_metric = with_metrics[with_metrics.split.eq("lockbox") & with_metrics.model.eq("ridge") & with_metrics.feature_set.eq("B0_lags")].iloc[0]
     assert lock_ridge["absolute_error"].mean() == pytest.approx(lock_metric.mae)
