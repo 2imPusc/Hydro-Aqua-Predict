@@ -65,3 +65,20 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định của chủ dự án:** mạch chính 1 → 2. Hướng 3 chạy song song để lấp khoảng chờ dữ liệu của hướng 2. Hướng 4 chỉ làm sớm H4.1 (sửa HSI rò rỉ) và H4.2 (interface); H4.3–H4.5 chờ verdict B5 (H2.2) và một điểm đo đối chứng.
 - **Lý do:** hướng 2 bị giới hạn bởi lịch (cần ~63 ngày bản tin as-issued liên tục, không backfill được). Hướng 4 có mức sẵn sàng thấp, phụ thuộc kết quả hướng 2 và phần cứng (chỉ 1 sensor). Hướng 3 đã có dữ liệu quan trắc và có phương pháp tham khảo (Ghaderi 2026).
 - **Hệ quả:** cập nhật bảng ưu tiên trong `roadmap.md`. Kế hoạch: `docs/superpowers/plans/2026-10-15-master-execution-plan.md`. Ghi chú: mục #10 được ghi sau #11, #12 vì chờ chủ dự án xác nhận.
+
+## #13 — 2026-10-16 · Cho phép bản tin dựng lại (`reconstructed_run`) cho phân tích sơ bộ
+
+- **Quyết định của chủ dự án:** dùng bản tin lưu trữ của Open-Meteo (Previous Runs API) để chạy B5 và các thử nghiệm thời tiết của hướng 1 ngay, không chờ đủ 63 ngày `captured_live`.
+- **Điều kiện:** gắn nhãn `reconstructed_run` và không bao giờ trộn với `captured_live`. Bản tin "phát hành trước N ngày" chỉ coi là có sẵn sau mốc run + độ trễ an toàn (mặc định 12 h). Kết luận chỉ là sơ bộ; kết luận chính thức vẫn dùng `captured_live`.
+- **Lý do:** kho lưu trữ có đủ 100 % số giờ cho 2026-07-26 → 2026-10-14 tại NB1 (đã kiểm tra), tức ~80 ngày origin có sẵn ngay.
+
+## #14 — 2026-10-16 · Dữ liệu thử nghiệm hướng 4: NERRS Jobos Bay (chính), HK EPD (phụ)
+
+- **Quyết định:** thử phương pháp bản đồ tin cậy trên NERRS Jobos Bay (Puerto Rico, 18°N; 4 trạm chất lượng nước 15 phút, cách trạm khí tượng 1.8–4.2 km). Trước mắt dùng bản lưu trữ NCEI 1995–2011; dữ liệu gần đây sẽ lấy qua form CDMO khi chủ dự án đăng ký xong. HK EPD (94 trạm, đo hằng tháng, cùng bộ chỉ số với HP/QN) là bộ phụ cho phần suy giảm theo khoảng cách và kiểm chứng hướng 3. USGS là dự phòng.
+- **Lưu ý:** chỉ chuyển phương pháp và gate, không chuyển con số. Áp dụng ở VN vẫn cần ≥ 1 điểm đo đối chứng (H4.4).
+
+## #15 — 2026-10-16 · Thử hiệu chỉnh tiêu chí phù hợp cho lồng gần bờ (hướng 3)
+
+- **Quyết định:** thử một bộ tiêu chí gần bờ bên cạnh bộ của Ghaderi. Ngưỡng phải đặt trước, theo tài liệu và thực tế nuôi lồng ven bờ, **không** chỉnh để khớp với các vùng nuôi OSM dùng làm kiểm chứng.
+- **Hệ quả:** mọi thử nghiệm ghi vào `docs/research-log.md` (nhật ký nghiên cứu, ngắn gọn, đủ thông tin).
+
