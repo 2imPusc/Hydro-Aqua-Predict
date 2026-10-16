@@ -59,3 +59,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Kết quả kiểm tra:** so dữ liệu `DataByDate` vừa backfill với cache live (có múi giờ UTC) trên 7 mốc trùng: dịch −7 h khớp tuyệt đối (sai lệch trung vị Temperature/pH/TSS = 0/0/0); 0 h lệch 1.0/0.03/4.65. File `all_data/*_All.csv` khớp với `intervals/` ở 0 h, tức cùng quy ước. Các ngày ở ranh giới file chỉ có 1.020/1.440 phút khi chia theo ngày địa phương.
 - **Quyết định:** giá trị thời gian không có múi giờ trong `all_data/` và `intervals/` (cột `Date` và `fetchedAt`) là giờ Asia/Ho_Chi_Minh; `core.greenlab_api._normalize_export` localize rồi đổi sang UTC. Giá trị đã có múi giờ giữ nguyên.
 - **Hệ quả:** mọi kết quả trước ngày này dựng từ các file export (forecast-v2, weather-risk-pilot, retrospective…) dùng mốc lệch 7 h: ghép thời tiết và đặc trưng giờ trong ngày bị sai; chuỗi gộp với cache live bị lệch giữa hai nguồn. Phải chạy lại trên bản xuất mới (Task 10). `core/forecast_train.py` (mô hình XGBoost cũ) vẫn đọc `all_data` trực tiếp, chưa sửa — việc tiếp theo.
+
+## #10 — 2026-10-16 · Thứ tự ưu tiên 1 → 2 ‖ 3 → 4 (thay thế #8)
+
+- **Quyết định của chủ dự án:** mạch chính 1 → 2. Hướng 3 chạy song song để lấp khoảng chờ dữ liệu của hướng 2. Hướng 4 chỉ làm sớm H4.1 (sửa HSI rò rỉ) và H4.2 (interface); H4.3–H4.5 chờ verdict B5 (H2.2) và một điểm đo đối chứng.
+- **Lý do:** hướng 2 bị giới hạn bởi lịch (cần ~63 ngày bản tin as-issued liên tục, không backfill được). Hướng 4 có mức sẵn sàng thấp, phụ thuộc kết quả hướng 2 và phần cứng (chỉ 1 sensor). Hướng 3 đã có dữ liệu quan trắc và có phương pháp tham khảo (Ghaderi 2026).
+- **Hệ quả:** cập nhật bảng ưu tiên trong `roadmap.md`. Kế hoạch: `docs/superpowers/plans/2026-10-15-master-execution-plan.md`. Ghi chú: mục #10 được ghi sau #11, #12 vì chờ chủ dự án xác nhận.

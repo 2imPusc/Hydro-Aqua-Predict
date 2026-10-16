@@ -1,16 +1,16 @@
 # Lộ trình phát triển Hydro-Aqua-Predict
 
-**Cập nhật:** 2026-10-10. **Nguồn:** slide seminar 10/2026 (slide 17/20 "Bốn hướng phát triển"), quyết định thứ tự của chủ dự án.
+**Cập nhật:** 2026-10-16. **Nguồn:** slide seminar 10/2026 (slide 17/20 "Bốn hướng phát triển"), quyết định thứ tự của chủ dự án.
 
-**Thứ tự ưu tiên đã chốt: 1 → 2 → 4 → 3.**
-Trên slide đề xuất làm 3 song song và 4 sau 3. Chủ dự án chọn làm 4 trước 3; các điểm phụ thuộc phát sinh từ lựa chọn này ghi ở mục Hướng 4.
+**Thứ tự ưu tiên đã chốt: 1 → 2 ‖ 3 → 4** (decisions #10, thay thế #8).
+Hướng 3 chạy song song trong lúc hướng 2 chờ đủ chuỗi bản tin. Hướng 4 chỉ làm sớm H4.1 và H4.2; phần còn lại chờ gate.
 
 | # | Hướng | Mức sẵn sàng (slide) | Ưu tiên |
 | --- | --- | --- | --- |
 | 1 | Dự báo sâu hơn các chỉ số tương lai | Cao | **1** |
 | 2 | Cảnh báo kết hợp thời tiết tại điểm nuôi | Trung bình | **2** |
-| 4 | Bản đồ tin cậy nuôi trồng có yếu tố thời tiết | Thấp | **3** |
-| 3 | Bản đồ phân vùng tiềm năng nuôi trồng | Trung bình | **4** |
+| 3 | Bản đồ phân vùng tiềm năng nuôi trồng | Trung bình | **3** (song song) |
+| 4 | Bản đồ tin cậy nuôi trồng có yếu tố thời tiết | Thấp | **4** (H4.1–H4.2 sớm) |
 
 ## Nguyên tắc chung (áp dụng cho mọi hướng)
 
