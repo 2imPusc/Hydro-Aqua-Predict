@@ -177,3 +177,30 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - H4.4 (điểm đối chứng tại VN) cần: một điểm thứ hai cùng vùng nước và cùng độ sâu với NB1, cộng một điểm khác vùng; Temp/Sal/DO/pH theo giờ; mưa và gió đo tại chỗ; ≥ 30 ngày mỗi tầng, gồm một mùa mưa; GPS có nguồn rõ; độ chính xác sensor.
   - Thêm pha triều làm tầng phân tích.
   - Chạy cùng phương pháp trên HK EPD (94 trạm) với cách phân vùng theo vùng kiểm soát nước.
+
+## RL-13 · 2026-10-16 · pH trôi từ 19/09 và sai số nhiệt độ tăng từ 04/10 (xem lại RL-08, RL-09 phần pH)
+
+- **Câu hỏi:** pH 5.94 ngày 07/10 có thật không? Vì sao sai số dự báo nhiệt độ và độ phủ conformal xấu đi từ ~04/10?
+- **Thiết lập:** lịch sử sensor, dự báo H1.2, độ phủ H1.3, bản tin dựng lại, mực nước. Chia 4 giai đoạn: 27/08–16/09, 17–30/09, 01–04/10, 05–14/10. Phân tích chỉ đọc dữ liệu.
+- **Kết quả, pH:**
+  - Đến 18/09: 7.4–8.2 mỗi ngày (trung vị tháng 8 = 7.94), chưa ngày nào < 7. Từ 19/09: trung vị ~6.9–7.0 (tháng 10 = 6.94); 15.958 phút < 7.0 trên 22 ngày; 48 phút < 6.0, đều ngày 07/10.
+  - Ngày 07/10 không mưa, trời quang, TSS phẳng. Chu kỳ ngày–đêm đảo ngược: tương quan pH–nhiệt độ từ +0.71 (mùa hè) còn −0.05.
+  - COD và NH4 nhảy bậc chiều 16/09 → nghi có sự cố hoặc bảo dưỡng đầu dò.
+  - Bộ lọc 6.0–9.5 hiện tại chỉ loại 48 phút.
+- **Kết quả, nhiệt độ:**
+  - Sai số tăng do **biên độ ngày–đêm tăng**: biên độ nước trung bình 3.0 → 4.6 → 5.3 °C, trời quang, gió nhẹ sau front lạnh 05/10. Không phải do lệch hệ thống hay thủy triều.
+  - Tương quan sai số theo ngày: với biên độ nước +0.75; với mây −0.48; với biên độ triều +0.03.
+  - Persistence: MAE 6 h tăng từ 0.93 lên 1.80. Ridge: sai số chủ yếu là phương sai (bias² < 2.5 % MSE). XGBoost lệch dương +0.5…+1.9 °C (kéo về mức nhiệt mùa hè).
+  - Chuẩn hóa conformal theo biên độ nhiệt 24 h đưa độ phủ PI80 ngày 05–14/10 từ 0.44–0.66 lên 0.73–0.83 (khoảng rộng hơn 1.4–1.6×). Đây mới là thử một lần, chưa phải quy trình online.
+  - B5 (thời tiết) giảm MAE 6 h của ridge 8.9 % (tháng 9) và 12.6 % (tháng 10), thắng ở mọi ngày lockbox.
+- **Kết luận:**
+  - **Dữ liệu pH từ 19/09 không đáng tin.** Lockbox pH nằm trọn trong giai đoạn này, nên các kết luận về pH ở RL-08 (đạt gate, thủy triều giúp) và RL-09 (độ phủ PI pH) **chưa có giá trị** cho đến khi đánh giá lại trên dữ liệu trước trôi.
+  - Kết luận về nhiệt độ vẫn giữ.
+  - H1.5 đã được chỉnh: pH chỉ huấn luyện trên dữ liệu ≤ 18/09; bản ghi gắn nhãn khi pH ngoài 7.0–8.6.
+- **Artifact:** chỉ có script tạm trong scratchpad.
+- **Tiếp theo:**
+  - Thêm vào `core.quality`: dải pH nước biển 7.0–8.6 (SUSPECT) và luật |ΔpH 60 phút| > 0.5.
+  - Đánh giá lại pH trên giai đoạn 29/05–18/09.
+  - Đưa chuẩn hóa theo biên độ nhiệt vào ACI-scaled.
+  - Bỏ XGBoost cho nhiệt độ, hoặc chuyển sang dự báo độ chênh.
+  - Xin nhật ký bảo dưỡng cảm biến quanh 16–19/09.
