@@ -140,3 +140,115 @@ def test_delay_scaled_step_avoids_infinite_intervals_under_long_feedback_delay()
     q_scaled, _ = aci_intervals(cal, issued.to_numpy(), known.to_numpy(), residual, 0.2, 0.005 * 15 / delay)
     assert np.isinf(q_fixed).mean() > 0.05
     assert np.isinf(q_scaled).mean() < 0.05
+
+
+# --- A4: amplitude-aware intervals (aci_amp) ---------------------------------
+
+
+def test_trailing_amplitude_is_causal():
+    from experiments.forecast_conformal import trailing_amplitude
+
+    times = T0 + pd.to_timedelta(np.arange(3000), unit="min")
+    values = np.sin(np.arange(3000) / 200.0)
+    series = pd.Series(values, index=times)
+    spiked = series.copy()
+    spiked.iloc[2001:] += 50.0  # everything after minute 2000 changes
+    at = times[[1600, 1800, 2000, 2001, 2500]]
+    base = trailing_amplitude(series, at, window="24h", kind="range", min_count=10)
+    leak = trailing_amplitude(spiked, at, window="24h", kind="range", min_count=10)
+    np.testing.assert_array_equal(base[:3], leak[:3])  # amplitude at t ignores data after t
+    assert leak[3] > base[3] + 40  # an observation at exactly t is usable at t
+    # query between observations uses only the past
+    mid = pd.DatetimeIndex([times[2000] + pd.Timedelta(seconds=30)])
+    assert trailing_amplitude(spiked, mid, "24h", "range", 10)[0] == base[2]
+    std = trailing_amplitude(series, at, window="24h", kind="std", min_count=10)
+    assert np.all(std > 0) and np.all(std < base)
+
+
+def test_trailing_amplitude_nan_when_window_too_sparse():
+    from experiments.forecast_conformal import trailing_amplitude
+
+    times = T0 + pd.to_timedelta(np.arange(100), unit="min")
+    series = pd.Series(np.arange(100.0), index=times)
+    out = trailing_amplitude(series, times[[5, 99]], "24h", "range", min_count=50)
+    assert np.isnan(out[0]) and out[1] == 99.0
+    before = trailing_amplitude(series, pd.DatetimeIndex([T0 - pd.Timedelta(minutes=1)]), "24h", "range", 1)
+    assert np.isnan(before[0])
+
+
+def test_observed_series_comes_from_persistence_rows_only():
+    from experiments.forecast_conformal import observed_series
+
+    df = pd.DataFrame(
+        {
+            "model": ["persistence", "persistence", "ridge", "persistence"],
+            "issued_at": pd.to_datetime(["2026-09-01 00:00", "2026-09-01 00:01", "2026-09-01 00:02", "2026-09-01 00:01"], utc=True),
+            "prediction": [1.0, 2.0, 99.0, 2.0],
+        }
+    )
+    s = observed_series(df)
+    assert list(s.to_numpy()) == [1.0, 2.0]
+    assert s.index.is_monotonic_increasing
+
+
+def _hetero_frame(n, split, fold, start, rng, amp_of_minute):
+    """Series with diurnal amplitude A(t); residuals scale with A at issue time."""
+    minutes = np.arange(n)
+    issued = start + pd.to_timedelta(minutes, unit="min")
+    amp = amp_of_minute(issued)
+    level = 0.5 * amp * np.sin(2 * np.pi * (issued.hour * 60 + issued.minute).to_numpy() / 1440.0)
+    resid = rng.normal(0, 0.3, n) * amp
+    common = {
+        "split": split, "fold": fold, "target": "Temperature", "horizon_minutes": 15,
+        "feature_set": "B4_quality", "issued_at": issued, "valid_at": issued + pd.Timedelta(minutes=15),
+        "actual_at": issued + pd.Timedelta(minutes=15), "night": 0, "gap": False,
+    }
+    ridge = pd.DataFrame({**common, "model": "ridge", "prediction": level, "actual": level + resid})
+    pers = pd.DataFrame({**common, "model": "persistence", "prediction": level, "actual": level + resid})
+    return pd.concat([ridge, pers], ignore_index=True)
+
+
+def test_aci_amp_tracks_amplitude_regime_where_static_undercovers():
+    rng = np.random.default_rng(7)
+    switch = T0 + pd.Timedelta(days=30)
+
+    def amp(issued):
+        return np.where(issued < switch, 1.0, 3.0)
+
+    cal = pd.concat(
+        [_hetero_frame(3 * 1440, "rolling", f, T0 + pd.Timedelta(days=12 + 3 * f), rng, amp) for f in (1, 2, 3)]
+    )
+    lock = _hetero_frame(18 * 1440, "lockbox", 0, T0 + pd.Timedelta(days=24), rng, amp)
+    df = pd.concat([cal, lock], ignore_index=True)
+    coverage, _, info = evaluate_target(df, alphas=(0.2,), k_folds=3, gamma=0.005, late_start=switch)
+    ridge = coverage[coverage.model == "ridge"].set_index("method")
+    assert {"aci_amp", "static_amp", "aci_amp_std", "aci_amp_72h"} <= set(ridge.index)
+    assert ridge.loc["static", "coverage_late"] < 0.6  # calibrated on amplitude 1
+    assert abs(ridge.loc["aci_amp", "coverage_late"] - 0.8) < 0.04
+    assert abs(ridge.loc["aci_amp", "coverage_early"] - 0.8) < 0.04
+    assert ridge.loc["aci_amp", "mean_width_late"] > 2 * ridge.loc["aci_amp", "mean_width_early"]
+    for col in ("winkler", "winkler_late", "coverage_oct", "mean_width_oct"):
+        assert col in ridge.columns
+    assert info["amplitude"]["calibration_rows_dropped_no_amplitude"] >= 0
+
+
+def test_winkler_score_symmetric():
+    from experiments.forecast_conformal import winkler_score
+
+    resid = np.array([0.5, 1.0, 3.0])
+    q = np.array([1.0, 1.0, 1.0])
+    # widths 2 each; third row misses by 2 -> penalty 2/alpha*2 = 20 at alpha 0.2
+    np.testing.assert_allclose(winkler_score(resid, q, 0.2), [2.0, 2.0, 22.0])
+
+
+def test_calibration_rows_without_amplitude_are_dropped_and_counted():
+    rng = np.random.default_rng(11)
+    amp = lambda issued: np.ones(len(issued))  # noqa: E731
+    cal = pd.concat([_hetero_frame(1440, "rolling", f, T0 + pd.Timedelta(days=f - 1), rng, amp) for f in (1, 2, 3)])
+    lock = _hetero_frame(1440, "lockbox", 0, T0 + pd.Timedelta(days=3), rng, amp)
+    df = pd.concat([cal, lock], ignore_index=True)
+    _, _, info = evaluate_target(df, alphas=(0.2,), k_folds=3, gamma=0.005)
+    # 24 h window needs >= 720 points: the first 719 minutes of history have no
+    # amplitude (counted over both models' calibration rows)
+    dropped = info["amplitude"]["calibration_rows_dropped_no_amplitude"]
+    assert dropped == 2 * 719
