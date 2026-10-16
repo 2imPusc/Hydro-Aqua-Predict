@@ -147,3 +147,33 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết luận:** dữ liệu Hong Kong sẵn sàng (trạm cho hướng 4; vùng nuôi cá làm tập kiểm chứng ngoài cho hướng 3). Việt Nam chưa có kiểm chứng độc lập.
 - **Artifact:** `data/foreign/hk_epd/stations.csv`, `fish_culture_zones.csv`, `data/suitability/validation/SOURCES.md`.
 - **Tiếp theo:** xin phụ lục tọa độ từ Sở NN&MT Quảng Ninh và Chi cục Thủy sản Hải Phòng; chạy bộ tiêu chí phù hợp trên Hong Kong và kiểm chứng bằng 28 vùng nuôi cá.
+
+## RL-12 · 2026-10-16 · Thử phương pháp hướng 4 trên NERRS Jobos Bay
+
+- **Câu hỏi:** dùng dữ liệu của một trạm neo cho một vị trí khác cách 1–5 km thì sai số thế nào, gate 80/90/95 có đạt không, và thời tiết có làm độ tin cậy giảm không? (decisions #14)
+- **Thiết lập:**
+  - Dữ liệu: NERRS Jobos (NCEI), 4 trạm cách nhau 1.0–5.0 km. Trạm 09, 10 trong đầm rừng ngập mặn sâu 1 m; trạm 19, 20 trong vịnh hở trên thảm cỏ biển sâu 2 m.
+  - Chỉ giữ giá trị có cờ tốt `<0>`: chất lượng nước 2007 → 2011-07, khí tượng 2007–2010. Trung bình theo giờ.
+  - Dung sai: Temp 0.5 °C, Sal 1 psu, DO 0.5 mg/L, pH 0.2 (bằng độ chính xác sensor), Turb max(2 NTU, 20 %).
+  - Hai cách chuyển giá trị: (a) lấy nguyên giá trị trạm neo; (b) ánh xạ tuyến tính fit trên 30 ngày quá khứ.
+  - Phân tầng: mưa 6 h/24 h trước đó, gió, ngày/đêm, mùa.
+  - Gate: cận dưới bootstrap theo ngày ≥ ngưỡng, và ≥ 30 ngày.
+- **Kết quả:**
+  - Lấy nguyên giá trị: không đạt ô nào (0/936). Tỷ lệ giờ trong dung sai: Temp 0.30–0.68, DO 0.07–0.32, pH 0.15–0.54.
+  - **Loại môi trường quan trọng hơn khoảng cách:** cặp 09↔19 cách 1.0 km nhưng khác loại có Temp 0.30; cặp 19↔20 cách 2.3 km, cùng loại, có Temp 0.68. Trung bình cùng loại so với khác loại: Temp 0.54/0.35, pH 0.54/0.27.
+  - Ánh xạ hiệu chỉnh: chỉ pH ±0.2 đạt 80 % (5/12 cặp) và 90 % (2 cặp); pH ±0.1 trượt hết; Temp, Sal, DO, Turb đều dưới 0.80.
+  - **Mưa ≥ 10 mm trong 24 h làm ánh xạ hiệu chỉnh kém đi:** 43/60 ô, Δ = −0.11 (Sal −0.21, Temp −0.14); vẫn còn −0.10 khi chỉ xét mùa mưa. Với cách lấy nguyên giá trị, tác động của mưa chủ yếu do trùng mùa. Gió không có tác động phát hiện được, nhưng tầng "gió mạnh" chỉ > 1.5 m/s, không phải gió bão.
+- **Kết luận:**
+  - Bản đồ tin cậy phải tách theo vùng nước hoặc loại môi trường trước, rồi mới xét khoảng cách.
+  - Chỉ chuyển được giá trị khi có điểm đối chứng để hiệu chỉnh, và nên hạ mức tin cậy sau mưa lớn.
+  - Phần dùng được cho Việt Nam: gate theo cờ chất lượng; gate bằng bootstrap theo ngày; dung sai không dưới độ chính xác sensor; báo cáo theo tầng mưa và tách mùa.
+  - Phần không dùng được: Jobos triều nhỏ (~0.3 m) còn Cát Bà triều lớn; vùng nông khác lồng nuôi; không có NH3/TSS.
+- **Hạn chế:**
+  - Tọa độ trạm nhất quán nhưng chỉ trạm 19 khớp khoảng cách ghi trong metadata.
+  - CI bootstrap theo ngày là cận dưới của độ bất định.
+  - Cột năm trong `nutrients_summary.csv` của artifact bị lệch so với code đã commit (chạy lại sẽ ra 2007–2010).
+- **Artifact:** `nerrs-h4-pilot-20261016/`; commit 20fa8e7.
+- **Tiếp theo:**
+  - H4.4 (điểm đối chứng tại VN) cần: một điểm thứ hai cùng vùng nước và cùng độ sâu với NB1, cộng một điểm khác vùng; Temp/Sal/DO/pH theo giờ; mưa và gió đo tại chỗ; ≥ 30 ngày mỗi tầng, gồm một mùa mưa; GPS có nguồn rõ; độ chính xác sensor.
+  - Thêm pha triều làm tầng phân tích.
+  - Chạy cùng phương pháp trên HK EPD (94 trạm) với cách phân vùng theo vùng kiểm soát nước.
