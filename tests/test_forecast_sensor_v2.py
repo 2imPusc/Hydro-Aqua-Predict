@@ -192,3 +192,51 @@ def test_b6_tide_runs_and_requires_tide_csv(tmp_path):
     run_benchmark(path, "s", tmp_path / "tide", tide_path=tide_csv, **common)
     metrics = pd.read_csv(tmp_path / "tide" / "metrics_per_fold.csv")
     assert {"B4_quality", "B6_tide"} <= set(metrics.feature_set)
+
+
+def test_nopH_feature_sets_drop_only_ph_features():
+    from experiments.forecast_sensor_v2 import feature_subset
+
+    frame, all_features = build_frame(_raw(3000), "Temperature", 60, "B4_quality")
+    b4 = feature_subset(all_features, "Temperature", "B4_quality")
+    nopH = feature_subset(all_features, "Temperature", "B4_quality_nopH")
+    assert {"pH_lag_1m", "pH_lag_15m"} <= set(b4)
+    assert not any(name.startswith("pH_") for name in nopH)
+    assert [name for name in b4 if not name.startswith("pH_")] == nopH
+    assert {"NH4_lag_1m", "TSS_lag_15m", "temperature_x_nh4", "age_minutes"} <= set(nopH)
+    with pytest.raises(ValueError, match="nopH_variant_invalid_for_pH"):
+        feature_subset(build_frame(_raw(3000), "pH", 60, "B4_quality")[1], "pH", "B4_quality_nopH")
+
+
+def test_nopH_benchmark_runs_with_predictions(tmp_path):
+    from experiments.forecast_sensor_v2 import run_benchmark
+
+    path = _synthetic_csv(tmp_path)
+    run_benchmark(path, "s", tmp_path / "out", write_predictions=True, fast=True, selected_feature_sets=("B4_quality", "B4_quality_nopH"), selected_models=("ridge",), selected_targets=("Temperature",), selected_horizons=(60,), prediction_models=("ridge",))
+    predictions = pd.read_parquet(tmp_path / "out" / "predictions.parquet")
+    assert set(predictions.feature_set) == {"B4_quality", "B4_quality_nopH"}
+    # Same frame rows for both sets, so the comparison is paired.
+    by_set = predictions[predictions.model.eq("ridge")].groupby("feature_set", observed=True)["issued_at"].apply(lambda s: tuple(s))
+    assert by_set["B4_quality"] == by_set["B4_quality_nopH"]
+
+
+@pytest.mark.parametrize("horizon", [60, 720])
+def test_end_window_keeps_fold_labels_out_of_lockbox(tmp_path, horizon):
+    from experiments.forecast_sensor_v2 import run_benchmark, truncate_local_date
+
+    raw = _raw()
+    end = "2026-02-25"
+    cut = truncate_local_date(raw, end)
+    assert cut.fetchedAt.max() < pd.Timestamp("2026-02-25 17:00", tz="UTC")
+    frame, _ = build_frame(cut, "Temperature", horizon, "B0_lags")
+    lock_start = frame.issued_at.max() - pd.Timedelta(days=LOCKBOX_DAYS)
+    assert frame.valid_at.max() < pd.Timestamp("2026-02-25 17:00", tz="UTC") + pd.Timedelta(minutes=2)
+    for train, test in rolling_folds(frame):
+        assert test.valid_at.max() < lock_start and train.valid_at.max() < lock_start
+    path = _synthetic_csv(tmp_path)
+    manifest = run_benchmark(path, "s", tmp_path / "w", fast=True, selected_feature_sets=("B0_lags",), selected_models=("ridge",), selected_targets=("Temperature",), selected_horizons=(horizon,), last_local_date=end)
+    assert manifest["last_local_date"] == end
+    import json
+    check = json.loads((tmp_path / "w" / "fold_label_check.json").read_text())
+    assert check and all(row["max_fold_valid_at"] < row["lockbox_start"] for row in check)
+    assert all(row["lockbox_start"] < "2026-02-25T17:00" for row in check)
