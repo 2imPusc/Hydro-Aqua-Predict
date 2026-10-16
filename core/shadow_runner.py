@@ -1,4 +1,4 @@
-﻿"""Lightweight one-minute runner for the sensor-first shadow ledger."""
+"""Lightweight one-minute runner for the sensor-first shadow ledger."""
 from __future__ import annotations
 
 import argparse
@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.fetch import fetch_raw
 from core.forecast_evaluation import latest_advisory_state, record_sensor_future, resolve_sensor_outcomes, sensor_metrics, _append_unique, STORE_DIR
 from core.sensor_future import forecast_sensor_first
+from core.sensor_future_long import issue_long_horizon
 from core.weather import get_station_weather
 from core.forecast_advisory import evaluate_forecast_advisory
 from core.weather_advisory import evaluate_weather_advisory
@@ -71,6 +72,13 @@ def record_risk_decision(station_serial: str, future: dict, weather_adv: dict, w
     
     return int(_append_unique(RISK_LOG, record, decision_id))
 
+def run_long_horizon(raw, station_serial: str, freshness: dict, weather: dict, now=None) -> dict:
+    """3/6/12 h shadow set (H1.5); its failure never blocks the 15/30/60 path."""
+    try:
+        return issue_long_horizon(raw, station_serial, freshness=freshness, weather=weather, now=now)
+    except Exception as exc:  # logged in the runner output, no ledger record
+        return {"status": "error", "reason": f"{type(exc).__name__}: {exc}", "issued": 0}
+
 def run_once(station_serial: str, *, replay: bool = False, now=None) -> dict:
     raw = fetch_raw(station_serial)
     if raw.empty:
@@ -98,6 +106,7 @@ def run_once(station_serial: str, *, replay: bool = False, now=None) -> dict:
         
     weather = get_station_weather(station_serial)
     weather_adv = evaluate_weather_advisory(weather, now=now)
+    long_horizon = run_long_horizon(raw, station_serial, freshness, weather, now)
     
     future = forecast_sensor_first(raw, station_serial)
     water_adv = evaluate_forecast_advisory(future, latest_advisory_state(station_serial))
@@ -111,7 +120,8 @@ def run_once(station_serial: str, *, replay: bool = False, now=None) -> dict:
         "metrics": sensor_metrics(), 
         "future": future, 
         "water_advisory": water_adv,
-        "weather_advisory": weather_adv
+        "weather_advisory": weather_adv,
+        "long_horizon": long_horizon,
     }
 
 def main() -> None:
@@ -137,7 +147,10 @@ def main() -> None:
 
     while True:
         result = run_once(args.station, replay=args.replay)
-        print({key: value for key, value in result.items() if key not in {"future", "metrics"}})
+        printable = {key: value for key, value in result.items() if key not in {"future", "metrics", "long_horizon"}}
+        if "long_horizon" in result:
+            printable["long_horizon"] = {key: value for key, value in result["long_horizon"].items() if key != "skips"}
+        print(printable)
         if args.once:
             return
         time.sleep(max(10, args.interval_seconds))
