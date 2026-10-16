@@ -33,6 +33,11 @@ from hap_shared.fuzzy_suitability import (  # noqa: E402
 from hap_shared.preprocessing import vn2000_to_wgs84  # noqa: E402  (107d45' meridian: correct for QN)
 
 WQ_VARS = ("DO", "NH3", "TSS", "pH")
+
+# Nearshore bay-cage variant (decisions #15, research-log RL-06). Set before scoring, not tuned to the
+# validation farms: sheltered cages sit 0.1-5 km from shore (opt ~1 km) and tolerate slower currents
+# (>= 0.05 m/s for flushing). Depth is dropped because ETOPO1 (1.8 km) cannot resolve depth within ~2 km of shore.
+NEARSHORE_RANGES = {"DfS": (0.1, 1.0, 5.0), "SCS": (0.05, 0.2, 0.6)}
 TO_UTM = Transformer.from_crs("EPSG:4326", "EPSG:32648", always_xy=True)  # UTM 48N, metres
 
 
@@ -87,6 +92,7 @@ def build_criteria(year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     raw["SWH"], raw["SCS"], raw["SST"] = swh.mean(), scs.mean(), sst.mean()  # SCS: API gives km/h, /3.6 -> m/s
     for name, frame in (("SWH", swh), ("SCS", scs), ("SST", sst)):
         fuzzy[name] = minmax(temporal_score(frame, *COBIA_RANGES[name]))
+    fuzzy["SCS_near"] = minmax(temporal_score(scs, *NEARSHORE_RANGES["SCS"]))
     fuzzy["CSCD"] = minmax(direction_stability(series("ocean_current_direction")))
 
     wind_pts = pd.read_csv(layers / "wind_points.csv")
@@ -107,6 +113,7 @@ def build_criteria(year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     shore_utm = shapely_transform(lambda x, y, z=None: TO_UTM.transform(x, y), shore)
     raw["DfS"] = [shore_utm.distance(Point(x, y)) / 1000.0 for x, y in pxy]
     fuzzy["DfS"] = triangular(raw["DfS"], *COBIA_RANGES["DfS"])
+    fuzzy["DfS_near"] = triangular(raw["DfS"], *NEARSHORE_RANGES["DfS"])
 
     osm = pd.read_csv(root / "osm_features.csv")
     for code, kind, closer in (("DfP", "port", True), ("DfPA", "protected_area", False)):
@@ -118,7 +125,7 @@ def build_criteria(year: int) -> tuple[pd.DataFrame, pd.DataFrame]:
     sxy = _xy(stations.Lon, stations.Lat)
     raw["SSS"] = idw(pxy, sxy, stations.Salinity.to_numpy())
     fuzzy["SSS"] = triangular(raw["SSS"], *COBIA_RANGES["SSS"])
-    thresholds = json.loads((Path(paths.PROJECT_ROOT) / "hap_shared" / "thresholds" / "cobia_thresholds.json").read_text(encoding="utf-8"))
+    thresholds = json.loads(paths.COBIA_THRESHOLDS.read_text(encoding="utf-8"))
     fuzzy["SSS_repo"] = piecewise(raw["SSS"], thresholds["Salinity"]["breakpoints"])
     for v in WQ_VARS:
         raw[v] = idw(pxy, sxy, stations[v].to_numpy())
@@ -137,6 +144,15 @@ def score_variants(fuzzy: pd.DataFrame) -> pd.DataFrame:
         out[f"A_{method}"] = integrate(fuzzy[base], gamma)
         out[f"A_W_{method}"] = integrate(fuzzy[base], gamma, GHADERI_WEIGHTS)
         out[f"B_W_{method}"] = integrate(fuzzy[with_wq], gamma, weights_wq)
+    near = [c for c in base if c != "DEP"]
+    near = [{"DfS": "DfS_near", "SCS": "SCS_near"}.get(c, c) for c in near]
+    weights_near = {**GHADERI_WEIGHTS, "DfS_near": GHADERI_WEIGHTS["DfS"], "SCS_near": GHADERI_WEIGHTS["SCS"]}
+    near_wq = near + [f"WQ_{v}" for v in WQ_VARS]
+    weights_near_wq = {**weights_near, **{f"WQ_{v}": wq_weight for v in WQ_VARS}}
+    for method, gamma in METHODS.items():
+        out[f"N1_{method}"] = integrate(fuzzy[near], gamma)
+        out[f"N1_W_{method}"] = integrate(fuzzy[near], gamma, weights_near)
+        out[f"N2_W_{method}"] = integrate(fuzzy[near_wq], gamma, weights_near_wq)
     return out
 
 
