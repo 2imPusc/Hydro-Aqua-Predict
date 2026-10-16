@@ -317,6 +317,11 @@ def effect_rows(days: pd.DataFrame, keys, a: str, b: str, label: str) -> list[di
     return rows
 
 
+def regime_beats_distance(coef_dsal: float, coef_km: float) -> bool:
+    """Regime dominates only if a larger salinity difference *lowers* reliability more than distance does."""
+    return bool(coef_dsal < 0 and abs(coef_dsal) > abs(coef_km))
+
+
 def regime_vs_distance(pair_rel: pd.DataFrame, max_km_scopes=(30.0, MAX_KM)) -> pd.DataFrame:
     rows = []
     for (var, transfer), grp in pair_rel.groupby(["variable", "transfer"]):
@@ -340,7 +345,7 @@ def regime_vs_distance(pair_rel: pd.DataFrame, max_km_scopes=(30.0, MAX_KM)) -> 
                     if "coef_km" in rec:
                         rec["abs_dsal_over_abs_km"] = round(abs(rec["coef_dsal"]) / abs(rec["coef_km"]), 3) \
                             if rec["coef_km"] else np.inf
-                        rec["regime_beats_distance"] = bool(abs(rec["coef_dsal"]) > abs(rec["coef_km"]))
+                        rec["regime_beats_distance"] = regime_beats_distance(rec["coef_dsal"], rec["coef_km"])
                     rows.append(rec)
     return pd.DataFrame(rows)
 

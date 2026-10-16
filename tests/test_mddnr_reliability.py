@@ -87,3 +87,9 @@ def test_cell_table_gates_need_30_days():
 
 def test_era5_cell_snaps_to_quarter_degree():
     assert mr.era5_cell(38.79, -76.71) == (38.75, -76.75)
+
+
+def test_regime_beats_distance_requires_negative_dsal_effect():
+    assert mr.regime_beats_distance(-0.04, -0.02)
+    assert not mr.regime_beats_distance(0.04, -0.02)  # wrong sign: more dsal -> more reliable
+    assert not mr.regime_beats_distance(-0.01, -0.02)
