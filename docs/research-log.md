@@ -99,3 +99,51 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Shadow cho Temperature và pH 3–12 h (H1.5).
   - Khoảng tin cậy conformal (H1.3).
   - Kiểm tra sensor TSS.
+
+## RL-09 · 2026-10-16 · Khoảng dự báo conformal (H1.3)
+
+- **Câu hỏi:** khoảng dự báo split-conformal có đạt độ phủ danh định trên lockbox không (PI80 ∈ [0.75, 0.85], ≤ 1 % khoảng vô hạn)?
+- **Thiết lập:** dự báo của H1.2 (ridge/XGBoost; B4, B5, B6). Phần dư tuyệt đối, khoảng đối xứng, hiệu chỉnh trên 3 fold trượt cuối. Bốn phương pháp:
+  - static;
+  - static_night (tách ngày/đêm);
+  - ACI γ = 0.005;
+  - ACI-scaled γ = 0.005·15/h.
+  Phần dư chỉ được dùng khi đã quan sát được trước thời điểm dự báo.
+- **Kết quả:**
+  - Temperature, static PI80: 0.76 (15 phút) → 0.70 (60 phút) → 0.54 (6 h); chỉ 15 phút đạt. Độ phủ theo ngày giảm sau 04/10, tức sai số tháng 10 lớn hơn tháng 9.
+  - Temperature, ACI-scaled PI80: 0.75–0.80, đạt 15/18 cấu hình; khoảng rộng hơn 1.3–1.6× (3 h: 1.94 °C so với 1.31 °C).
+  - pH: static đạt 10/18, static_night 13/18 (độ rộng PI80 0.08–0.67 đơn vị pH).
+  - ACI γ cố định suy biến từ 60 phút trở lên (12–75 % khoảng vô hạn do phản hồi trễ h phút).
+  - NH4 phủ quá mức ở chân trời dài (rộng 6.7–8.7× MAE của persistence). XGBoost với static gần như không đạt.
+- **Kết luận:**
+  - Nhiệt độ: dùng ACI-scaled cho shadow.
+  - pH: static_night đủ dùng.
+  - Không dùng ACI γ cố định khi chân trời ≥ 60 phút.
+  - Mới đánh giá trên một lockbox 14 ngày.
+- **Ghi chú:** subagent báo "fold 5 chồng lockbox". Đã kiểm tra lại: ở mọi chân trời, nhãn fold trượt kết thúc trước lockbox (bản sửa a1b7460). Bộ lọc của nó dùng một mốc lockbox chung (mốc sớm nhất, của 720 phút) nên chỉ bỏ thừa dữ liệu hiệu chỉnh ở chân trời ngắn. Đây là thận trọng thừa, không phải rò rỉ. Còn một thiếu sót thật: `actual_at` trống ở các dòng lockbox của predictions.parquet.
+- **Artifact:** `forecast-h1.3-conformal-20261016-v3/` (hai run trước bị thay thế, đã gắn SUPERSEDED.txt); commit bd996a4.
+- **Tiếp theo:** ghi `actual_at` cho lockbox; thử cửa sổ trượt cho ACI-scaled; tìm nguyên nhân sai số nhiệt độ tăng từ 04/10; kiểm tra lại độ phủ trên dữ liệu shadow mới.
+
+## RL-10 · 2026-10-16 · TSS: cảm biến hỏng hay nước lặng? QC cho mọi chỉ số (xem lại RL-04)
+
+- **Câu hỏi:** TSS đứng ở ~3 mg/L từ 05/10 (7–9 giá trị khác nhau mỗi ngày) là cảm biến kẹt hay nước thật sự lặng?
+- **Thiết lập:** thống kê theo ngày cho mọi chỉ số (số giá trị khác nhau, std, CV, tỷ lệ bước bằng 0, độ phân giải); so TSS với chính lịch sử của nó và với các cảm biến khác cùng ngày; tìm bước nhảy, khoảng trống, dấu hiệu hiệu chuẩn.
+- **Kết quả:** không có bước nhảy, khoảng trống hay dấu hiệu hiệu chuẩn. TSS tăng thành xung 30/09–04/10, rồi giảm mượt về mức sàn ~3 mg/L (độ phân giải 0.05). Mức sàn này đã xuất hiện ở các đợt lặng trước. Từ 11/10 TSS biến thiên trở lại (25–27 giá trị/ngày). pH, Temperature, NH4 vẫn biến thiên bình thường.
+- **Kết luận:**
+  - Không phải cảm biến hỏng; nhiều khả năng nước lặng và TSS chạm mức sàn đo được. RL-04 nói "bất thường" là chưa đúng; lockbox TSS chỉ là giai đoạn ít thông tin.
+  - Thêm `core.quality.sensor_day_health` (OK/SUSPECT/INVALID) và các cột `*_health` trong báo cáo độ phủ. Kết quả: TSS SUSPECT 9/140 ngày; pH, NH4, Temperature 0 ngày.
+  - Ngưỡng hiệu chỉnh trên đúng một trạm.
+- **Phát hiện phụ:** pH = 5.94 ngày 07/10, dưới dải hợp lý 6.0, chưa bị gắn cờ.
+- **Artifact:** commit d2d41fc.
+- **Tiếp theo:** đối chiếu TSS với mẫu đo thực địa; giảm trọng số các ngày SUSPECT khi chấm điểm dự báo TSS; kiểm tra pH ngày 07/10.
+
+## RL-11 · 2026-10-16 · Dữ liệu kiểm chứng độc lập: vùng nuôi VN và Hong Kong
+
+- **Câu hỏi:** có ranh giới vùng nuôi biển chính thức (có tọa độ) cho QN/HP không? Lấy tọa độ trạm EPD và vùng nuôi cá của Hong Kong ở đâu?
+- **Thiết lập:** tìm văn bản QĐ-TTg/QĐ-UBND và báo ngành; truy vấn dịch vụ ArcGIS REST của CSDI Hong Kong.
+- **Kết quả:**
+  - Hong Kong: tọa độ 94/94 trạm EPD (khớp mã trạm 2015–2025); 28 vùng nuôi cá AFCD (38 đa giác, WGS84).
+  - Việt Nam: chưa có bảng tọa độ góc. Chỉ có tên vùng và diện tích (QĐ 80/QĐ-TTg: ~45.146 ha nuôi biển ở QN; QĐ 2232/QĐ-UBND: 5 vùng, ~93.600 ha; HP: Hang Vẹm–Vũng Ô, Hòn Thối Quýt–Gia Luận, Ghẽ Gầm–Gia Luận).
+- **Kết luận:** dữ liệu Hong Kong sẵn sàng (trạm cho hướng 4; vùng nuôi cá làm tập kiểm chứng ngoài cho hướng 3). Việt Nam chưa có kiểm chứng độc lập.
+- **Artifact:** `data/foreign/hk_epd/stations.csv`, `fish_culture_zones.csv`, `data/suitability/validation/SOURCES.md`.
+- **Tiếp theo:** xin phụ lục tọa độ từ Sở NN&MT Quảng Ninh và Chi cục Thủy sản Hải Phòng; chạy bộ tiêu chí phù hợp trên Hong Kong và kiểm chứng bằng 28 vùng nuôi cá.
