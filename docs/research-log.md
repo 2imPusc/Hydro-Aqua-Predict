@@ -256,3 +256,28 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Tích lũy ≥ 4 tuần sổ ghi rồi so độ phủ khoảng tin cậy với RL-09.
   - Huấn luyện lại Temperature bỏ lag pH.
   - Định kỳ dọn các bản ghi đã chấm điểm khỏi bộ nhớ (~17 nghìn bản ghi mỗi ngày).
+
+## RL-16 · 2026-10-16 · Kiểm chứng ngoài mẫu tại Hong Kong: tiêu chí phù hợp cá giò so với 28 vùng nuôi cá AFCD
+
+- **Câu hỏi:** giữ nguyên ngưỡng (không chỉnh lại), bộ tiêu chí gần bờ (RL-06) có xếp các vùng nuôi cá chính thức của Hong Kong cao hơn bộ Ghaderi không?
+- **Thiết lập:**
+  - Lưới 1/60° trong vùng biển HK; mặt nạ biển dựng từ đường bờ OSM (515 ô).
+  - Sóng, dòng chảy, SST: Open-Meteo Marine, độ phân giải thực ~9 km. Gió: ERA5 0.25°.
+  - Độ mặn và chất lượng nước: trung vị các trạm EPD 2020–2024, nội suy IDW.
+  - Nhãn dương: ô nằm trong hoặc cách vùng nuôi ≤ 1.8 km (26/28 vùng có ô).
+  - Đánh giá: AUC, khoảng tin cậy bootstrap theo vùng; ablation ghép cặp (bỏ độ sâu, đổi từng ngưỡng).
+- **Kết quả:**
+  - SUM có trọng số: Ghaderi AUC 0.63 [0.53; 0.73]; gần bờ 0.75 [0.63; 0.85]; chênh ghép cặp +0.12 [0.08; 0.15].
+  - Riêng việc bỏ lớp độ sâu đã cho +0.06. Không trọng số, phần lợi còn lại sau khi bỏ độ sâu ≈ 0.
+  - Ngưỡng dòng chảy gần bờ mang phần lợi còn lại. **Ngưỡng khoảng cách bờ gần bờ không được ủng hộ:** vùng nuôi ở HK chỉ cách bờ trung bình 0.43 km.
+  - PRODUCT/GAMMA suy biến (khoảng cách bờ theo Ghaderi = 0 ở mọi ô vùng nuôi).
+  - Yếu tố phân biệt rõ nhất: gió, sóng (được che chắn), gần cảng (phần này có tính vòng lặp). Khu bảo tồn kéo điểm các vùng nuôi phía đông bắc xuống. Chất lượng nước đồng đều → N2 ≈ N1.
+- **Kết luận:**
+  - Tiêu chí xa bờ không hợp với lồng gần bờ: **xác nhận ở hai nơi** (VN, HK).
+  - Phần lợi của bộ gần bờ chủ yếu đến từ việc bỏ độ sâu (ETOPO1 quá thô gần bờ) và tiêu chí che chắn. **Chưa kiểm chứng được** ngưỡng khoảng cách bờ của RL-06.
+  - Hạn chế lớn nhất là lớp sóng/gió/độ sâu quá thô để nhìn thấy độ che chắn bên trong vịnh. Các vùng nuôi HK được quy hoạch từ thập niên 1980, không phải "tối ưu đã đo".
+- **Artifact:** `suitability-hk-2024/` (validation, drivers, ablation); dữ liệu `data/suitability_hk/2024/`; commit e84f8e8.
+- **Tiếp theo:**
+  - Độ sâu gần bờ chi tiết (GEBCO/hải đồ) cho cả HK và VN.
+  - Chỉ số che chắn phân giải < 1 km (fetch theo hướng gió, mô hình sóng ven bờ), thay cho sóng 9 km.
+  - Độ nhạy theo bán kính gán nhãn và theo lớp khu bảo tồn.
