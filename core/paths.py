@@ -38,6 +38,7 @@ STATION_COORDINATES = DATA_DIR / "map" / "station_coordinates.csv"
 WATER_SHAPEFILE = _env_path("HAP_WATER_SHAPEFILE", DATA_DIR / "map" / "water_polygons_clip" / "water_polygons.shp")
 DEPTH_DIR = DATA_DIR / "depth"
 CMEMS_CACHE_DIR = DATA_DIR / "haiphong" / "_cmems_cache"
+SUITABILITY_LAYERS_DIR = DATA_DIR / "suitability"  # direction 3 (HP + QN) site-suitability inputs
 
 
 def clean_data(region: str) -> Path:
