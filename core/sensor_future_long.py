@@ -23,7 +23,7 @@ from core import paths
 from core.config import weather_location_for_station
 from core.forecast_context import CapturedLiveWeather, marine_tide
 from core.forecast_intervals import aci_half_width, static_night_half_width
-from core.quality import is_in_range
+from core.quality import is_in_range, ph_in_band
 
 MODEL_DIR = paths.MODELS_DIR / "sensor_future"
 MANIFEST = MODEL_DIR / "sensor_future_long_manifest.json"
@@ -205,9 +205,8 @@ def _intervals(bundle: dict, prediction: float, issued_at: pd.Timestamp) -> dict
 def _sensor_status(target: str, origin: dict) -> str:
     if target != "pH":
         return "ok"
-    low, high = PH_PLAUSIBLE_SEAWATER
     values = [origin["current"]] + [origin["features"][f"pH_lag_{minute}m"] for minute in LAGS_MINUTES]
-    return "ok" if all(low <= value <= high for value in values) else "ph_probe_suspect"
+    return "ok" if all(ph_in_band(value) for value in values) else "ph_probe_suspect"
 
 
 _WEATHER_STORE: CapturedLiveWeather | None = None

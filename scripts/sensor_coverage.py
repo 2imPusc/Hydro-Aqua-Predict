@@ -39,7 +39,9 @@ def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9, until: dt.d
         cod = pd.to_numeric(group["COD"], errors="coerce").dropna()
         health = {}
         for col, param in HEALTH_PARAMS.items():
-            vals = pd.to_numeric(group[param], errors="coerce").dropna() if param in group else pd.Series(dtype=float)
+            # time-indexed so the pH 60-min rate metric can be computed (quality.ph_rate_suspect)
+            vals = (pd.to_numeric(group.set_index("minute")[param], errors="coerce").dropna()
+                    if param in group else pd.Series(dtype=float))
             health[col] = sensor_day_health(param, vals)["status"] if len(vals) else "NO_DATA"
         rows.append({
             **health,

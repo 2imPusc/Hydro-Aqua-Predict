@@ -106,6 +106,16 @@ PLAUSIBLE_RANGE = {
     "TSS":         (0.0, 1000.0),
 }
 
+# --- pH plausibility for coastal seawater (SUSPECT, not INVALID; PLAUSIBLE_RANGE stays the hard range).
+# Cat Ba probe drifted from 2026-09-19 (research log RL-13): before, 112 local days were 7.30-8.43 with
+# no reading outside 7.0-8.6 and no 60-min change > 0.5; after, daily medians fell to ~6.7-7.1.
+PH_PLAUSIBLE_BAND = (7.0, 8.6)          # coastal seawater ~7.5-8.5 plus margin
+PH_MAX_CHANGE_PER_HOUR = 0.5            # |pH(t) - pH(t-60 min)| above this -> SUSPECT reading
+# Day is SUSPECT if its median is out of band or more than this share of readings is (~2.4 h/day).
+# Pre-drift days have 0 % out of band, so 10 % separates cleanly; > 50 % would add nothing over the
+# median rule and miss 09-19, 09-22/23, 09-29, 10-01..05 and 10-10.
+PH_DAY_MAX_OUT_OF_BAND_FRACTION = 0.10
+
 # --- Imputer feature sets (adaptive theo COD validity) ---
 FEATURES_5 = ["COD", "NH3", "pH", "Temperature", "TSS"]
 FEATURES_4 = ["NH3", "pH", "Temperature", "TSS"]

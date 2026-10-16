@@ -11,7 +11,8 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 from core import paths
-from core.quality import is_in_range
+from core.config import PH_PLAUSIBLE_BAND
+from core.quality import is_in_range, ph_in_band
 
 STORE_DIR = Path(os.getenv("FORECAST_EVALUATION_DIR", paths.FORECAST_SHADOW_DIR))
 FORECAST_LOG = STORE_DIR / "forecasts.jsonl"
@@ -140,7 +141,7 @@ LONG_OUTCOME_LOG = STORE_DIR / "long_outcomes.jsonl"
 LONG_SKIP_LOG = STORE_DIR / "long_skips.jsonl"
 LONG_SCHEMA = "sensor-future-long-v1"
 LONG_TOLERANCE = pd.Timedelta(minutes=2)  # training target alignment (forecast_sensor_v2)
-PH_PLAUSIBLE_SEAWATER = (7.0, 8.6)  # pH probe suspect from 2026-09-19 (RL-13)
+PH_PLAUSIBLE_SEAWATER = PH_PLAUSIBLE_BAND  # pH probe suspect from 2026-09-19 (RL-13); rule in core.quality
 PI_LEVELS = ("pi80", "pi90")
 
 
@@ -216,8 +217,7 @@ def append_long_skip(record: dict) -> bool:
 
 
 def _ph_plausible(value: float) -> bool:
-    low, high = PH_PLAUSIBLE_SEAWATER
-    return low <= value <= high
+    return ph_in_band(value)
 
 
 def _valid_series(frame: pd.DataFrame, target: str) -> pd.Series:
