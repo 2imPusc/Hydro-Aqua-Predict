@@ -281,3 +281,49 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Độ sâu gần bờ chi tiết (GEBCO/hải đồ) cho cả HK và VN.
   - Chỉ số che chắn phân giải < 1 km (fetch theo hướng gió, mô hình sóng ven bờ), thay cho sóng 9 km.
   - Độ nhạy theo bán kính gán nhãn và theo lớp khu bảo tồn.
+
+## RL-17 · 2026-10-17 · Luật QC cho pH (dải nước biển + tốc độ đổi)
+
+- **Câu hỏi:** luật tự động có tách được giai đoạn pH trôi (từ 19/09, RL-13) mà không gắn cờ sai giai đoạn sạch không?
+- **Thiết lập:** `core/quality.py`: dải 7.0–8.6 → SUSPECT (không phải INVALID; dải cứng 6.0–9.5 giữ nguyên); |ΔpH| trong 60 phút > 0.5 → SUSPECT; theo ngày: trung vị ngoài dải hoặc > 10 % số đo ngoài dải → SUSPECT. Hằng số trong `core/config.py`; ledger dài hạn và `sensor_future_long` dùng lại cùng luật.
+- **Kết quả:**
+  - 29/05–18/09: 113/113 ngày OK, 0 số đo ngoài dải, 0 bước nhảy > 0.5/h.
+  - 19/09–15/10: 21/27 ngày SUSPECT. Ngưỡng 10 % (thay vì 50 %) tách sạch hai giai đoạn; 50 % chỉ bắt ~11 ngày.
+  - Lọt 6 ngày: 24/09 (trung vị 7.98, có vẻ hồi thật) và 25–30/09 (trung vị 7.2–7.4, thấp hơn mọi ngày trước trôi nhưng vẫn trong dải).
+  - Chu kỳ ngày–đêm đảo ngược chưa có luật nào bắt.
+- **Kết luận:** luật dải + tỷ lệ đủ để tự gắn cờ các đợt trôi mạnh; trôi nhẹ cần luật so với mức nền.
+- **Artifact:** commit a9831b1 (317 test).
+- **Tiếp theo:** luật so với mức nền trước trôi (trung vị trượt 14 ngày), luật tương quan pH–nhiệt độ theo ngày.
+
+## RL-18 · 2026-10-17 · Nhiệt độ không dùng pH (A1) và đánh giá lại pH trên dữ liệu sạch (A3)
+
+- **Câu hỏi:** (A1) bỏ lag pH (pH hỏng từ 19/09) thì dự báo nhiệt độ còn đạt gate #16 không? (A3) trên giai đoạn sạch 29/05–18/09, dự báo pH có thắng persistence không?
+- **Thiết lập:** lịch sử `sensor-history-20261015` (sha256 d2738731…); ridge; B4/B5 và bản `_nopH`; `--end 2026-09-18` cho A3 (lockbox ~04–18/09); kiểm tra bằng assert rằng không nhãn fold nào chạm lockbox (`fold_label_check.json`). Gate #16: ≥ 4/5 fold thắng + DM lockbox p < 0.05.
+- **Kết quả A1 (lockbox 01–15/10):**
+  - Mọi biến thể nhiệt độ đạt gate ở 60/180/360/720 phút (5/5 fold). Skill B5 vs persistence: 20 / 30 / 38 / 46 %.
+  - Bỏ pH làm MAE lockbox tăng 1–4 % (B4 +3.0/+3.8/+3.4/+1.6 %; B5 +3.4/+3.9/+1.9/+0.75 %), có ý nghĩa (DM p ≤ 0.009).
+  - Nhưng ở fold 4 (17–24/09, lúc pH bắt đầu trôi) bản nopH **tốt hơn** 11–24 %; fold 5 tốt hơn 1–7 %. Bundle nhiệt độ hiện tại lệch +0.2…+0.4 °C nếu pH nhảy +1 (ví dụ khi hiệu chuẩn lại đầu dò).
+  - Tiêu chí đặt trước (đạt gate và MAE trong 3 % ở mọi chân trời 180/360/720) không đạt ở 180 phút → **runtime chưa đổi**.
+- **Kết quả A3 (pH, lockbox 04–18/09):**
+  - Chỉ B0 (lag pH) đạt ở 60 phút (skill 16 %) và 180 phút (10 %). B1/B2/B6 đạt ở 60 phút.
+  - **B4 và B6_tide (đang ở shadow) không đạt ở 180/360/720**; B4 kém persistence 2–18 %. B3 ≡ B4: đặc trưng chéo sensor làm hỏng pH.
+- **Kết luận:**
+  - pH giúp nhiệt độ một chút khi đầu dò ổn, nhưng là rủi ro lớn khi đầu dò trôi hoặc được hiệu chuẩn lại → nên chạy song song bản nopH trong shadow.
+  - Kết luận pH ở RL-08 bị bác bỏ: thủy triều (B6) không giúp pH ở 3–12 h trên dữ liệu sạch. Bundle pH dài hạn trong shadow **không có bằng chứng gate**.
+- **Hạn chế:** lockbox nhiệt độ nằm trọn trong giai đoạn pH trôi; lockbox pH chứa bước nhảy COD/NH4 16/09; một trạm; chỉ ridge; thời tiết dựng lại.
+- **Artifact:** `forecast-a1-temperature-nopH-20261017/`, `forecast-a3-ph-pre-drift-20261017/`, `sensor-history-20261015/`; commit 395eb8c.
+- **Tiếp theo:** gắn nhãn/rút bundle pH dài hạn khỏi shadow (chờ chủ dự án); huấn luyện bundle nhiệt độ nopH chạy song song; thử B0 cho pH 3 h.
+
+## RL-19 · 2026-10-17 · Khoảng tin cậy chuẩn hóa theo biên độ ngày–đêm (A4)
+
+- **Câu hỏi:** chuẩn hóa sai số theo biên độ nhiệt 24 h trước đó (biết tại thời điểm phát hành) có sửa được việc PI hụt độ phủ từ 05/10 (RL-13) không?
+- **Thiết lập:** `aci_amp`: điểm = |r| / max(A(t), sàn), A(t) = max−min 24 h của chuỗi đến issued_at, sàn = 0.25 × trung vị (0.775 °C); ACI γ = 0.005·15/h trên điểm chuẩn hóa. So với static, static_amp, aci_scaled, các biến thể std/72 h. Cùng giao thức v3 (calib fold 3–5, lockbox 30/09–14/10). Thêm Winkler score.
+- **Kết quả (Temperature, ridge, 18 cấu hình):**
+  - Đạt gate độ phủ: aci_amp PI80 18/18, PI90 18/18; aci_scaled 15/18 và 5/18 (PI90 tới 12 % khoảng vô hạn).
+  - Sau 05/10: PI80 aci_amp 0.76–0.82 so với aci_scaled 0.69–0.80.
+  - Giá: rộng hơn 0–11 % trước 05/10 (tăng theo chân trời); Winkler ngang hoặc hơi kém.
+  - Ngày tệ nhất vẫn thấp: PI80 0.35 (aci_scaled 0.25).
+- **Kết luận:** aci_amp cho độ phủ đúng danh nghĩa ổn định hơn, đổi lại khoảng hơi rộng. Đã thêm vào `core/forecast_intervals.py` dạng tùy chọn, **mặc định chưa đổi** (cần bundle mang điểm chuẩn hóa và ledger lưu A(t)).
+- **Hạn chế:** cửa sổ 24 h chọn sau khi đã xem lockbox này (RL-13) và thử 4 biến thể → gần in-sample; cần shadow xác nhận.
+- **Artifact:** `forecast-h1.3-conformal-20261017-amp/`; commit f3c30e7, 7753af0.
+- **Tiếp theo:** nối aci_amp vào bundle + ledger; xác nhận bằng shadow ≥ 4 tuần.
