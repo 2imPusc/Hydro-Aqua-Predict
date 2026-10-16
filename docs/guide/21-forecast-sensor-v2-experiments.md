@@ -2,7 +2,7 @@
 
 Các script dưới `experiments/forecast_sensor_v2.py` không đọc model runtime và
 không thay đổi pipeline, alert hay dashboard. Chúng benchmark bốn sensor đo trực
-tiếp ở +15/+30/+60 phút bằng direct forecasting, rolling-origin và lockbox 14
+tiếp ở +15/+30/+60 phút (thêm +180/+360/+720; purge = max(60 phút, chân trời)) bằng direct forecasting, rolling-origin và lockbox 14
 ngày cuối.
 
 ```powershell

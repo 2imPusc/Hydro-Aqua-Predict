@@ -29,11 +29,10 @@ def test_rolling_folds_respect_purge_and_lockbox():
         # Since test_starts defines the boundary:
         assert train.valid_at.max() < test.issued_at.min()
     
-    # Check lockbox
-    lock_start = frame.issued_at.max() - pd.Timedelta(days=LOCKBOX_DAYS)
-    train_lock = frame[frame.valid_at < lock_start - PURGE]
-    test_lock = frame[frame.issued_at >= lock_start]
-    assert train_lock.valid_at.max() < test_lock.issued_at.min()
+    # Check the lockbox split the benchmark actually uses.
+    from experiments.forecast_sensor_v2 import lockbox_split
+    train_lock, test_lock = lockbox_split(frame)
+    assert train_lock.valid_at.max() < test_lock.issued_at.min() - PURGE
 
 def test_synthetic_path_is_rejected(tmp_path):
     path = tmp_path / "data-v3.csv"
@@ -104,3 +103,49 @@ def test_predictions_written_as_parquet_and_metrics_unchanged(tmp_path):
     lock_metric = with_metrics[with_metrics.split.eq("lockbox") & with_metrics.model.eq("ridge") & with_metrics.feature_set.eq("B0_lags")].iloc[0]
     assert lock_ridge["absolute_error"].mean() == pytest.approx(lock_metric.mae)
     assert strata[strata.split.eq("lockbox") & strata.model.eq("ridge")]["n"].sum() == len(lock_ridge)
+
+
+def test_long_horizons_are_available_and_short_ones_kept():
+    from experiments.forecast_sensor_v2 import HORIZONS
+
+    assert set(HORIZONS) == {15, 30, 60, 180, 360, 720}
+
+
+def test_effective_purge_is_at_least_the_horizon():
+    from experiments.forecast_sensor_v2 import effective_purge
+
+    assert effective_purge(15) == PURGE
+    assert effective_purge(60) == PURGE
+    assert effective_purge(720) == pd.Timedelta(minutes=720)
+
+
+@pytest.mark.parametrize("horizon", [60, 720])
+def test_purge_keeps_train_targets_clear_of_test_window_for_long_horizon(horizon):
+    from experiments.forecast_sensor_v2 import lockbox_split
+
+    frame, _ = build_frame(_raw(), "Temperature", horizon, "B0_lags")
+    window = pd.Timedelta(minutes=max(horizon, 60))
+    folds = rolling_folds(frame)
+    assert len(folds) == 5
+    for train, test in folds:
+        test_start = test.issued_at.min()
+        # No training label may be valid inside [test_start - horizon, ...).
+        assert train.valid_at.max() < test_start - window
+        assert train.actual_at.max() < test_start - window + pd.Timedelta(minutes=2)
+        # No training origin inside the test window either.
+        assert train.issued_at.max() < test_start
+    train, test = lockbox_split(frame)
+    lock_start = frame.issued_at.max() - pd.Timedelta(days=LOCKBOX_DAYS)
+    assert test.issued_at.min() >= lock_start
+    assert train.valid_at.max() < lock_start - window
+    assert len(train) and len(test)
+
+
+def test_lag_features_never_read_after_issue_time_at_long_horizon():
+    raw = _raw(3000)
+    frame, features = build_frame(raw, "Temperature", 720, "B0_lags")
+    lookup = raw.set_index("fetchedAt")["Temperature"]
+    row = frame.iloc[50]
+    for minute in (1, 15, 60):
+        assert row[f"Temperature_lag_{minute}m"] == lookup[row.issued_at - pd.Timedelta(minutes=minute)]
+    assert row.target == lookup[row.valid_at]
