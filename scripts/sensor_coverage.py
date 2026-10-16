@@ -17,12 +17,14 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import paths  # noqa: E402
 from core.greenlab_api import load_cached_history  # noqa: E402
-from core.quality import check_series, is_in_range  # noqa: E402
+from core.quality import check_series, is_in_range, sensor_day_health  # noqa: E402
 
 MINUTES_PER_DAY = 1440
 COD_RAIL = 558.8
 LOCAL_TZ = "Asia/Ho_Chi_Minh"
 COLUMNS = ["date", "minutes", "coverage", "meets_gate", "cod_status", "cod_median", "cod_in_range_share", "cod_rail_share"]
+HEALTH_PARAMS = {"tss_health": "TSS", "ph_health": "pH", "nh4_health": "NH4", "temperature_health": "Temperature"}
+COLUMNS = COLUMNS + list(HEALTH_PARAMS)
 
 
 def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9, until: dt.date | None = None) -> pd.DataFrame:
@@ -35,7 +37,12 @@ def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9, until: dt.d
     for day, group in frame.groupby("date"):
         minutes = int(group["minute"].nunique())
         cod = pd.to_numeric(group["COD"], errors="coerce").dropna()
+        health = {}
+        for col, param in HEALTH_PARAMS.items():
+            vals = pd.to_numeric(group[param], errors="coerce").dropna() if param in group else pd.Series(dtype=float)
+            health[col] = sensor_day_health(param, vals)["status"] if len(vals) else "NO_DATA"
         rows.append({
+            **health,
             "date": day,
             "minutes": minutes,
             "coverage": round(minutes / MINUTES_PER_DAY, 3),
@@ -53,6 +60,8 @@ def daily_coverage(history: pd.DataFrame, min_fraction: float = 0.9, until: dt.d
     out["coverage"] = out["coverage"].fillna(0.0)
     out["meets_gate"] = out["meets_gate"].eq(True)
     out["cod_status"] = out["cod_status"].fillna("NO_DATA")
+    for col in HEALTH_PARAMS:
+        out[col] = out[col].fillna("NO_DATA")
     return out.rename_axis("date").reset_index()[COLUMNS]
 
 
@@ -87,6 +96,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"days judged: {len(judged)}  meeting gate: {len(judged) - len(failing)}  "
           f"range: {judged['date'].min()} .. {judged['date'].max()}")
     print("COD status counts:", judged["cod_status"].value_counts().to_dict())
+    for col in HEALTH_PARAMS:
+        print(f"{col} counts:", judged[col].value_counts().to_dict())
     if not failing.empty:
         print("below gate:")
         print(failing[["date", "minutes", "coverage"]].to_string(index=False))

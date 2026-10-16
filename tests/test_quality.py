@@ -52,3 +52,48 @@ def test_filter_valid_rows_drops_out_of_range():
     # Row 0 hợp lệ; row 1 COD rail; row 2 pH out → chỉ row 0 còn
     assert len(out) == 1
     assert out.iloc[0]["COD"] == 9.0
+
+
+# ---- sensor_day_health -------------------------------------------------------
+import numpy as np
+from core.quality import sensor_day_health
+
+
+def _noisy(n=1440, base=20.0, sd=3.0, seed=0):
+    return pd.Series(np.round(base + np.random.default_rng(seed).normal(0, sd, n), 2))
+
+
+def test_health_normal_noisy_ok():
+    r = sensor_day_health("TSS", _noisy())
+    assert r["status"] == "OK" and r["reasons"] == []
+
+
+def test_health_flatline_invalid():
+    r = sensor_day_health("COD", pd.Series([558.8] * 200))
+    assert r["status"] == "INVALID"
+
+
+def test_health_out_of_range_majority_invalid():
+    r = sensor_day_health("pH", pd.Series([3.0] * 150 + [7.5] * 50))
+    assert r["status"] == "INVALID" and "out_of_range" in r["reasons"]
+
+
+def test_health_empty_invalid():
+    assert sensor_day_health("TSS", pd.Series([], dtype=float))["status"] == "INVALID"
+
+
+def test_health_tss_floor_stuck_suspect():
+    # Few distinct values, long identical runs, tiny CV (the 2026-10-06..10 TSS pattern)
+    rng = np.random.default_rng(1)
+    s = pd.Series(np.repeat(rng.choice([2.8, 2.9, 3.0], 48, p=[.1, .8, .1]), 30))
+    r = sensor_day_health("TSS", s)
+    assert r["status"] == "SUSPECT" and "low_information" in r["reasons"]
+
+
+def test_health_few_points_not_suspect():
+    r = sensor_day_health("TSS", pd.Series([2.9, 2.9, 2.9, 3.0, 2.9, 2.9, 3.0]))
+    assert r["status"] == "OK"
+
+
+def test_health_check_series_unchanged():
+    assert check_series("TSS", pd.Series([2.9] * 100)) == "INVALID"   # behaviour of old API untouched

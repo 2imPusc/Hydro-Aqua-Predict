@@ -65,3 +65,21 @@ def test_daily_coverage_all_nan_cod_is_no_data():
     row = out.loc[pd.Timestamp("2026-09-01").date()]
     assert row["cod_status"] == "NO_DATA"
     assert row["minutes"] == 60
+
+
+def test_daily_coverage_health_columns():
+    rng = np.random.default_rng(0)
+    stuck_tss = np.repeat(rng.choice([2.8, 2.9, 3.0], 48, p=[.1, .8, .1]), 30)
+    d1 = _frame(_minutes("2026-09-01 00:00", 1440), np.linspace(20, 30, 1440))
+    d1["TSS"] = 20 + rng.normal(0, 3, 1440).round(2)
+    d1["pH"] = 7.5 + rng.normal(0, .05, 1440).round(2)
+    d2 = _frame(_minutes("2026-09-02 00:00", 1440), np.linspace(20, 30, 1440))
+    d2["TSS"] = stuck_tss
+    d2["pH"] = 3.0   # out of range + flat
+    out = daily_coverage(pd.concat([d1, d2], ignore_index=True)).set_index("date")
+    d = lambda s: pd.Timestamp(s).date()
+    assert out.loc[d("2026-09-01"), "tss_health"] == "OK"
+    assert out.loc[d("2026-09-02"), "tss_health"] == "SUSPECT"
+    assert out.loc[d("2026-09-02"), "ph_health"] == "INVALID"
+    assert out.loc[d("2026-09-01"), "nh4_health"] == "NO_DATA"   # column absent
+    assert "cod_status" in out.columns and "temperature_health" in out.columns
