@@ -41,7 +41,7 @@ def evaluate(predictions: pd.DataFrame, *, species: str, draws: int = 100, seed:
 
 def main() -> None:
     parser = argparse.ArgumentParser(); parser.add_argument("predictions", type=Path); parser.add_argument("--species", default="cobia"); parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args(); result = evaluate(pd.read_csv(args.predictions), species=args.species); args.output.parent.mkdir(parents=True, exist_ok=True); result.to_csv(args.output, index=False)
+    args = parser.parse_args(); result = evaluate(pd.read_parquet(args.predictions) if args.predictions.suffix == ".parquet" else pd.read_csv(args.predictions), species=args.species); args.output.parent.mkdir(parents=True, exist_ok=True); result.to_csv(args.output, index=False)
 
 
 if __name__ == "__main__":

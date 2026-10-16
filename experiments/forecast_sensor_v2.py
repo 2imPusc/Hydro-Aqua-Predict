@@ -218,6 +218,23 @@ def research_gate(metrics: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _prediction_block(split: str, fold: int, target: str, horizon: int, feature_set: str, model: str, test: pd.DataFrame, prediction: np.ndarray) -> pd.DataFrame:
+    """Vectorised prediction rows for one (split, fold, model) block.
+
+    ``actual_at`` is kept only for rolling folds, matching the historical CSV
+    layout (lockbox rows never carried it and become NaT after concat).
+    """
+    issued = pd.to_datetime(test["issued_at"].to_numpy(), utc=True)
+    prediction = np.asarray(prediction, dtype=float)
+    actual = test["target"].to_numpy()
+    n = len(test)
+    columns = {"split": [split] * n, "fold": np.full(n, fold), "target": [target] * n, "horizon_minutes": np.full(n, horizon), "feature_set": [feature_set] * n, "model": [model] * n, "issued_at": issued, "valid_at": pd.to_datetime(test["valid_at"].to_numpy(), utc=True)}
+    if split == "rolling":
+        columns["actual_at"] = pd.to_datetime(test["actual_at"].to_numpy(), utc=True)
+    columns |= {"actual": actual, "prediction": prediction, "absolute_error": np.abs(prediction - actual), "gap": test["gap"].to_numpy(dtype=bool), "night": (issued.tz_convert("Asia/Ho_Chi_Minh").hour < 6).astype(int)}
+    return pd.DataFrame(columns)
+
+
 def feature_subset(all_features: list[str], target: str, feature_set: str) -> list[str]:
     """Reuse the B4 frame for every ablation without rebuilding as-of joins."""
     lag_features = [f"{target}_lag_{minute}m" for minute in LAGS_MINUTES]
@@ -238,7 +255,7 @@ def feature_subset(all_features: list[str], target: str, feature_set: str) -> li
     return [name for name in groups[feature_set] if name in all_features]
 
 
-def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path | None = None, *, write_predictions: bool = False, fast: bool = False, selected_feature_sets: tuple[str, ...] | None = None, selected_models: tuple[str, ...] | None = None, selected_targets: tuple[str, ...] | None = None, selected_horizons: tuple[int, ...] | None = None, prediction_models: tuple[str, ...] | None = None) -> dict:
+def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path | None = None, *, write_predictions: bool = False, fast: bool = False, selected_feature_sets: tuple[str, ...] | None = None, selected_models: tuple[str, ...] | None = None, selected_targets: tuple[str, ...] | None = None, selected_horizons: tuple[int, ...] | None = None, prediction_models: tuple[str, ...] | None = None, prediction_feature_sets: tuple[str, ...] | None = None) -> dict:
     raw = load_sensor_data(path, station)
     output.mkdir(parents=True, exist_ok=True)
     all_predictions, summary = [], []
@@ -256,6 +273,9 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
     if not set(horizons).issubset(set(HORIZONS)):
         raise ValueError("unknown_horizon")
     prediction_keep = set(prediction_models or ()) | {"persistence"}
+    prediction_feature_keep = set(prediction_feature_sets or feature_sets)
+    if not prediction_feature_keep.issubset(set(AVAILABLE_FEATURE_SETS)):
+        raise ValueError("unknown_prediction_feature_set")
     if snapshots_path is not None:
         from experiments.forecast_external_context import join_as_issued, read_snapshots
         snapshots = read_snapshots(snapshots_path)
@@ -293,9 +313,8 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
                     for model_name, prediction in predictions.items():
                         metrics = _metric_rows(test.target.to_numpy(), prediction, train.target.to_numpy())
                         summary.append({"split": "rolling", "fold": fold_number, "target": target, "horizon_minutes": horizon, "feature_set": feature_set, "model": model_name, "n_train": len(train), "n_test": len(test), "gap_rate": float(test.gap.mean()), **metrics})
-                        if write_predictions and model_name in prediction_keep:
-                            for idx, row in test.reset_index(drop=True).iterrows():
-                                all_predictions.append({"split": "rolling", "fold": fold_number, "target": target, "horizon_minutes": horizon, "feature_set": feature_set, "model": model_name, "issued_at": row.issued_at, "valid_at": row.valid_at, "actual_at": row.actual_at, "actual": row.target, "prediction": prediction[idx], "absolute_error": abs(prediction[idx] - row.target), "gap": row.gap, "night": int(row.issued_at.tz_convert("Asia/Ho_Chi_Minh").hour < 6)})
+                        if write_predictions and model_name in prediction_keep and feature_set in prediction_feature_keep:
+                            all_predictions.append(_prediction_block("rolling", fold_number, target, horizon, feature_set, model_name, test, prediction))
                 # lockbox is only evaluated after all rolling experiments; train excludes it.
                 lock_start = frame.issued_at.max() - pd.Timedelta(days=LOCKBOX_DAYS)
                 train, test = frame[frame.valid_at < lock_start - PURGE], frame[frame.issued_at >= lock_start]
@@ -310,26 +329,28 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
                         metrics = _metric_rows(test.target.to_numpy(), prediction, train.target.to_numpy())
                         ci_low, ci_high = bootstrap_mae_delta(test.target.to_numpy(), prediction, persistence)
                         summary.append({"split": "lockbox", "fold": 0, "target": target, "horizon_minutes": horizon, "feature_set": feature_set, "model": model_name, "n_train": len(train), "n_test": len(test), "gap_rate": float(test.gap.mean()), "mae_delta_ci_low": ci_low, "mae_delta_ci_high": ci_high, **metrics})
-                        if write_predictions and model_name in prediction_keep:
-                            for idx, row in test.reset_index(drop=True).iterrows():
-                                all_predictions.append({"split": "lockbox", "fold": 0, "target": target, "horizon_minutes": horizon, "feature_set": feature_set, "model": model_name, "issued_at": row.issued_at, "valid_at": row.valid_at, "actual": row.target, "prediction": prediction[idx], "absolute_error": abs(prediction[idx] - row.target), "gap": row.gap, "night": int(row.issued_at.tz_convert("Asia/Ho_Chi_Minh").hour < 6)})
-    metrics = pd.DataFrame(summary); predictions = pd.DataFrame(all_predictions)
+                        if write_predictions and model_name in prediction_keep and feature_set in prediction_feature_keep:
+                            all_predictions.append(_prediction_block("lockbox", 0, target, horizon, feature_set, model_name, test, prediction))
+    metrics = pd.DataFrame(summary)
+    # Concatenate once; per-row dicts exhausted 16 GB on 1-minute history.
+    predictions = pd.concat(all_predictions, ignore_index=True) if all_predictions else pd.DataFrame()
+    del all_predictions
     metrics.to_csv(output / "metrics_per_fold.csv", index=False)
     if write_predictions:
-        predictions.to_csv(output / "predictions.csv", index=False)
+        predictions.to_parquet(output / "predictions.parquet", index=False)
     research_gate(metrics).to_csv(output / "research_gate.csv", index=False)
     if not predictions.empty:
         strata = predictions.groupby(["split", "target", "horizon_minutes", "feature_set", "model", "gap", "night"], dropna=False).agg(n=("actual", "size"), mae=("absolute_error", "mean"), p95_ae=("absolute_error", lambda x: x.quantile(.95))).reset_index()
         strata.to_csv(output / "metrics_strata.csv", index=False)
-    manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "external_snapshots": None if snapshots_path is None else str(snapshots_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "synthetic_data_policy": "rejected", "runtime_changed": False}
+    manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "prediction_feature_sets": sorted(prediction_feature_keep), "predictions_format": "parquet", "external_snapshots": None if snapshots_path is None else str(snapshots_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "synthetic_data_policy": "rejected", "runtime_changed": False}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     return manifest
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("csv", type=Path); parser.add_argument("--station", required=True); parser.add_argument("--output", type=Path, required=True); parser.add_argument("--snapshots", type=Path); parser.add_argument("--write-predictions", action="store_true"); parser.add_argument("--fast", action="store_true", help="research preset: 60 ExtraTrees / 40 XGBoost estimators"); parser.add_argument("--feature-set", choices=AVAILABLE_FEATURE_SETS, action="append"); parser.add_argument("--model", choices=("ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--target", choices=TARGETS, action="append"); parser.add_argument("--horizon", choices=HORIZONS, type=int, action="append"); parser.add_argument("--prediction-model", choices=("persistence", "drift", "rolling_median", "seasonal_naive", "ridge", "extra_trees", "xgboost"), action="append")
-    args = parser.parse_args(); print(json.dumps(run_benchmark(args.csv, args.station, args.output, args.snapshots, write_predictions=args.write_predictions, fast=args.fast, selected_feature_sets=tuple(args.feature_set) if args.feature_set else None, selected_models=tuple(args.model) if args.model else None, selected_targets=tuple(args.target) if args.target else None, selected_horizons=tuple(args.horizon) if args.horizon else None, prediction_models=tuple(args.prediction_model) if args.prediction_model else None), indent=2))
+    parser.add_argument("csv", type=Path); parser.add_argument("--station", required=True); parser.add_argument("--output", type=Path, required=True); parser.add_argument("--snapshots", type=Path); parser.add_argument("--write-predictions", action="store_true"); parser.add_argument("--fast", action="store_true", help="research preset: 60 ExtraTrees / 40 XGBoost estimators"); parser.add_argument("--feature-set", choices=AVAILABLE_FEATURE_SETS, action="append"); parser.add_argument("--model", choices=("ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--target", choices=TARGETS, action="append"); parser.add_argument("--horizon", choices=HORIZONS, type=int, action="append"); parser.add_argument("--prediction-model", choices=("persistence", "drift", "rolling_median", "seasonal_naive_24h", "ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--prediction-feature-set", choices=AVAILABLE_FEATURE_SETS, action="append", help="keep predictions only for these feature sets (default: all)")
+    args = parser.parse_args(); print(json.dumps(run_benchmark(args.csv, args.station, args.output, args.snapshots, write_predictions=args.write_predictions, fast=args.fast, selected_feature_sets=tuple(args.feature_set) if args.feature_set else None, selected_models=tuple(args.model) if args.model else None, selected_targets=tuple(args.target) if args.target else None, selected_horizons=tuple(args.horizon) if args.horizon else None, prediction_models=tuple(args.prediction_model) if args.prediction_model else None, prediction_feature_sets=tuple(args.prediction_feature_set) if args.prediction_feature_set else None), indent=2))
 
 
 if __name__ == "__main__":

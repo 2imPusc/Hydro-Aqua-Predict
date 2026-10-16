@@ -11,7 +11,8 @@ python experiments/forecast_sensor_v2.py data/greenlab/greenlab_export.csv `
 ```
 
 Artifact gồm `manifest.json`, `metrics_per_fold.csv`, `metrics_strata.csv`,
-`predictions.csv` và `research_gate.csv`. `data-gen` và `data-v3` bị từ chối có
+`research_gate.csv`; với `--write-predictions` thêm `predictions.parquet`
+(lọc bằng `--prediction-model`/`--prediction-feature-set`). `data-gen` và `data-v3` bị từ chối có
 chủ ý vì là dữ liệu classification tổng hợp, không phải chuỗi sensor theo thời
 gian.
 
@@ -45,6 +46,6 @@ python experiments/forecast_retrospective_context.py chirps-v3.csv `
 
 ```powershell
 python experiments/downstream_forecast_robustness.py `
-  artifacts/experiments/forecast-v2/run-001/predictions.csv `
+  artifacts/experiments/forecast-v2/run-001/predictions.parquet `
   --output artifacts/experiments/forecast-v2/run-001/downstream_wqi.csv
 ```

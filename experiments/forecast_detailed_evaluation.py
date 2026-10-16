@@ -1,6 +1,6 @@
 """Detailed, lockbox-only error analysis for shortlisted forecast candidates.
 
-Consumes the bounded ``predictions.csv`` produced by ``forecast_sensor_v2``.
+Consumes the ``predictions.parquet`` (or legacy ``predictions.csv``) produced by ``forecast_sensor_v2``.
 It never refits models and keeps the comparison paired with persistence at the
 same issued timestamps.
 """
@@ -26,7 +26,10 @@ def _metrics(frame: pd.DataFrame) -> dict[str, float | int]:
 
 
 def evaluate(predictions: Path, output: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    data = pd.read_csv(predictions, parse_dates=["issued_at", "valid_at"], low_memory=False)
+    if Path(predictions).suffix == ".parquet":
+        data = pd.read_parquet(predictions)
+    else:
+        data = pd.read_csv(predictions, parse_dates=["issued_at", "valid_at"], low_memory=False)
     data = data[data["split"] == "lockbox"].copy()
     if data.empty:
         raise ValueError("no_lockbox_predictions")
