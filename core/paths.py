@@ -40,6 +40,8 @@ DEPTH_DIR = DATA_DIR / "depth"
 CMEMS_CACHE_DIR = DATA_DIR / "haiphong" / "_cmems_cache"
 COBIA_THRESHOLDS = PROJECT_ROOT / "hap_shared" / "thresholds" / "cobia_thresholds.json"
 SUITABILITY_LAYERS_DIR = DATA_DIR / "suitability"  # direction 3 (HP + QN) site-suitability inputs
+SUITABILITY_HK_DIR = DATA_DIR / "suitability_hk"  # direction 3 out-of-sample check (Hong Kong)
+FOREIGN_DATA_DIR = DATA_DIR / "foreign"  # direction 4 foreign test datasets, one subfolder per source
 
 
 def clean_data(region: str) -> Path:

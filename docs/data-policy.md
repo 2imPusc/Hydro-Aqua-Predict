@@ -27,6 +27,7 @@ cần có (kèm sha256) nằm ở [data-manifest.md](data-manifest.md).
 | Dữ liệu sensor GreenLab gốc | `data/greenlab/exports/**` (~268 MB), `data/greenlab/greenlab_export.csv` | Dữ liệu quan trắc gốc của đối tác; lớn; append-only |
 | Dữ liệu quan trắc tỉnh | `data/{haiphong,quangninh,hungyen}/clean_data.csv` | Thuộc sở hữu cơ quan quan trắc; dùng cho đồ án/nghiên cứu |
 | Dữ liệu ngoài | `data/depth/*.nc` (Copernicus), `data/haiphong/_cmems_cache/` | Có thể tải lại từ nguồn; giấy phép riêng |
+| Dữ liệu nước ngoài thử nghiệm (hướng 3, 4) | `data/foreign/<nguồn>/` (`paths.FOREIGN_DATA_DIR`: NERRS, HK EPD, Texas TWDB, Chesapeake, USGS…), `data/suitability_hk/` | Tải lại được từ nguồn công khai; giấy phép riêng từng nguồn; mỗi thư mục ghi nguồn/URL trong `SOURCES.md` |
 | Water mask | `data/map/water_polygons_clip/` (2.3 MB) | Cắt từ OSM water polygons (ODbL); tạo lại bằng `scripts/clip_water_mask.py` |
 | Toạ độ trạm | `data/map/station_coordinates.csv` | Danh mục trạm quan trắc tỉnh |
 | Output thí nghiệm | `artifacts/experiments/**` (~307 MB; `forecast-v2` 233 MB) | Tái tạo được bằng script; vượt giới hạn hợp lý của git |
