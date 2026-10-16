@@ -230,3 +230,29 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Tiếp theo:**
   - Dựng lớp chế độ mặn cho HP/QN từ dữ liệu quan trắc quý, rồi chạy lại P0/P1 theo cùng chế độ và khác chế độ (H4.1).
   - H4.4: điểm đối chứng cùng chế độ mặn với NB1, đo theo giờ.
+
+## RL-15 · 2026-10-16 · H1.5: đưa dự báo 3–12 giờ vào shadow runner
+
+- **Câu hỏi:** các dự báo đã qua gate (Temperature B4/B5, pH B4/B6; 3/6/12 h) có chạy được trong shadow, được ghi sổ và chấm điểm, mà vẫn giữ các chốt an toàn không?
+- **Thiết lập:**
+  - 12 mô hình ridge fit trên `sensor-history-20261014`. pH chỉ huấn luyện trên dữ liệu ≤ 18/09 (RL-13).
+  - Đặc trưng lúc chạy được dựng cho từng mốc dự báo; có test khẳng định trùng khớp với `build_frame` của benchmark.
+  - B5: chỉ dùng bản tin `captured_live` (retrieved_at ≤ mốc, tuổi ≤ 24 h). B6: mực nước dự báo của Open-Meteo Marine.
+  - Khoảng tin cậy: Temperature dùng ACI-scaled; pH dùng static_night; trạng thái dựng lại từ sổ ghi, chỉ dùng mốc đã biết giá trị thật.
+  - Sổ ghi riêng: `runtime/forecast-shadow/long_*.jsonl`.
+  - Bản ghi pH gắn `ph_probe_suspect` khi đầu vào ngoài 7.0–8.6; các bản ghi này không được chấm điểm hay dùng hiệu chỉnh.
+- **Kết quả:**
+  - MAE trong mẫu thấp hơn persistence ở mọi cấu hình (chỉ để kiểm tra hợp lý). Temperature 12 h: B4 0.66, B5 0.57, persistence 0.94 °C.
+  - Chạy ở chế độ cache: `stale_sensor_data`, không ghi gì (đúng thiết kế).
+  - Chạy lại trên dữ liệu cache vào sổ tạm: 9 bản ghi phát hành, 3 bỏ qua có lý do; mọi bản ghi pH bị gắn nhãn (pH hiện tại 6.88).
+  - 305 test pass.
+- **Kết luận:**
+  - Sẵn sàng về kỹ thuật.
+  - Vận hành thật còn bị chặn bởi: chế độ fetch đang là cache; `MARINE_ENABLED` đang tắt; chưa có scheduled task cho shadow runner; độ phủ bản tin tự thu thấp (~29 % số giờ kể từ 26/09, đã cải thiện từ 15/10); đầu đo pH nghi hỏng.
+  - **Rủi ro:** mô hình Temperature dùng các lag pH, mà pH sau 19/09 đã trôi. Đầu vào pH vẫn nằm trong miền huấn luyện nhưng không đúng về vật lý → nên huấn luyện lại Temperature không dùng pH (hoặc chỉ dùng pH trước 19/09).
+- **Artifact:** `core/models/sensor_future/haiphong_*_ridge_*_deb84b513_*.pkl`, `sensor_future_long_manifest.json`; commit 8028b5e, dd3e95a, 9d1abe6.
+- **Tiếp theo:**
+  - Chủ dự án quyết định bật fetch live, bật marine, cài task cho shadow runner.
+  - Tích lũy ≥ 4 tuần sổ ghi rồi so độ phủ khoảng tin cậy với RL-09.
+  - Huấn luyện lại Temperature bỏ lag pH.
+  - Định kỳ dọn các bản ghi đã chấm điểm khỏi bộ nhớ (~17 nghìn bản ghi mỗi ngày).
