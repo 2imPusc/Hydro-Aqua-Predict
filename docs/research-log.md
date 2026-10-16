@@ -204,3 +204,29 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Đưa chuẩn hóa theo biên độ nhiệt vào ACI-scaled.
   - Bỏ XGBoost cho nhiệt độ, hoặc chuyển sang dự báo độ chênh.
   - Xin nhật ký bảo dưỡng cảm biến quanh 16–19/09.
+
+## RL-14 · 2026-10-16 · Độ tin cậy không gian trên HK EPD (94 trạm, lấy mẫu hằng tháng)
+
+- **Câu hỏi:** với cách lấy mẫu định kỳ giống VN, dùng giá trị trạm neo cho vị trí khác thì sai số tăng theo khoảng cách thế nào? Có phụ thuộc vào việc cùng vùng kiểm soát nước (WCZ) hay cùng chế độ mặn không? (kiểm chứng RL-12)
+- **Thiết lập:**
+  - Dữ liệu: 10.878 mẫu nước mặt, 2015–2025. Ghép cặp trong ±3 ngày, nhưng so sánh chính chỉ dùng cặp **trùng ngày**: các vùng được lấy mẫu theo chuyến riêng (cùng vùng 82 % trùng ngày, khác vùng chỉ 4 %), nên dữ liệu ±3 ngày lẫn hiệu ứng lệch ngày.
+  - "Cùng chế độ mặn": chênh trung vị độ mặn mùa mưa < 2 psu.
+  - Dung sai như RL-12. NH3 chặt = 30 % tương đối, bỏ giá trị dưới giới hạn phát hiện.
+  - Gate: bootstrap theo ngày lấy mẫu, ≥ 30 ngày. Mưa lấy từ ERA5.
+- **Kết quả:**
+  - **Nhãn WCZ gần như không thêm thông tin:** ở cùng khoảng cách, chênh lệch nằm trong ±0.05.
+  - **Chế độ mặn quyết định:** cùng chế độ so với khác chế độ, ở 0–2 km: Temp +0.38, pH +0.38, DO +0.23, TSS +0.21. Cặp khác chế độ không đạt 80 % ở bất kỳ khoảng cách nào.
+  - **Bán kính 80 % (cùng chế độ):** Temp 5 km (mùa khô 10 km); Sal 5 km; pH > 20 km (95 % trong 5 km). DO, TSS, NH3 không có bán kính nào.
+  - Ánh xạ hiệu chỉnh 24 tháng không tốt hơn lấy nguyên giá trị.
+  - So với khí hậu tháng của chính trạm: chuyển giá trị tốt hơn nhiều (Temp 0.84 so với 0.23).
+  - Mưa ≥ 20 mm trong 3 ngày trước làm Sal giảm 0.30 (riêng mùa mưa 0.25).
+- **Kết luận:**
+  - Xác nhận RL-12 trên một bộ dữ liệu khác, cùng kiểu lấy mẫu với VN.
+  - **Bản đồ tin cậy VN phải có lớp chế độ mặn** (vùng biển Cát Bà khác vùng chịu ảnh hưởng cửa sông Hải Phòng) trước khi xét khoảng cách; ranh giới hành chính không thay được.
+  - Không vẽ vùng tin cậy cho DO. Hạ mức tin cậy độ mặn sau mưa lớn.
+  - Chỉ chuyển phương pháp, không chuyển con số bán kính.
+- **Hạn chế:** không có giờ lấy mẫu; cặp khác vùng trùng ngày chỉ là các vùng kề nhau; ô ERA5 cách trọng tâm các trạm ~18 km; năm 2020–2022 ít mẫu.
+- **Artifact:** `hk-epd-reliability-20261016/`; commit 37a0f23.
+- **Tiếp theo:**
+  - Dựng lớp chế độ mặn cho HP/QN từ dữ liệu quan trắc quý, rồi chạy lại P0/P1 theo cùng chế độ và khác chế độ (H4.1).
+  - H4.4: điểm đối chứng cùng chế độ mặn với NB1, đo theo giờ.
