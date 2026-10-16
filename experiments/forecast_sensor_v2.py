@@ -165,7 +165,8 @@ def rolling_folds(frame: pd.DataFrame) -> list[tuple[pd.DataFrame, pd.DataFrame]
     purge = effective_purge(_frame_horizon_minutes(frame))
     end = frame["issued_at"].max()
     lockbox_start = end - pd.Timedelta(days=LOCKBOX_DAYS)
-    candidate = frame[frame["issued_at"] < lockbox_start].copy()
+    # Filter on valid_at so no rolling-fold label (train or test) touches the lockbox (RL-07).
+    candidate = frame[frame["valid_at"] < lockbox_start].copy()
     test_starts = pd.date_range(lockbox_start - pd.Timedelta(days=N_FOLDS * FOLD_DAYS), periods=N_FOLDS, freq=f"{FOLD_DAYS}D", tz="UTC")
     folds = []
     for start in test_starts:

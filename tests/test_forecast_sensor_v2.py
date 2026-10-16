@@ -154,3 +154,12 @@ def test_lag_features_never_read_after_issue_time_at_long_horizon():
     for minute in (1, 15, 60):
         assert row[f"Temperature_lag_{minute}m"] == lookup[row.issued_at - pd.Timedelta(minutes=minute)]
     assert row.target == lookup[row.valid_at]
+
+
+@pytest.mark.parametrize("horizon", [15, 720])
+def test_rolling_fold_labels_never_reach_the_lockbox(horizon):
+    frame, _ = build_frame(_raw(), "Temperature", horizon, "B0_lags")
+    lock_start = frame.issued_at.max() - pd.Timedelta(days=LOCKBOX_DAYS)
+    for train, test in rolling_folds(frame):
+        assert test.valid_at.max() < lock_start
+        assert train.valid_at.max() < lock_start
