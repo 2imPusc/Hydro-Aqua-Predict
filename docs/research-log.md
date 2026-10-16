@@ -327,3 +327,73 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Hạn chế:** cửa sổ 24 h chọn sau khi đã xem lockbox này (RL-13) và thử 4 biến thể → gần in-sample; cần shadow xác nhận.
 - **Artifact:** `forecast-h1.3-conformal-20261017-amp/`; commit f3c30e7, 7753af0.
 - **Tiếp theo:** nối aci_amp vào bundle + ledger; xác nhận bằng shadow ≥ 4 tuần.
+
+## RL-20 · 2026-10-17 · H4.3: NERRS, 8 khu cận nhiệt đới/nhiệt đới (theo giờ)
+
+- **Câu hỏi:** kết quả Jobos (RL-12) và "chế độ mặn > khoảng cách" (RL-14) có lặp lại ở nhiều khu NERRS khác không?
+- **Thiết lập:** NCEI 0052765, 2007–2011, cờ `<0>`; 8 khu (job, rkb, apa, gtm, mar, gnd, wkb, sap), mỗi khu 4–5 trạm; 90 cặp có hướng ≤ 30 km. Giao thức chung H4 (dung sai Temp 0.5 °C, Sal 1 psu, DO 0.5 mg/L, pH 0.2, Turb max(2 NTU, 20 %); chuyển thô và hiệu chỉnh 30 ngày; bootstrap theo ngày). Mùa ướt = 6 tháng có độ mặn thấp nhất của từng khu. Mưa từ trạm khí tượng của khu.
+- **Kết quả:**
+  - Đạt 80 %: Temp/Sal/DO/Turb 0/90 cặp; pH hiệu chỉnh 39/90 (thô 14/90). Bán kính gộp 0 km cho mọi biến.
+  - Hồi quy có hiệu ứng cố định theo khu: |Δ độ mặn| làm giảm độ tin cậy Sal/pH/Turb thô (β_z −0.11/−0.11/−0.04, CI không chứa 0); khoảng cách không có ý nghĩa trong mọi mô hình. Hệ số Sal âm ở 8/8 khu.
+  - Mưa ≥ 20 mm/3 ngày: pH thô −0.16, Sal hiệu chỉnh −0.13; pH thô kém đi có ý nghĩa ở 8/8 khu.
+  - Mã mới tái tạo đúng số liệu Jobos của RL-12.
+- **Kết luận:** "chế độ mặn > khoảng cách" lặp lại ở 8 khu. Ở thang giờ gần như không chuyển được giá trị giữa các trạm; bán kính 5 km của HK (mẫu tháng) không áp dụng cho dữ liệu giờ.
+- **Hạn chế:** chỉ 2007–2011; tệp met 2011 dán nhãn sai (không có tầng mưa 2011); máy đo mưa rkb đo thiếu; vài trạm cách tháp khí tượng 33–57 km.
+- **Artifact:** `nerrs-multi-h4-reliability-20261017/`; dữ liệu `data/foreign/nerrs_ncei/` (~0.8 GB mới); commit 5c08e8a.
+
+## RL-21 · 2026-10-17 · H4.4: Chesapeake, Maryland DNR ConMon (67 trạm, 15 phút)
+
+- **Thiết lập:** 67 trạm, 2004–2009, triển khai theo mùa (4–10); 1.254 cặp ≤ 50 km (610 cặp ≤ 30 km); chồng lấn ≥ 90 ngày (630 cặp ≥ 365 ngày). Không có cột cờ: dùng dữ liệu đã QA của DNR + kiểm tra dải/gai/đường phẳng 12 h. Chế độ: trung vị độ mặn mùa nước lớn (4–6). Mưa ERA5.
+- **Kết quả:**
+  - Chỉ độ mặn chuyển được: hiệu chỉnh đạt 80 % tới ≥ 30 km ở cả hai chế độ; thô cùng chế độ 5 km (2 km nếu bỏ các cặp nước ngọt cả hai đầu).
+  - Temp/DO/pH/Turb không đạt, kể cả ở 0–2 km (trạm nông 1–2 m, nóng ban ngày mạnh).
+  - Chế độ mặn > khoảng cách chỉ với Sal và pH thô; Temp và DO theo khoảng cách.
+  - Môi trường sống: Iron Pot ↔ Jug Bay (1.7 km, đầm lầy so với lòng kênh) lệch nhiệt ~1.7 °C.
+  - Mưa lớn: Sal hiệu chỉnh −0.03/−0.04; DO/pH/Temp thô lại tốt hơn (giả thuyết: mây làm giảm chênh lệch nóng ban ngày; chưa kiểm chứng).
+- **Kết luận:** xác nhận vai trò chế độ mặn với độ mặn và vai trò môi trường sống; không có bán kính cho Temp/DO/pH/Turb ở thang giờ; hiệu chỉnh giúp rõ (khác HK).
+- **Hạn chế:** ôn đới, triển khai theo mùa; hồi quy coi các cặp độc lập (SE lạc quan). **Giấy phép:** không phát tán lại dữ liệu thô; phải ghi nguồn "Maryland Department of Natural Resources Tidewater Ecosystem Assessment Division".
+- **Artifact:** `mddnr-h4-reliability-20261017/`; dữ liệu `data/foreign/chesapeake_mddnr/` (388 MB); commit 93cdcd8, 638be63.
+
+## RL-22 · 2026-10-17 · H4.2: Texas TWDB (17 trạm, theo giờ)
+
+- **Thiết lập:** 17 trạm ở 4 hệ cửa sông (Guadalupe, Trinity-Galveston, Colorado-Lavaca, Sabine), 2008–2019, 1 số đo/giờ (lệch giao thức: không có ≥ 2 số đo/giờ). Bỏ dữ liệu từ 2020 vì API làm tròn độ mặn đến 1 psu (bằng dung sai). QC theo ngưỡng của chính nhà cung cấp. 25 cặp ≤ 30 km, chỉ 3 cặp cùng chế độ.
+- **Kết quả:**
+  - Không biến nào đạt 80 % ở bất kỳ khoảng cách nào (Temp tốt nhất 0.78; Sal thô ≤ 0.29, hiệu chỉnh ≤ 0.48). Không có cặp DO ≤ 30 km, không có pH/độ đục.
+  - Sal: chế độ > khoảng cách (với chuyển thô thì gần như đúng theo định nghĩa). Temp: khoảng cách > chế độ.
+  - Mưa: không làm giảm nhất quán; Sal hiệu chỉnh −3…−5 điểm; Temp cùng chế độ +6…+12 điểm.
+- **Kết luận:** cùng mẫu hình với Chesapeake: độ mặn theo chế độ, nhiệt độ theo khoảng cách; không có bán kính ở thang giờ.
+- **Hạn chế:** vi triều, cận nhiệt đới; dữ liệu tạm thời; ít cặp cùng chế độ.
+- **Artifact:** `twdb-h4-reliability-20261017/`; dữ liệu `data/foreign/texas_twdb/` (172 MB); commit a219b84.
+
+## RL-23 · 2026-10-17 · H4.5: USGS vịnh San Francisco (13 trạm) + kiểm tra truy cập Hàn Quốc, IRLON
+
+- **Thiết lập:** 13 trạm, WY2018–2025, chỉ giá trị đã duyệt "A"; độ mặn tính từ độ dẫn (PSS-78, sai 0.02–0.18 psu so với số báo cáo); 156 cặp có hướng, 34 cặp ≤ 30 km. DO/pH đã duyệt chỉ có ở 3 trạm.
+- **Kết quả:**
+  - Bán kính 80 %: Temp 10 km (cùng chế độ) / 5 km (khác); Sal 0 km khi gộp (chỉ P17↔ALC 3.4 km đạt riêng); Turb không có; pH hiệu chỉnh ≥ 20 km (3 cặp Suisun).
+  - Sal: cùng chế độ tốt hơn khác chế độ ở mọi khoảng cách; chế độ > khoảng cách (R² 0.55 so với 0.15). Temp: khoảng cách > chế độ (R² 0.66 so với 0.19).
+  - Môi trường sống: kênh đầm lầy FMB làm hỏng cặp ở 9.8 km, trong khi VSI↔GRZ 16 km đạt (pH thô 0.91).
+  - Mưa ≥ 20 mm/72 h (mùa ướt): Sal hiệu chỉnh −0.09…−0.11, DO hiệu chỉnh −0.06; Sal/Temp thô lại tốt hơn.
+- **Truy cập:** Hàn Quốc (KOEM, data.go.kr) tải không cần đăng nhập nhưng mỗi tệp chỉ 1 năm, 18 trạm theo cụm 1–3, không có tọa độ, không cờ QC → chỉ đủ thử nhỏ. IRLON: cổng chính cần đăng nhập, nhưng **SECOORA ERDDAP có bản sao mở**: 13 trạm, theo giờ từ 2014/15, có tọa độ, cờ QARTOD, cả nitrat/phosphat và mưa tại trạm.
+- **Hạn chế:** hiệu chỉnh bất đối xứng (đích ít biến động ≈ "đoán trung bình"); chưa có baseline khí hậu; nhiều cặp lệch độ sâu sensor.
+- **Artifact:** `usgs-sfbay-h4-reliability-20261017/`; dữ liệu `data/foreign/usgs_sfbay/` (31 MB), `data/foreign/probe_korea_irlon/NOTES.md`; commit 4217c8c.
+
+## RL-24 · 2026-10-17 · Tổng hợp hướng 4 trên 6 bộ dữ liệu nước ngoài
+
+| Bộ | Kiểu | Bán kính 80 % thô, cùng chế độ | Chế độ mặn > khoảng cách? | Mưa lớn |
+| --- | --- | --- | --- | --- |
+| Jobos (RL-12) | 4 trạm, giờ | không đạt | môi trường sống quyết định | hiệu chỉnh kém đi |
+| HK EPD (RL-14) | 94 trạm, tháng | Temp 5, Sal 5, pH > 20 km | có (mọi biến) | Sal kém đi |
+| NERRS 8 khu (RL-20) | 34 trạm, giờ | 0 km mọi biến | có (Sal, pH, Turb) | kém đi ở 8/8 khu |
+| Chesapeake (RL-21) | 67 trạm, giờ | Sal 2–5 km, còn lại 0 | Sal, pH; Temp/DO theo khoảng cách | Sal hiệu chỉnh kém đi |
+| Texas (RL-22) | 17 trạm, giờ | 0 km | Sal; Temp theo khoảng cách | không nhất quán |
+| SF Bay (RL-23) | 13 trạm, giờ | Temp 10 km, Sal 0 | Sal; Temp theo khoảng cách | hiệu chỉnh kém đi |
+
+- **Vững ở mọi bộ:** (1) với độ mặn (và phần lớn pH), chế độ mặn quyết định chứ không phải khoảng cách; (2) khác môi trường sống (rừng ngập mặn/đầm lầy so với vịnh/lòng kênh) làm hỏng cặp ngay ở 1–2 km; (3) DO và độ đục không chuyển được ở đâu; (4) mưa lớn làm chuyển giá trị có hiệu chỉnh kém đi.
+- **Phụ thuộc thang thời gian:** bán kính 5 km của HK chỉ đúng với mẫu tháng. Ở thang giờ gần như không chuyển được giá trị (triều và nóng ban ngày làm lệch vượt dung sai). Nhiệt độ theo giờ phụ thuộc khoảng cách nhiều hơn chế độ.
+- **Hiệu chỉnh:** có điểm đối chứng 30 ngày thì độ mặn và pH cải thiện mạnh (Chesapeake Sal ≥ 30 km), nhưng một phần là ảo (đích ít biến động) → cần baseline khí hậu.
+- **Hàm ý cho VN:**
+  - Bản đồ tin cậy không nên hứa giá trị theo giờ tại điểm khác; nên báo ở thang ngày/tháng hoặc theo **lớp ngưỡng** (đạt/không đạt QCVN), là thứ khuyến cáo thực sự dùng.
+  - Vùng được phép chuyển = cùng chế độ mặn + cùng loại môi trường sống; ranh giới hành chính không dùng.
+  - Không vẽ vùng tin cậy cho DO và TSS; hạ mức tin cậy sau mưa lớn.
+  - Muốn chuyển theo giờ cần sensor đối chứng thứ hai để hiệu chỉnh (H4.4 VN).
+- **Tiếp theo:** chạy lại giao thức ở thang ngày (trung bình, min/max) và theo lớp ngưỡng trên dữ liệu đã tải, kèm baseline khí hậu; thử IRLON (SECOORA ERDDAP); A6 lớp chế độ mặn HP/QN.
