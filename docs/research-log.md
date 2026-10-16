@@ -57,3 +57,45 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết luận:** tiêu chí gần bờ phù hợp hơn với thực tế nuôi, nhưng xếp hạng **rất nhạy** với lựa chọn tiêu chí. Chưa kết luận được bản đồ nào đúng khi chưa có dữ liệu kiểm chứng độc lập. Lớp chất lượng nước (113 trạm, theo quý, nội suy IDW) quá mượt để phân biệt các ô.
 - **Artifact:** `suitability-h3-2024-nearshore/`; commit 8b0b3b0.
 - **Tiếp theo:** (1) lấy bản đồ quy hoạch vùng nuôi chính thức của HP/QN hoặc vùng nuôi cá Hong Kong làm tập kiểm chứng độc lập; (2) độ sâu gần bờ chi tiết (hải đồ/GEBCO); (3) phân tích độ nhạy trọng số (H3.2).
+
+## RL-07 · 2026-10-16 · Chuẩn bị H1.2 và dữ liệu ngoài
+
+- **Việc đã làm:**
+  - Benchmark ghi dự báo dạng Parquet theo khối (hết lỗi tràn RAM).
+  - Thêm module kiểm định Diebold–Mariano (`forecast_dm_test.py`).
+  - Thêm chân trời 180/360/720 phút; purge = max(60 phút, chân trời).
+  - Nhãn của fold trượt không còn chạm vào lockbox (decisions #16).
+  - Thêm B6 thủy triều.
+- **Dữ liệu ngoài:**
+  - 10.152 bản tin dựng lại (Open-Meteo Previous Runs, lead 1–3 ngày), khả dụng tính từ cuối ngày chạy mô hình + 12 h (decisions #13).
+  - Mực nước mô hình tại NB1: triều nhật triều, biên độ trung vị 2.4 m/ngày, chu kỳ chính 24–26 h.
+  - NERRS Jobos Bay từ NCEI: 131 file, 216 MB (chất lượng nước và khí tượng 15 phút, dinh dưỡng; 1995/2001–2011).
+- **Phát hiện phụ:** kernel Bartlett của DM bác bỏ sai 8–11 % (danh nghĩa 5 %), nên chọn kernel rectangular.
+- **Artifact:** `external-context-06M26042804-2026-05-28_2026-10-15/`, `data/foreign/nerrs_ncei/jobos/`; các commit 182781f…b03ce84.
+
+## RL-08 · 2026-10-16 · H1.2: chân trời 15 phút–12 giờ, thời tiết (B5) và thủy triều (B6)
+
+- **Câu hỏi:** dự báo xa hơn có thắng persistence không? Thời tiết và thủy triều có giúp thêm không?
+- **Thiết lập:** dữ liệu `sensor-history-20261014`; ridge/XGBoost (preset nhanh); B0, B4, B5 (B4 + bản tin dựng lại), B6 (B4 + mực nước). Gate (decisions #16): ≥ 4/5 fold thắng persistence, DM lockbox p < 0.05. Đóng góp của thời tiết/thủy triều: DM so trực tiếp với B4 trên cùng mốc. Lockbox: 14 ngày cuối (đến 2026-10-14).
+- **Kết quả (đạt gate, so với persistence):**
+  - Temperature: đạt ở mọi chân trời 15 phút–12 giờ. MAE giảm (B4 → B5): 15 phút +13 → +13 %, 60 phút +18 → +20 %, 3 h +23 → +30 %, 6 h +29 → +38 %, 12 h +37 → +46 %.
+  - pH: đạt tới 60 phút (+4…6 %); ở 3 h chỉ B6 đạt (+8 %); 6–12 h không đạt.
+  - NH4: không đạt ở đâu. TSS: mọi mô hình thua persistence.
+- **Đóng góp so với B4 (DM trực tiếp):**
+  - Thời tiết cho Temperature: +8.4 % (3 h), +12.6 % (6 h), +13.9 % (12 h), p < 0.001.
+  - Thủy triều cho pH: +4.8 % (6 h, p = 0.04), +6.6 % (12 h, p = 0.007); cho Temperature +1.5–4.3 %.
+  - NH4: thời tiết không giúp; thủy triều làm kém đi ở 30–60 phút.
+- **Kết luận:**
+  - Bằng chứng **sơ bộ** đầu tiên rằng thời tiết giúp dự báo (câu hỏi trung tâm của hướng 2), nhưng mới cho nhiệt độ nước, chưa cho NH4/TSS.
+  - Nên đưa nhiệt độ và pH dự báo 3–12 h vào shadow.
+- **Hạn chế:**
+  - Bản tin là `reconstructed_run`, chưa phải `captured_live`.
+  - Một trạm; lockbox 14 ngày.
+  - Mô hình cây chạy preset nhanh.
+  - Sensor TSS bất thường trong lockbox (RL-04).
+- **Artifact:** `forecast-h1.2-20261016-{Temperature,pH,NH4,TSS}/` (có `dm_tests.csv`), `forecast-h1.2-20261016-addon-dm/addon_vs_B4_dm.csv`.
+- **Tiếp theo:**
+  - Lặp lại B5 khi đủ `captured_live` (H2.2).
+  - Shadow cho Temperature và pH 3–12 h (H1.5).
+  - Khoảng tin cậy conformal (H1.3).
+  - Kiểm tra sensor TSS.
