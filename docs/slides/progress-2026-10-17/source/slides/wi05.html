@@ -1,0 +1,39 @@
+<section id="wi05" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 5 · Hướng 1</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Vận hành dự báo ở chế độ shadow</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#7C3A06;background:#FBEFE3;border-radius:999px;padding:10px 24px;white-space:nowrap">Chờ bật dữ liệu thật</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Mọi kết quả mới là thử trên dữ liệu quá khứ. Cần chạy song song với thực tế để có bằng chứng.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Đưa mô hình vào shadow runner: tự dự báo, ghi sổ, chấm điểm. Không phát hành khi dữ liệu cũ.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">12</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">mô hình nhiệt độ 3/6/12 h sẵn sàng (có và không dùng pH).</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Chạy thử: phát hành đúng; 6 mô hình pH bị bỏ qua đúng.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Chưa có bản ghi thật: đang đọc dữ liệu cache, chưa bật dữ liệu biển, chưa có tác vụ chạy định kỳ.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Bật dữ liệu live, dữ liệu biển, tác vụ 5 phút/lần; sau 4 tuần so sánh.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-15, RL-26</p>
+<aside>Cài đặt cần đổi: GREENLAB_FETCH_MODE=live, MARINE_ENABLED=true, cộng một scheduled task chạy shadow runner.</aside>
+</section>

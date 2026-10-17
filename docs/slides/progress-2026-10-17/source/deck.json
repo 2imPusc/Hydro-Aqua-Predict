@@ -1,0 +1,19 @@
+{
+  "v": 4,
+  "createdOnFiles": {"v": 1, "at": "2026-10-17T15:30:00Z"},
+  "lists": "css",
+  "title": "Hydro-Aqua-Predict — Báo cáo tiến độ 4 hướng",
+  "order": ["cover", "plan", "terms", "agenda", "wi01", "wi02", "wi03", "wi04", "wi05", "wi06", "wi07", "wi08", "wi09", "wi10", "summary", "next"],
+  "sections": {
+    "s0": {"description": "Mở đầu: kế hoạch 4 hướng, thuật ngữ và danh sách công việc", "start": "cover"},
+    "s1": {"description": "Phase 0: nền dữ liệu", "start": "wi01"},
+    "s2": {"description": "Hướng 1: dự báo, sự cố pH, khoảng tin cậy, shadow", "start": "wi02"},
+    "s3": {"description": "Hướng 2 và 3: thời tiết, phân vùng", "start": "wi06"},
+    "s4": {"description": "Hướng 4: độ tin cậy không gian", "start": "wi08"},
+    "s5": {"description": "Demo, tổng kết và hướng tiếp theo", "start": "wi10"}
+  },
+  "faces": {
+    "be-vietnam-pro": {"family": "Be Vietnam Pro", "href": "https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"}
+  },
+  "designSystems": []
+}

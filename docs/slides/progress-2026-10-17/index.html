@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hydro-Aqua-Predict — Báo cáo tiến độ 4 hướng</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<style>
+html,body{margin:0;height:100%;background:#0b1620;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{display:none;position:absolute;inset:0;width:1920px;height:1080px}
+.slide.on{display:block}
+.slide>section{position:relative;box-sizing:border-box;width:1920px;height:1080px;overflow:hidden}
+.slide h1,.slide h2,.slide h3,.slide p,.slide ul,.slide table{margin:0}
+.slide ul{padding-left:1.2em}
+.slide table{border-collapse:collapse;width:100%}
+.slide th,.slide td{padding:.45em .6em;border-bottom:1px solid #dce3e1;vertical-align:top}
+#bar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:8px;align-items:center;font:14px 'Be Vietnam Pro',Arial,sans-serif;color:#c9dce3;background:rgba(15,42,61,.85);padding:6px 12px;border-radius:999px;z-index:5}
+#bar button{font:inherit;color:#f3f6f4;background:#123b52;border:0;border-radius:999px;padding:4px 12px;cursor:pointer}
+#notes{display:none;position:fixed;right:16px;top:16px;width:420px;max-height:60vh;overflow:auto;background:#f6f7f4;color:#1f2a33;font:16px/1.5 'Be Vietnam Pro',Arial,sans-serif;padding:16px 20px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.35);z-index:6}
+#toc{display:none;position:fixed;inset:10vh 20vw;overflow:auto;background:#f6f7f4;color:#1f2a33;font:16px/1.6 'Be Vietnam Pro',Arial,sans-serif;padding:20px 28px;border-radius:12px;z-index:7}
+#toc a{display:block;color:#0b5a72;text-decoration:none;cursor:pointer}
+@media print{
+  @page{size:1920px 1080px;margin:0}
+  html,body{overflow:visible;background:none}
+  #bar,#notes,#toc{display:none!important}
+  #stage{position:static;transform:none!important;width:auto;height:auto}
+  .slide{display:block!important;position:relative;break-after:page;page-break-after:always}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style></head><body>
+<div id="stage">
+<div class="slide" data-i="0" data-title="Báo cáo tiến độ 4 hướng phát triển"><section id="cover" data-transition="fade" style="background:linear-gradient(135deg, #0F2A3D 0%, #123B52 60%, #0B5A72 100%);color:#F3F6F4;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px;display:flex;flex-direction:column;justify-content:space-between">
+<p style="font-size:28px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:#7FD3E8">Hydro-Aqua-Predict · Cát Bà – Hải Phòng – Quảng Ninh</p>
+<div style="display:flex;flex-direction:column;gap:32px">
+<h1 style="font-size:96px;font-weight:700;line-height:1.08;color:#F3F6F4">Báo cáo tiến độ<br>4 hướng phát triển</h1>
+<p style="font-size:40px;line-height:1.35;color:#C9DCE3;width:1400px">Từ kế hoạch ưu tiên 1 → 2 ‖ 3 → 4 đến kết quả thử nghiệm, kiểm chứng quốc tế và bản demo research-map</p>
+</div>
+<div style="display:flex;gap:24px;align-items:center">
+<p style="font-size:28px;background:#0B7A9B;color:#F3F6F4;padding:12px 28px;border-radius:999px">Shadow mode · chỉ nghiên cứu</p>
+<p style="font-size:28px;color:#C9DCE3">10/2026 · nhật ký nghiên cứu RL-01 → RL-26</p>
+</div>
+
+</section>
+<template class="notes">Báo cáo tổng hợp từ lúc chốt kế hoạch 4 hướng (quyết định #10) đến hiện tại. Mọi kết quả là shadow mode: được ghi và chấm điểm, không gửi cho người nuôi.</template></div>
+<div class="slide" data-i="1" data-title="Thứ tự ưu tiên 1 → 2 ‖ 3 → 4"><section id="plan" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:48px">
+<div style="display:flex;flex-direction:column;gap:16px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Kế hoạch · quyết định #10</p>
+<h2 style="font-size:64px;font-weight:700;line-height:1.12;color:#0F2A3D">Thứ tự ưu tiên 1 → 2 ‖ 3 → 4</h2>
+</div>
+<div style="display:flex;gap:24px;align-items:stretch">
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#0F2A3D;border-radius:16px;padding:36px">
+<p style="font-size:24px;font-weight:600;color:#7FD3E8">HƯỚNG 1 · ƯU TIÊN 1</p>
+<h3 style="font-size:32px;font-weight:600;color:#F3F6F4">Dự báo sâu hơn</h3>
+<p style="font-size:24px;line-height:1.45;color:#C9DCE3">Từ 15 phút lên 3–12 giờ, có khoảng tin cậy</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#123B52;border-radius:16px;padding:36px">
+<p style="font-size:24px;font-weight:600;color:#7FD3E8">HƯỚNG 2 · ƯU TIÊN 2</p>
+<h3 style="font-size:32px;font-weight:600;color:#F3F6F4">Cảnh báo có thời tiết</h3>
+<p style="font-size:24px;line-height:1.45;color:#C9DCE3">Cần ~63 ngày bản tin as-issued, không backfill được</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:2px dashed #0B7A9B;border-radius:16px;padding:36px">
+<p style="font-size:24px;font-weight:600;color:#0B7A9B">HƯỚNG 3 · SONG SONG</p>
+<h3 style="font-size:32px;font-weight:600;color:#0F2A3D">Phân vùng tiềm năng</h3>
+<p style="font-size:24px;line-height:1.45">Lấp khoảng chờ dữ liệu của hướng 2</p>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:12px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:16px;padding:36px">
+<p style="font-size:24px;font-weight:600;color:#6A7684">HƯỚNG 4 · ƯU TIÊN 4</p>
+<h3 style="font-size:32px;font-weight:600;color:#0F2A3D">Bản đồ độ tin cậy</h3>
+<p style="font-size:24px;line-height:1.45">Thử phương pháp trên dữ liệu nước ngoài trước</p>
+</div>
+</div>
+<div style="display:flex;gap:24px">
+<p style="flex:1;font-size:26px;line-height:1.45;background:#EAF0EF;border-radius:12px;padding:24px 32px"><b style="color:#0F2A3D">Phase 0 trước tất cả:</b> lịch sử sensor đầy đủ, đúng múi giờ, có QC.</p>
+<p style="flex:1;font-size:26px;line-height:1.45;background:#EAF0EF;border-radius:12px;padding:24px 32px"><b style="color:#0F2A3D">Gate #16:</b> thắng persistence ≥ 4/5 fold và kiểm định DM trên lockbox 14 ngày (p &lt; 0.05).</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Hydro-Aqua-Predict · Báo cáo tiến độ 10/2026</p>
+
+</section>
+<template class="notes">Hướng 2 bị giới hạn bởi lịch: bản tin thời tiết phải được thu đúng lúc phát hành, không lấy bù được. Vì vậy hướng 3 chạy song song để tận dụng thời gian chờ. Hướng 4 chờ thêm dữ liệu và điểm đo đối chứng.</template></div>
+<div class="slide" data-i="2" data-title="Sáu thuật ngữ dùng trong báo cáo"><section id="terms" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Trước khi vào nội dung</p>
+<h2 style="font-size:60px;font-weight:700;line-height:1.12;color:#0F2A3D">Sáu thuật ngữ dùng trong báo cáo</h2>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#0F2A3D">Persistence</h3>
+<p style="font-size:24px;line-height:1.4">Cách đoán đơn giản nhất: giá trị tương lai bằng giá trị hiện tại. Mô hình phải thắng cách này mới có ích.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#0F2A3D">Tiêu chí đạt (gate)</h3>
+<p style="font-size:24px;line-height:1.4">Đặt trước khi thử: thắng persistence ở ≥ 4/5 lần thử và trên 14 ngày kiểm tra cuối có ý nghĩa thống kê.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#0F2A3D">Shadow mode</h3>
+<p style="font-size:24px;line-height:1.4">Hệ thống chạy thật, ghi và chấm điểm dự báo, nhưng chưa gửi cho người nuôi.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#0F2A3D">Khoảng tin cậy 80 %</h3>
+<p style="font-size:24px;line-height:1.4">Khoảng mà giá trị thật nên rơi vào 80 % số lần. Đạt khi tỷ lệ thực tế nằm trong 75–85 %.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#0F2A3D">Chế độ mặn</h3>
+<p style="font-size:24px;line-height:1.4">Loại nước theo độ mặn mùa mưa: cửa sông (&lt; 20 psu), chuyển tiếp (20–28), biển (≥ 28).</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#0F2A3D">AUC</h3>
+<p style="font-size:24px;line-height:1.4">Điểm 0.5–1 đo mức bản đồ xếp vùng nuôi thật cao hơn vùng khác. 0.5 = đoán ngẫu nhiên.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Hydro-Aqua-Predict · Báo cáo tiến độ 10/2026</p>
+
+</section>
+<template class="notes">Slide này giúp thầy/cô đọc các con số ở các slide sau mà không cần biết chi tiết kỹ thuật.</template></div>
+<div class="slide" data-i="3" data-title="Mười công việc, mỗi việc trình bày 5 mục"><section id="agenda" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Các công việc đã thực hiện</p>
+<h2 style="font-size:60px;font-weight:700;line-height:1.12;color:#0F2A3D">Mười công việc, mỗi việc trình bày 5 mục</h2>
+</div>
+<div style="display:flex;gap:16px">
+<p style="font-size:24px;font-weight:600;color:#0F2A3D;background:#E3EEF2;border-radius:999px;padding:10px 24px">1 Vấn đề</p>
+<p style="font-size:24px;font-weight:600;color:#0F2A3D;background:#E3EEF2;border-radius:999px;padding:10px 24px">2 Giải pháp</p>
+<p style="font-size:24px;font-weight:600;color:#F3F6F4;background:#0F2A3D;border-radius:999px;padding:10px 24px">3 Kết quả</p>
+<p style="font-size:24px;font-weight:600;color:#7C3A06;background:#FBEFE3;border-radius:999px;padding:10px 24px">4 Vấn đề còn lại</p>
+<p style="font-size:24px;font-weight:600;color:#0F2A3D;background:#DDF0E6;border-radius:999px;padding:10px 24px">5 Hướng tiếp</p>
+</div>
+<table style="font-size:26px;color:#3F4C5A">
+<tr><th style="width:22%;text-align:left;color:#0F2A3D">Nhóm</th><th style="width:78%;text-align:left;color:#0F2A3D">Công việc</th></tr>
+<tr><td>Phase 0</td><td>1 · Nền dữ liệu sensor và thời tiết</td></tr>
+<tr><td>Hướng 1</td><td>2 · Dự báo nhiệt độ 3–12 h · 3 · Sự cố đầu dò pH · 4 · Khoảng tin cậy · 5 · Vận hành shadow</td></tr>
+<tr><td>Hướng 2</td><td>6 · Thời tiết cho cảnh báo</td></tr>
+<tr><td>Hướng 3</td><td>7 · Bản đồ phân vùng nuôi</td></tr>
+<tr><td>Hướng 4</td><td>8 · Kiểm chứng quốc tế · 9 · Áp dụng cho Việt Nam</td></tr>
+<tr><td>Demo</td><td>10 · Giao diện research-map</td></tr>
+</table>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Hydro-Aqua-Predict · Báo cáo tiến độ 10/2026</p>
+
+</section>
+<template class="notes">Mỗi slide công việc có cùng bố cục: cột trái là vấn đề và giải pháp, cột giữa là kết quả, cột phải là vấn đề còn lại và hướng tiếp.</template></div>
+<div class="slide" data-i="4" data-title="Nền dữ liệu sensor và thời tiết"><section id="wi01" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 1 · Phase 0</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Nền dữ liệu sensor và thời tiết</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#14532D;background:#DDF0E6;border-radius:999px;padding:10px 24px;white-space:nowrap">Hoàn thành</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Lịch sử sensor rời rạc. Giờ trong file export bị đọc sai 7 giờ. Sensor COD hỏng nhưng vẫn được coi là hợp lệ.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Tải bù toàn bộ 29/05 → 15/10, sửa múi giờ, thêm kiểm tra sensor kẹt. Hai tác vụ tự động: sensor mỗi ngày, thời tiết mỗi giờ.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">123/139</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">ngày đạt yêu cầu độ phủ dữ liệu.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Mọi kết quả trước đó đã được chạy lại với giờ đúng.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">16 ngày thiếu do phía nhà cung cấp. Máy tắt thì việc thu thời tiết bị gián đoạn.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Kiểm tra độ phủ ngày 22/10; cân nhắc một máy chạy liên tục.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: nhật ký nghiên cứu RL-01 → RL-05</p>
+
+</section>
+<template class="notes">Lỗi giờ là phát hiện quan trọng nhất: mọi kết quả trước đó lệch 7 giờ nên đã chạy lại toàn bộ.</template></div>
+<div class="slide" data-i="5" data-title="Dự báo nhiệt độ nước 3–12 giờ"><section id="wi02" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 2 · Hướng 1</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Dự báo nhiệt độ nước 3–12 giờ</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#14532D;background:#DDF0E6;border-radius:999px;padding:10px 24px;white-space:nowrap">Đạt tiêu chí</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Dự báo cũ chỉ tới 15 phút. Người nuôi cần biết trước 3–12 giờ để kịp xử lý.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Mô hình hồi quy (ridge) từ lịch sử sensor và bản tin thời tiết. So với persistence qua 5 lần thử trượt và 14 ngày kiểm tra cuối.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">−46 %</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">sai số so với persistence ở +12 giờ.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">+1 h −20 % · +3 h −30 % · +6 h −38 %. Đạt tiêu chí ở mọi mốc. Thời tiết giúp giảm thêm 8–14 %.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">NH4, TSS chưa dự báo được. Chỉ một trạm; kiểm tra cuối mới 14 ngày.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Chạy shadow ít nhất 4 tuần để kiểm chứng trên dữ liệu thật (công việc 5).</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-08, RL-18 · lockbox 01–15/10/2026</p>
+
+</section>
+<template class="notes">Persistence là đoán giá trị tương lai bằng giá trị hiện tại. Giảm 46 % sai số nghĩa là sai số chỉ còn khoảng một nửa.</template></div>
+<div class="slide" data-i="6" data-title="Sự cố đầu dò pH"><section id="wi03" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 3 · Hướng 1</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Sự cố đầu dò pH</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#7C3A06;background:#FBEFE3;border-radius:999px;padding:10px 24px;white-space:nowrap">Xử lý một phần</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Từ 19/09 pH tụt về ~6.9 và chu kỳ ngày–đêm đảo ngược: dấu hiệu đầu dò hỏng, không phải nước thay đổi.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Luật kiểm tra pH (ngoài 7.0–8.6, nhảy &gt; 0.5/giờ). Đánh giá lại pH trên dữ liệu sạch. Thêm mô hình nhiệt độ không dùng pH.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">21/27</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">ngày hỏng được tự gắn cờ; 0/113 ngày sạch bị gắn nhầm.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Dự báo pH 3–12 h không đạt (1/18 cấu hình) → đã rút khỏi shadow.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">6 ngày trôi nhẹ chưa bắt được. Đầu dò chưa được sửa.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Xin nhật ký bảo dưỡng 16–19/09, hiệu chuẩn đầu dò; thêm luật so với mức nền.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-13, RL-17, RL-18</p>
+
+</section>
+<template class="notes">Mô hình nhiệt độ có dùng pH bị lệch 0.2–0.4 °C khi pH đổi bước, nên chạy song song bản không dùng pH.</template></div>
+<div class="slide" data-i="7" data-title="Khoảng tin cậy cho dự báo"><section id="wi04" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 4 · Hướng 1</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Khoảng tin cậy cho dự báo</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#0F2A3D;background:#E3EEF2;border-radius:999px;padding:10px 24px;white-space:nowrap">Đạt, chờ xác nhận</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Từ 05/10 chênh nóng–lạnh ngày–đêm tăng (3 → 5.3 °C); khoảng tin cậy cũ quá hẹp, hụt độ phủ.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Cho khoảng tin cậy tự giãn theo biên độ nhiệt 24 giờ trước đó (phương pháp aci_amp).</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">36/36</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">cấu hình đạt độ phủ đúng (cách cũ: 20/36).</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Đổi lại khoảng rộng hơn 0–11 %. Đã thêm vào hệ thống dạng tùy chọn.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Thử trên đúng giai đoạn đã dùng để thiết kế, nên kết quả có thể lạc quan.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Xác nhận trên dữ liệu shadow mới rồi mới bật mặc định.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-11, RL-13, RL-19</p>
+
+</section>
+<template class="notes">Đạt độ phủ: tỷ lệ giá trị thật rơi vào khoảng 80 % nằm trong 75–85 %, khoảng 90 % trong 85–95 %.</template></div>
+<div class="slide" data-i="8" data-title="Vận hành dự báo ở chế độ shadow"><section id="wi05" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 5 · Hướng 1</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Vận hành dự báo ở chế độ shadow</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#7C3A06;background:#FBEFE3;border-radius:999px;padding:10px 24px;white-space:nowrap">Chờ bật dữ liệu thật</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Mọi kết quả mới là thử trên dữ liệu quá khứ. Cần chạy song song với thực tế để có bằng chứng.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Đưa mô hình vào shadow runner: tự dự báo, ghi sổ, chấm điểm. Không phát hành khi dữ liệu cũ.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">12</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">mô hình nhiệt độ 3/6/12 h sẵn sàng (có và không dùng pH).</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Chạy thử: phát hành đúng; 6 mô hình pH bị bỏ qua đúng.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Chưa có bản ghi thật: đang đọc dữ liệu cache, chưa bật dữ liệu biển, chưa có tác vụ chạy định kỳ.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Bật dữ liệu live, dữ liệu biển, tác vụ 5 phút/lần; sau 4 tuần so sánh.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-15, RL-26</p>
+
+</section>
+<template class="notes">Cài đặt cần đổi: GREENLAB_FETCH_MODE=live, MARINE_ENABLED=true, cộng một scheduled task chạy shadow runner.</template></div>
+<div class="slide" data-i="9" data-title="Dùng thời tiết cho dự báo và cảnh báo"><section id="wi06" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 6 · Hướng 2</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Dùng thời tiết cho dự báo và cảnh báo</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#0F2A3D;background:#E3EEF2;border-radius:999px;padding:10px 24px;white-space:nowrap">Đang thu dữ liệu</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Phải dùng đúng bản tin có tại lúc dự báo, không dùng số đo thời tiết sau đó. Bản tin cũ không lấy bù được.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Thu bản tin mỗi giờ. Thử trước bằng bản tin dựng lại, chỉ cho dùng sau khi kết thúc ngày phát hành 12 giờ.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:80px;font-weight:700;line-height:1;color:#F3F6F4">−8…14 %</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">sai số dự báo nhiệt độ 3–12 h khi thêm thời tiết.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Có ý nghĩa thống kê ở cả 3 mốc.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Bản tin tự thu mới phủ 52 % số giờ trong 7 ngày; cần khoảng 63 ngày liên tục.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Thu đủ rồi đánh giá lại. Thời tiết chỉ làm bối cảnh, không tự bật cảnh báo.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-07, RL-08 · quyết định #13</p>
+
+</section>
+<template class="notes">Bản tin dựng lại lấy từ Open-Meteo Previous Runs; giờ khả dụng được đặt muộn hơn thực tế để không gian lận.</template></div>
+<div class="slide" data-i="10" data-title="Bản đồ phân vùng nuôi cá giò"><section id="wi07" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 7 · Hướng 3</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Bản đồ phân vùng nuôi cá giò</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#0F2A3D;background:#E3EEF2;border-radius:999px;padding:10px 24px;white-space:nowrap">Có kết quả bước đầu</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Tiêu chí trong bài báo tham khảo (Ghaderi 2026) viết cho lồng xa bờ; lồng ở HP/QN nằm sát bờ.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Dựng lớp dữ liệu 2024 cho HP/QN; thử bộ tiêu chí gần bờ đặt trước; kiểm chứng độc lập trên 28 vùng nuôi ở Hong Kong.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:64px;font-weight:700;line-height:1;color:#F3F6F4">0.63 → 0.75</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">AUC tại Hong Kong: bộ gần bờ tốt hơn bộ của bài báo.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Ở VN, vùng nuôi thật bị xếp thấp (phân vị 24) theo tiêu chí xa bờ.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Lớp độ sâu, sóng, gió quá thô. Chưa có tọa độ vùng nuôi chính thức của VN.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Độ sâu gần bờ chi tiết, chỉ số che chắn &lt; 1 km; xin tọa độ từ Sở và Chi cục Thủy sản.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-06, RL-16 · quyết định #15</p>
+
+</section>
+<template class="notes">Một nửa phần cải thiện ở Hong Kong đến từ việc bỏ lớp độ sâu quá thô. Ngưỡng khoảng cách bờ của bộ gần bờ chưa được kiểm chứng.</template></div>
+<div class="slide" data-i="11" data-title="Kiểm chứng độ tin cậy trên dữ liệu quốc tế"><section id="wi08" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 8 · Hướng 4</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Kiểm chứng độ tin cậy trên dữ liệu quốc tế</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#14532D;background:#DDF0E6;border-radius:999px;padding:10px 24px;white-space:nowrap">7 bộ dữ liệu</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Chỉ có 1 sensor: số đo của nó dùng được cho vùng nào? VN chưa có mạng nhiều sensor để kiểm tra.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Mượn 7 mạng trạm (~240 trạm; Mỹ, Puerto Rico, HK): lấy trạm A đoán cho trạm B, đo tỷ lệ thời gian trong dung sai.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:96px;font-weight:700;line-height:1;color:#F3F6F4">7/7</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">bộ cho cùng kết luận: chế độ mặn quyết định, khoảng cách thì không.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Khác môi trường lệch ngay ở 1–2 km. DO, độ đục không chuyển được.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Theo giờ gần như không chuyển được; theo tháng (HK) thì được ~5 km. Chưa có số liệu nhiệt đới châu Á.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Đang thử theo ngày và theo ngưỡng QCVN (H4.6) — dạng thông tin người nuôi cần.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-12, RL-14, RL-20 → RL-24 · Chesapeake: Maryland DNR Tidewater Ecosystem Assessment Division</p>
+
+</section>
+<template class="notes">Bảy bộ: Jobos và 8 khu NERRS, Hong Kong EPD, Chesapeake, Texas, vịnh San Francisco, Indian River Lagoon. Dung sai: nhiệt độ ±0.5 °C, độ mặn ±1 psu, DO ±0.5 mg/L, pH ±0.2.</template></div>
+<div class="slide" data-i="12" data-title="Áp dụng cho Hải Phòng và Quảng Ninh"><section id="wi09" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 9 · Hướng 4</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Áp dụng cho Hải Phòng và Quảng Ninh</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#7C3A06;background:#FBEFE3;border-radius:999px;padding:10px 24px;white-space:nowrap">Một phần</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Cần biết NB1 thuộc loại nước nào và trạm nào cùng chế độ mặn với nó.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Dựng lớp chế độ mặn từ quan trắc tỉnh; chạy lại đánh giá có tách cùng và khác chế độ.</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:32px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ</p>
+<p style="font-size:76px;font-weight:700;line-height:1;color:#F3F6F4">NB1: biển</p>
+<p style="font-size:26px;line-height:1.4;color:#C9DCE3">77/97 trạm QN cùng loại; trạm đo gần nhất NB43 cách 11.6 km.</p>
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3">Khác chế độ: độ mặn chỉ khớp ±1 psu ở 0.5–3 % số lần.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Độ mặn HP là số mô hình, kết quả cũ "1/36" là ảo. Chỉ 16–22 đợt lấy mẫu, chưa đủ 30.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#DDF0E6;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#14532D">5 · HƯỚNG TIẾP</p>
+<p style="font-size:24px;line-height:1.4">Tìm nguồn độ mặn HP đo thật; đặt sensor thứ hai cùng chế độ với NB1.</p>
+</div>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Nguồn: RL-25</p>
+
+</section>
+<template class="notes">Phát hiện độ mặn HP là số mô hình: 10 cặp trạm có chuỗi giống hệt nhau, khớp ô lưới CMEMS (r = 0.96). DO, pH, TSS, NH3 của HP vẫn là số đo thật.</template></div>
+<div class="slide" data-i="13" data-title="Giao diện research-map"><section id="wi10" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:32px">
+<div style="display:flex;justify-content:space-between;align-items:end;gap:32px">
+<div style="display:flex;flex-direction:column;gap:10px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Công việc 10 · Demo</p>
+<h2 style="font-size:52px;font-weight:700;line-height:1.12;color:#0F2A3D">Giao diện research-map</h2>
+</div>
+<p style="font-size:24px;font-weight:600;color:#14532D;background:#DDF0E6;border-radius:999px;padding:10px 24px;white-space:nowrap">Hoàn thành</p>
+</div>
+<div style="display:flex;gap:24px">
+<div style="width:520px;display:flex;flex-direction:column;gap:24px">
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">1 · VẤN ĐỀ</p>
+<p style="font-size:24px;line-height:1.4">Demo cũ chỉ một màn hình, khó trình bày kết quả nghiên cứu, tải chậm.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FFFFFF;border:1px solid #DCE3E1;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#0B7A9B">2 · GIẢI PHÁP</p>
+<p style="font-size:24px;line-height:1.4">Một trang giám sát và bốn trang H1–H4; API chỉ đọc kết quả; giao diện sáng/tối.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;background:#FBEFE3;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">4 · VẤN ĐỀ CÒN LẠI</p>
+<p style="font-size:24px;line-height:1.4">Trang giám sát cần Postgres; chưa có dự báo shadow thật để hiển thị.</p>
+</div>
+</div>
+<div style="flex:1;display:flex;flex-direction:column;gap:16px;background:#0F2A3D;border-radius:14px;padding:28px">
+<p style="font-size:24px;font-weight:700;color:#7FD3E8">3 · KẾT QUẢ · 5 trang, lần tải đầu nhẹ hơn ~49 %</p>
+<img src="assets/research-map-h4-sfbay.png" alt="Trang kiểm chứng quốc tế của research-map: vịnh San Francisco, trạm tô theo chế độ mặn, cặp trạm tô theo độ tin cậy" style="width:1056px;height:480px;object-fit:cover;border-radius:10px">
+<p style="font-size:24px;line-height:1.4;color:#C9DCE3"><b style="color:#BDE8C9">5 · Hướng tiếp:</b> cập nhật dữ liệu H4.6, dùng để demo trực tiếp.</p>
+</div>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Ảnh: trang H4 · kiểm chứng quốc tế, USGS vịnh San Francisco</p>
+
+</section>
+<template class="notes">Đường liền là cặp cùng chế độ mặn, đường đứt là khác chế độ; xanh là đạt 80 %, đỏ là chưa đạt.</template></div>
+<div class="slide" data-i="14" data-title="Mười công việc trong một bảng"><section id="summary" data-transition="fade" style="background:#F6F7F4;color:#3F4C5A;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:36px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#0B7A9B">Tổng kết</p>
+<h2 style="font-size:60px;font-weight:700;line-height:1.12;color:#0F2A3D">Mười công việc trong một bảng</h2>
+</div>
+<table style="font-size:24px;color:#3F4C5A">
+<tr><th style="width:30%;text-align:left;color:#0F2A3D">Công việc</th><th style="width:50%;text-align:left;color:#0F2A3D">Kết quả chính</th><th style="width:20%;text-align:left;color:#0F2A3D">Trạng thái</th></tr>
+<tr><td>1 · Nền dữ liệu</td><td>123/139 ngày đạt; sửa lệch giờ 7 h</td><td>Hoàn thành</td></tr>
+<tr><td>2 · Dự báo nhiệt độ</td><td>Sai số giảm 20–46 % ở 1–12 h</td><td>Đạt</td></tr>
+<tr><td>3 · Sự cố pH</td><td>Tự gắn cờ 21/27 ngày; rút dự báo pH</td><td>Một phần</td></tr>
+<tr><td>4 · Khoảng tin cậy</td><td>36/36 cấu hình đạt độ phủ</td><td>Chờ xác nhận</td></tr>
+<tr><td>5 · Vận hành shadow</td><td>12 mô hình sẵn sàng</td><td>Chờ bật</td></tr>
+<tr><td>6 · Thời tiết</td><td>Giảm thêm 8–14 % sai số</td><td>Đang thu</td></tr>
+<tr><td>7 · Phân vùng</td><td>AUC HK 0.63 → 0.75</td><td>Bước đầu</td></tr>
+<tr><td>8 · Kiểm chứng quốc tế</td><td>7/7 bộ: chế độ mặn quyết định</td><td>Hoàn thành</td></tr>
+<tr><td>9 · Áp dụng VN</td><td>NB1 chế độ biển; độ mặn HP là số mô hình</td><td>Một phần</td></tr>
+<tr><td>10 · Research-map</td><td>5 trang, demo được</td><td>Hoàn thành</td></tr>
+</table>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#6A7684">Chi tiết: docs/research-log.md (RL-01 → RL-26) · experiments/RESULTS.md</p>
+
+</section>
+<template class="notes">Mỗi kết quả có run dir và commit tương ứng, chạy lại được.</template></div>
+<div class="slide" data-i="15" data-title="Từ thử trên dữ liệu cũ sang bằng chứng thật"><section id="next" data-transition="fade" style="background:linear-gradient(135deg, #0F2A3D 0%, #123B52 70%, #0B5A72 100%);color:#C9DCE3;font-family:'Be Vietnam Pro', Arial, sans-serif;padding:128px 128px 160px;display:flex;flex-direction:column;gap:40px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<p style="font-size:24px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#7FD3E8">Hướng triển khai tiếp</p>
+<h2 style="font-size:60px;font-weight:700;line-height:1.12;color:#F3F6F4">Từ thử trên dữ liệu cũ sang bằng chứng thật</h2>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:24px">
+<div style="display:flex;flex-direction:column;gap:12px;background:#123B52;border-radius:16px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#F3F6F4">Hướng 1</h3>
+<p style="font-size:24px;line-height:1.4">Chạy shadow 4 tuần; so mô hình có/không pH; xác nhận khoảng tin cậy mới</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#123B52;border-radius:16px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#F3F6F4">Hướng 2</h3>
+<p style="font-size:24px;line-height:1.4">Thu đủ ~63 ngày bản tin, đánh giá lại thời tiết và luật cảnh báo</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#123B52;border-radius:16px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#F3F6F4">Hướng 3</h3>
+<p style="font-size:24px;line-height:1.4">Độ sâu gần bờ chi tiết, chỉ số che chắn; tọa độ vùng nuôi chính thức</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#123B52;border-radius:16px;padding:28px">
+<h3 style="font-size:30px;font-weight:600;color:#F3F6F4">Hướng 4</h3>
+<p style="font-size:24px;line-height:1.4">Báo theo ngày và ngưỡng QCVN (H4.6); sensor thứ hai cùng chế độ</p>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:12px;background:#F6F7F4;border-radius:16px;padding:28px 32px">
+<p style="font-size:24px;font-weight:700;color:#7C3A06">CẦN HỖ TRỢ / QUYẾT ĐỊNH</p>
+<p style="font-size:24px;line-height:1.45;color:#3F4C5A">Bật dữ liệu live cho shadow · hiệu chuẩn đầu dò pH (GreenLab) · nguồn độ mặn HP đo thật · tọa độ vùng nuôi từ Sở/Chi cục · máy chạy liên tục để thu thời tiết</p>
+</div>
+<p style="position:absolute;left:128px;bottom:64px;width:1664px;font-size:24px;color:#8FA6B4">Nguyên tắc giữ nguyên: shadow trước, tiêu chí đặt trước, báo kết quả trung thực kể cả khi không đạt</p>
+
+</section>
+<template class="notes">Ba việc đầu trong danh sách cần hỗ trợ là ưu tiên cao nhất vì chặn trực tiếp hướng 1 và hướng 4.</template></div>
+</div>
+<div id="notes"></div><div id="toc"></div>
+<div id="bar"><button id="prev">←</button><span id="pos"></span><button id="next">→</button>
+<button id="bn">Ghi chú (N)</button><button id="bg">Mục lục (G)</button><button id="bf">Toàn màn hình (F)</button><button id="bp">In / PDF</button></div>
+<script>
+const S=[...document.querySelectorAll('.slide')],stage=document.getElementById('stage'),notes=document.getElementById('notes'),toc=document.getElementById('toc');
+let i=Math.min(Math.max(parseInt(location.hash.slice(1)||'1',10)-1,0),S.length-1);
+function fit(){const k=Math.min(innerWidth/1920,innerHeight/1080);stage.style.transform=`scale(${k}) translate(-50%,-50%)`;stage.style.left='50%';stage.style.top='50%';stage.style.transform=`translate(-50%,-50%) scale(${k})`;stage.style.transformOrigin='center center';}
+function show(n){i=Math.min(Math.max(n,0),S.length-1);S.forEach((s,j)=>s.classList.toggle('on',j===i));document.getElementById('pos').textContent=(i+1)+' / '+S.length;notes.textContent=S[i].querySelector('template.notes').innerHTML.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#x27;/g,"'")||'(không có ghi chú)';history.replaceState(null,'','#'+(i+1));}
+toc.innerHTML=S.map((s,j)=>`<a data-j="${j}">${j+1}. ${s.dataset.title}</a>`).join('');
+toc.onclick=e=>{if(e.target.dataset.j){show(+e.target.dataset.j);toc.style.display='none';}};
+const tog=el=>el.style.display=el.style.display==='block'?'none':'block';
+document.getElementById('prev').onclick=()=>show(i-1);document.getElementById('next').onclick=()=>show(i+1);
+document.getElementById('bn').onclick=()=>tog(notes);document.getElementById('bg').onclick=()=>tog(toc);
+document.getElementById('bf').onclick=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();
+document.getElementById('bp').onclick=()=>print();
+addEventListener('keydown',e=>{const k=e.key;
+ if(['ArrowRight','PageDown',' '].includes(k)){e.preventDefault();show(i+1)}
+ else if(['ArrowLeft','PageUp'].includes(k)){e.preventDefault();show(i-1)}
+ else if(k==='Home')show(0);else if(k==='End')show(S.length-1);
+ else if(k==='n'||k==='N')tog(notes);else if(k==='g'||k==='G')tog(toc);
+ else if(k==='f'||k==='F')document.getElementById('bf').click();
+ else if(k==='Escape'){notes.style.display='none';toc.style.display='none'}});
+addEventListener('hashchange',()=>{const n=parseInt(location.hash.slice(1),10)-1;if(n!==i&&!isNaN(n))show(n)});
+addEventListener('resize',fit);fit();show(i);
+</script></body></html>
