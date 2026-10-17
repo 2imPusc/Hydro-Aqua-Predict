@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import psycopg
 
 from app.repository import SnapshotRepository, snapshot_status
@@ -18,11 +20,13 @@ from app.hsi_cache import load_hsi_cache
 from app.flow_artifacts import load_flow_artifact
 from app.bathymetry_artifacts import LODS, load_geojson as load_bathymetry_geojson, load_manifest as load_bathymetry_manifest, sample as sample_bathymetry
 from app.aquaculture_artifacts import MODES as AQUACULTURE_MODES, SCENARIOS as AQUACULTURE_SCENARIOS, load_aquaculture_artifact
-from app.research import router as research_router
+from app.research import latest_export_version, router as research_router
 
 
 app = FastAPI(title="Environmental Context Research API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:8083"], allow_methods=["GET", "POST"], allow_headers=["*"])
+# Research exports (foreign pairs, VN regime layer) are 0.1-1.3 MB of JSON; gzip cuts them ~10x.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 repository = SnapshotRepository(settings.database_url)
 app.include_router(research_router)
 logger = logging.getLogger(__name__)
@@ -70,6 +74,52 @@ def health() -> dict:
         return {"status": "ok", "database": "ready", "latest_snapshot_id": snapshot.snapshot_id, "context_status": snapshot.status}
     except HTTPException:
         return {"status": "degraded", "database": "ready", "context_status": "unavailable", "reason_code": "no_context_snapshot"}
+
+
+# A down database costs a connect timeout per call; remember the failure briefly so the
+# shell's 20 s status poll (and several open tabs) do not each wait for it.
+STATUS_DB_RETRY_SECONDS = 30.0
+_status_db_down_until: dict[str, float] = {"until": 0.0}
+
+
+@app.get("/api/v1/status")
+def status(station: str | None = None) -> dict:
+    """Light top-bar status: snapshot and sensor freshness without layer payloads, plus the research export.
+
+    Database failures degrade to ``unavailable`` entries instead of an error, so the shell can keep polling.
+    """
+    station_serial = station or (settings.greenlab_station_serials[0] if settings.greenlab_station_serials else "06M26042804")
+    now = datetime.now(timezone.utc)
+    export_version = latest_export_version()
+    research = {"status": "ready" if export_version else "unavailable", "export_version": export_version}
+    unavailable = {"status": "unavailable", "reason": "database_unavailable"}
+    summary = None
+    if time.monotonic() >= _status_db_down_until["until"]:
+        try:
+            summary = repository.status_summary(station_serial)
+        except psycopg.Error:
+            _status_db_down_until["until"] = time.monotonic() + STATUS_DB_RETRY_SECONDS
+    if summary is None:
+        return {"status": "degraded", "generated_at": now.isoformat(), "context": dict(unavailable),
+                "sensor": {**unavailable, "station_serial": station_serial}, "research": research}
+
+    row = summary["snapshot"]
+    if row is None:
+        context = {"status": "unavailable", "reason": "no_context_snapshot"}
+    else:
+        retrieved = row["retrieved_at"] if row["retrieved_at"].tzinfo else row["retrieved_at"].replace(tzinfo=timezone.utc)
+        context = {"status": snapshot_status(row, now), "snapshot_id": row["snapshot_id"], "retrieved_at": retrieved.isoformat(),
+                   "age_seconds": max(0, int((now - retrieved).total_seconds()))}
+    latest = summary["latest_observed_at"]
+    if latest is None:
+        sensor = {"status": "unavailable", "reason": "sensor_observations_missing", "station_serial": station_serial}
+    else:
+        latest = latest if latest.tzinfo else latest.replace(tzinfo=timezone.utc)
+        age = max(0, int((now - latest).total_seconds()))
+        sensor = {"status": "fresh" if age <= settings.sensor_stale_minutes * 60 else "stale", "station_serial": station_serial,
+                  "latest_observed_at": latest.isoformat(), "age_seconds": age}
+    overall = "ok" if context["status"] == "fresh" and sensor["status"] == "fresh" else "degraded"
+    return {"status": overall, "generated_at": now.isoformat(), "context": context, "sensor": sensor, "research": research}
 
 
 @app.get("/api/v1/context/latest", response_model=ContextSnapshot)

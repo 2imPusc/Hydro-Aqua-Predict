@@ -109,6 +109,16 @@ class SnapshotRepository:
             rows = connection.execute(query, (station_serial, int(limit))).fetchall()
         return list(rows)
 
+    def status_summary(self, station_serial: str, connect_timeout: int = 3) -> dict[str, Any]:
+        """Latest snapshot header + newest sensor time for the light status endpoint (no layer payloads)."""
+        with psycopg.connect(self.database_url, row_factory=dict_row, connect_timeout=connect_timeout) as connection:
+            snapshot = connection.execute(
+                "SELECT snapshot_id, retrieved_at, stale_after FROM context_snapshots ORDER BY retrieved_at DESC LIMIT 1").fetchone()
+            sensor = connection.execute(
+                "SELECT max(observed_at) AS latest_observed_at FROM sensor_observations WHERE station_serial = %s",
+                (station_serial,)).fetchone()
+        return {"snapshot": snapshot, "latest_observed_at": (sensor or {}).get("latest_observed_at")}
+
 
 def snapshot_status(snapshot: dict[str, Any] | None, now: datetime | None = None) -> str:
     if snapshot is None:

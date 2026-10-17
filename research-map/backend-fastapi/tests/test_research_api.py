@@ -218,3 +218,52 @@ def test_weather_status_degraded_when_gappy_or_stale(env):
     _jsonl(env["tmp"] / "weather-snapshots.jsonl", [_snapshot(NOW - timedelta(hours=h + 5)) for h in range(0, 24 * 7)])
     body = env["client"].get("/api/v1/research/weather/status").json()
     assert body["health"] == "degraded" and body["reason"] == "stale_last_capture"
+
+
+def test_forecast_long_lists_configured_bundle_lineup(env):
+    (env["tmp"] / "manifest.json").write_text(json.dumps({"bundles": [
+        {"target": "Temperature", "horizon_minutes": 180, "feature_set": "B4_quality", "variant": "with_pH",
+         "role": "primary_shadow", "pi_method": "aci_scaled", "status": "active", "model_version": "m1"},
+        {"target": "pH", "horizon_minutes": 180, "feature_set": "B6_tide", "variant": "pH_target", "pi_method": "static_night",
+         "status": "withdrawn", "withdrawn_reason": "RL-18"}]}), encoding="utf-8")
+    body = env["client"].get("/api/v1/research/forecast/long").json()
+    assert body["ledger_state"] == "missing"
+    assert body["bundles"] == [
+        {"target": "Temperature", "horizon_min": 180, "feature_set": "B4_quality", "variant": "with_pH", "role": "primary_shadow",
+         "pi_method": "aci_scaled", "status": "active", "withdrawn_reason": None, "model_version": "m1"},
+        {"target": "pH", "horizon_min": 180, "feature_set": "B6_tide", "variant": "pH_target", "role": None,
+         "pi_method": "static_night", "status": "withdrawn", "withdrawn_reason": "RL-18", "model_version": None}]
+
+
+def test_forecast_long_without_manifest_has_empty_lineup(env):
+    assert env["client"].get("/api/v1/research/forecast/long").json()["bundles"] == []
+
+
+def test_reliability_summary_prefers_same_regime_gate80_raw(env):
+    detail = {**FOREIGN, "radius": [
+        {"var": "Temp", "scale": "hourly", "transfer": "raw", "regime": "all", "gate": "gate80", "radius_km": 5.0},
+        {"var": "Temp", "scale": "hourly", "transfer": "raw", "regime": "same", "gate": "gate80", "radius_km": 10.0, "stop": "fail@10-20"},
+        {"var": "Temp", "scale": "hourly", "transfer": "raw", "regime": "different", "gate": "gate80", "radius_km": 2.0},
+        {"var": "Temp", "scale": "hourly", "transfer": "calibrated", "regime": "same", "gate": "gate80", "radius_km": 30.0},
+        {"var": "Sal", "scale": "monthly", "transfer": "raw", "regime": "all", "gate": "gate80", "radius_km": 20.0, "radius_label": ">20 km"},
+        {"var": "Sal", "scale": "monthly", "transfer": "raw", "regime": "all", "gate": "gate90", "radius_km": 0.0},
+        {"var": "DO", "scale": "hourly", "transfer": "raw", "regime": "all", "gate": "gate80", "radius_km": 0.0, "group": "apa"},
+        {"var": "pH", "scale": "hourly", "transfer": "raw", "regime": "same", "gate": "gate80", "radius_km": 0.0, "group": "pooled"}]}
+    _write_export(env["root"], files={
+        "reliability_foreign_index.json": {"datasets": [{"id": "usgs_sfbay", "name": "SF"}, {"id": "nerrs_jobos", "name": "Jobos"}]},
+        "reliability_foreign_usgs_sfbay.json": detail,
+        "reliability_foreign_nerrs_jobos.json": {**FOREIGN, "radius": []}})
+    body = env["client"].get("/api/v1/research/reliability/summary").json()
+    assert body["status"] == "ready" and body["gate"] == "gate80" and body["transfer"] == "raw"
+    sf, jobos = body["datasets"]
+    assert sf["id"] == "usgs_sfbay" and sf["detail_available"] is True
+    assert sf["rows"] == [
+        {"var": "Sal", "regime": "all", "scale": "monthly", "radius_km": 20.0, "radius_label": ">20 km", "stop": None},
+        {"var": "Temp", "regime": "same", "scale": "hourly", "radius_km": 10.0, "radius_label": None, "stop": "fail@10-20"},
+        {"var": "pH", "regime": "same", "scale": "hourly", "radius_km": 0.0, "radius_label": None, "stop": None}]
+    assert jobos["rows"] == []
+
+
+def test_reliability_summary_unavailable_without_export(env):
+    body = env["client"].get("/api/v1/research/reliability/summary").json()
+    assert body["status"] == "unavailable" and body["datasets"] == []

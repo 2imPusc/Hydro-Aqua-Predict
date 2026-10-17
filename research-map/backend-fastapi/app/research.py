@@ -89,6 +89,12 @@ def _latest_export() -> Path | None:
     return max(dirs, key=lambda p: p.name) if dirs else None
 
 
+def latest_export_version() -> str | None:
+    """Name of the newest complete export dir, or None (used by the light ``/api/v1/status``)."""
+    export = _latest_export()
+    return export.name if export else None
+
+
 def _unavailable(reason: str, export_version: str | None = None, **extra) -> dict:
     return {"status": "unavailable", "reason": reason, "export_version": export_version, **extra}
 
@@ -201,6 +207,44 @@ def reliability_vn() -> dict:
     return payload or missing
 
 
+SUMMARY_GATE = "gate80"
+SUMMARY_TRANSFER = "raw"
+
+
+@router.get("/reliability/summary")
+def reliability_summary() -> dict:
+    """Cross-dataset radius table (RL-24 artifact column): gate80, raw transfer, same regime (else all), per dataset × var.
+
+    Per-site groups (NERRS multi) are skipped; their pooled row is used.
+
+    Built only from the radius rows of the exported detail files; datasets without radius rows are listed with
+    ``rows: []`` so the UI can say so instead of inventing a value.
+    """
+    index, missing = _export_artifact("reliability_foreign_index.json")
+    if index is None:
+        return {**missing, "datasets": []}
+    datasets = []
+    for card in index.get("datasets") or []:
+        dataset_id = card.get("id")
+        detail, _ = _export_artifact(f"reliability_foreign_{dataset_id}.json") if dataset_id and DATASET_ID_RE.match(dataset_id) else (None, None)
+        rows: dict[str, dict] = {}
+        for r in (detail or {}).get("radius") or []:
+            if r.get("gate") != SUMMARY_GATE or r.get("transfer") != SUMMARY_TRANSFER or r.get("group") not in (None, "pooled"):
+                continue
+            regime = r.get("regime")
+            if regime not in ("same", "all"):
+                continue
+            current = rows.get(r.get("var"))
+            if current is None or (current["regime"] == "all" and regime == "same"):
+                rows[r.get("var")] = {"var": r.get("var"), "regime": regime, "scale": r.get("scale"), "radius_km": r.get("radius_km"),
+                                      "radius_label": r.get("radius_label"), "stop": r.get("stop")}
+        datasets.append({"id": dataset_id, "name": card.get("name"), "cadence": card.get("cadence"), "scales": card.get("scales"),
+                         "n_stations": card.get("n_stations"), "research_log": card.get("research_log"), "headline": card.get("headline"),
+                         "detail_available": detail is not None, "rows": sorted(rows.values(), key=lambda row: str(row["var"]))})
+    return {"status": "ready", "export_version": index["export_version"], "gate": SUMMARY_GATE, "transfer": SUMMARY_TRANSFER,
+            "regime_rule": "same regime when the dataset splits by regime, else all pairs", "datasets": datasets}
+
+
 # ---------------------------------------------------------------- live long-horizon shadow ledger
 def _tail_records(path: Path, max_bytes: int) -> list[dict]:
     """Complete JSON lines from the last ``max_bytes`` of an append-only JSONL (cached by mtime/size)."""
@@ -261,6 +305,18 @@ def _withdrawn(skips: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
+def _bundles() -> list[dict]:
+    """Configured long-horizon bundle lineup (active + withdrawn) from the model manifest; [] when absent."""
+    path = Path(settings.sensor_future_manifest_path)
+    if not path.is_file():
+        return []
+    return [{"target": b.get("target"), "horizon_min": b.get("horizon_minutes"), "feature_set": b.get("feature_set"),
+             "variant": b.get("variant"), "role": b.get("role"), "pi_method": b.get("pi_method"),
+             "status": b.get("status", "active"), "withdrawn_reason": b.get("withdrawn_reason"),
+             "model_version": b.get("model_version")}
+            for b in _load_json(path).get("bundles", [])]
+
+
 def _scoring(outcomes: list[dict]) -> list[dict]:
     groups: dict[tuple, dict] = defaultdict(lambda: {"err": [], "pers": [], "c80": [], "c90": [], "excluded": 0})
     for o in outcomes:
@@ -299,7 +355,7 @@ def forecast_long(station: str = DEFAULT_STATION) -> dict:
                  if s.get("station_serial") == station]
     base = {"station": station, "mode": "shadow", "used_by_alerts": False,
             "window": f"last {LEDGER_WINDOW.total_seconds() / 3600:g} h of the ledger tail ({tail // (1024 * 1024)} MB per file)",
-            "withdrawn": _withdrawn(skips_all)}
+            "withdrawn": _withdrawn(skips_all), "bundles": _bundles()}
     if not forecasts_path.is_file():
         return {**base, "status": "unavailable", "reason": "ledger_missing", "ledger_state": "missing",
                 "latest_issued_at": None, "items": [], "skips": [], "scoring": []}
