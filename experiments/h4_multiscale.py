@@ -337,7 +337,7 @@ def block_ids(index, group: int, weekly: bool = False) -> np.ndarray:
     """Integer bootstrap block: group * 100000 + days since 1970 (of the day, or of the ISO-week start)."""
     days = week_start(index) if weekly else pd.DatetimeIndex(index).normalize()
     epoch_days = ((days - pd.Timestamp("1970-01-01")) // pd.Timedelta(days=1)).to_numpy().astype(np.int64)
-    return group * 100000 + epoch_days
+    return (group * 100000 + epoch_days).astype(np.int32)
 
 
 def pair_counts(var: str, tables: dict[str, pd.DataFrame], group: int) -> pd.DataFrame:
@@ -465,22 +465,27 @@ def _reduce(frames: list[pd.DataFrame]) -> pd.DataFrame:
     return out
 
 
-def evaluate_dataset(name: str, log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Accumulated per-block counts and the pair membership table for one dataset."""
+def evaluate_dataset(name: str, log=print):
+    """Yield (var, per-block counts, pair membership) for one dataset, one variable at a time.
+
+    The hourly data of every group (NERRS reserve) is loaded once; counts are accumulated and
+    released per variable so memory stays ~ (cells of one variable) x blocks.
+    """
     cfg = DATASETS[name]
-    acc, buffer, members = [], [], []
+    units = list(load_units(name))
+    for var, src in cfg["var_cols"].items():
+        acc, buffer, members = [], [], []
 
-    def flush():
-        if buffer:  # fold the buffer into the single running total (memory stays ~ cells x blocks)
-            acc[:] = [_reduce(acc + buffer)]
-            buffer.clear()
+        def flush():
+            if buffer:  # fold the buffer into the single running total
+                acc[:] = [_reduce(acc + buffer)]
+                buffer.clear()
 
-    for group, wide, pairs in load_units(name):
-        cache = TargetCache(wide)
         t0, n_done = time.time(), 0
-        for var, src in cfg["var_cols"].items():
+        for group, wide, pairs in units:
             if var not in wide:
                 continue
+            cache = TargetCache(wide)
             table = wide[var]
             elig = pairs[n_days_col(pairs, var, src).fillna(0) >= cfg["min_overlap"]]
             for p in elig.itertuples(index=False):
@@ -500,13 +505,16 @@ def evaluate_dataset(name: str, log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
                 n_done += 1
                 if len(buffer) >= 40:
                     flush()
-        flush()
-        log(f"[{name}] group {group}: {n_done} pair x var in {time.time() - t0:.0f}s", flush=True)
-        del cache, wide
-    counts = acc[0]
-    for col in KEYS[:-1]:  # plain strings downstream
-        counts[col] = counts[col].astype(str)
-    return counts, pd.concat(members, ignore_index=True).astype(str)
+            flush()
+            del cache
+        if not acc:
+            continue
+        log(f"[{name}] {var}: {n_done} pairs in {time.time() - t0:.0f}s, {len(acc[0])} count rows", flush=True)
+        counts = acc[0]
+        for col in KEYS[:-1]:  # plain strings downstream (one variable at a time)
+            counts[col] = counts[col].astype(str)
+        yield var, counts, pd.concat(members, ignore_index=True).astype(str)
+        del counts, acc
 
 
 # ---------------------------------------------------------------- aggregation
@@ -731,11 +739,15 @@ def main(argv=None) -> int:
             compares.append(loaded["baseline_compare"]), checks.append(loaded["hourly_check"])
             continue
         t0 = time.time()
-        counts, members = evaluate_dataset(name)
         label = DATASETS[name]["label"]
-        c = cell_table(label, counts, members, args.n_boot)
+        parts_c, parts_b = [], []
+        for var, counts, members in evaluate_dataset(name):
+            parts_c.append(cell_table(label, counts, members, args.n_boot))
+            parts_b.append(baseline_compare(label, counts, args.n_boot))
+            del counts, members
+        c = pd.concat(parts_c, ignore_index=True)
         cells.append(c)
-        compares.append(baseline_compare(label, counts, args.n_boot))
+        compares.append(pd.concat(parts_b, ignore_index=True))
         radii.append(radius_table(c, compares[-1]))
         checks.append(hourly_check(name, c))
         chk = checks[-1]
@@ -744,7 +756,6 @@ def main(argv=None) -> int:
         for k, frame in zip(part_names, (cells[-1], radii[-1], compares[-1], checks[-1])):
             with open(files[k], "x", encoding="utf-8", newline="") as handle:  # write-once
                 frame.to_csv(handle, index=False)
-        del counts, members
 
     cells = pd.concat(cells, ignore_index=True)
     cells.to_csv(out / "cells.csv", index=False)  # parts/ keeps the per-dataset copies
