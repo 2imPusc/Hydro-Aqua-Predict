@@ -31,6 +31,7 @@ cần có (kèm sha256) nằm ở [data-manifest.md](data-manifest.md).
 | Water mask | `data/map/water_polygons_clip/` (2.3 MB) | Cắt từ OSM water polygons (ODbL); tạo lại bằng `scripts/clip_water_mask.py` |
 | Toạ độ trạm | `data/map/station_coordinates.csv` | Danh mục trạm quan trắc tỉnh |
 | Output thí nghiệm | `artifacts/experiments/**` (~307 MB; `forecast-v2` 233 MB) | Tái tạo được bằng script; vượt giới hạn hợp lý của git |
+| Export research-map | `artifacts/research-map/<YYYYMMDD-HHMM>/` (vài MB mỗi lần) | JSON write-once cho các view H1–H4; tạo lại bằng `scripts/export_research_map_artifacts.py`; API đọc thư mục mới nhất, không sửa thư mục cũ |
 | Model cũ | `artifacts/legacy-models/` | Bản cũ của `core/models`, không còn được code dùng |
 | Trạng thái runtime | `runtime/**` | Log shadow runner, forecast/outcome JSONL |
 | Cache research-map | `research-map/cache/**` | Worker tự sinh lại |

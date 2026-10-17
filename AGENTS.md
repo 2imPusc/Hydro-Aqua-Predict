@@ -26,7 +26,7 @@ read that name as "this repo". There is no runtime dependency on DATN.
 | `core/models/` | Small runtime models (imputers, forecast, contextual, spatial) — tracked |
 | `hap_shared/` | Scoring/preprocessing vendored from DATN `src/` + `thresholds/*.json`. No ML classifier pickles: `classify_grid` falls back to rule scoring (core only uses `_classify_by_scoring`) |
 | `app/demo_app.py` | Streamlit demo dashboard |
-| `research-map/` | Separate stack: FastAPI backend + worker (Postgres) + React/Vite/Leaflet frontend |
+| `research-map/` | Separate stack: FastAPI backend + worker (Postgres) + React/Vite/Leaflet frontend; monitoring map + research views H1–H4 (see `research-map/README.md`) |
 | `ingest/` | Node/Python GreenLab fetchers, `stations.yaml` (station registry) |
 | `experiments/` | Research scripts; results index in `experiments/RESULTS.md` |
 | `tests/` | pytest suite (imports `core.*`, `experiments.*`) |
@@ -57,9 +57,10 @@ Run everything from the repo root with the root `.venv`.
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
-powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1   # api :8010, vite :5173, postgres :5434 (docker)
+powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1   # api :8010, vite :5173 (5174 if taken), postgres :5434 (docker)
+.venv\Scripts\python scripts\export_research_map_artifacts.py   # research-map H1–H4 JSON -> artifacts/research-map/<stamp>/ (newest served)
 .venv\Scripts\python scripts\check_isolation.py         # no imports/paths escape the repo
-cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (14)
+cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (43)
 ```
 
 `GREENLAB_FETCH_MODE=cache` gives a stable offline run from local history (no API calls);
@@ -149,4 +150,4 @@ choices in `docs/decisions.md` (append-only log).
 
 Start with `docs/guide/00-tong-quan-du-an.md` (overview), `06-runbook.md` (ops),
 `07-alerts.md` (alert logic), `17/18` (forecast shadow + advisory),
-`23-research-map-implementation-roadmap.md`, `docs/data-policy.md`.
+`23-research-map-implementation-roadmap.md`, `research-map/README.md` (current research-map state), `docs/data-policy.md`.
