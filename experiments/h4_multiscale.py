@@ -348,7 +348,9 @@ def pair_counts(var: str, tables: dict[str, pd.DataFrame], group: int) -> pd.Dat
         if len(obs) == 0:
             return
         c = unit_counts(var, np.asarray(obs, float), np.asarray(est, float), blocks)
-        pieces.append(c.assign(scale=scale, method=method, support=support))
+        pieces.append(c.assign(scale=pd.Categorical([scale] * len(c), dtype=KEY_DTYPES["scale"]),
+                               method=pd.Categorical([method] * len(c), dtype=KEY_DTYPES["method"]),
+                               support=pd.Categorical([support] * len(c), dtype=KEY_DTYPES["support"])))
 
     for scale in SCALES:
         if scale == "weekly_mean":
@@ -450,6 +452,17 @@ def n_days_col(pairs: pd.DataFrame, var: str, src_var: str) -> pd.Series:
 
 
 KEYS = ["var", "scale", "method", "support", "regime", "distance_bin", "block"]
+KEY_DTYPES = {"var": pd.CategoricalDtype(VARS), "scale": pd.CategoricalDtype(SCALES),
+              "method": pd.CategoricalDtype(METHODS), "support": pd.CategoricalDtype(("own", "common")),
+              "regime": pd.CategoricalDtype(("same", "different", "unknown")),
+              "distance_bin": pd.CategoricalDtype(BIN_LABELS)}
+
+
+def _reduce(frames: list[pd.DataFrame]) -> pd.DataFrame:
+    out = pd.concat(frames, ignore_index=True).groupby(KEYS, observed=True)[list(COUNT_COLS)].sum().reset_index()
+    for col in ("n",) + CONF_COLS:
+        out[col] = out[col].astype(np.int32)
+    return out
 
 
 def evaluate_dataset(name: str, log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -458,9 +471,8 @@ def evaluate_dataset(name: str, log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
     acc, buffer, members = [], [], []
 
     def flush():
-        if buffer:
-            acc.append(pd.concat(buffer, ignore_index=True).groupby(KEYS, observed=True)[list(COUNT_COLS)].sum()
-                       .reset_index())
+        if buffer:  # fold the buffer into the single running total (memory stays ~ cells x blocks)
+            acc[:] = [_reduce(acc + buffer)]
             buffer.clear()
 
     for group, wide, pairs in load_units(name):
@@ -478,18 +490,23 @@ def evaluate_dataset(name: str, log=print) -> tuple[pd.DataFrame, pd.DataFrame]:
                 counts = pair_counts(var, tables, group)
                 if counts.empty:
                     continue
-                counts = counts.assign(var=var, regime=p.regime, distance_bin=p.distance_bin)
+                n = len(counts)
+                counts = counts.assign(var=pd.Categorical([var] * n, dtype=KEY_DTYPES["var"]),
+                                       regime=pd.Categorical([p.regime] * n, dtype=KEY_DTYPES["regime"]),
+                                       distance_bin=pd.Categorical([p.distance_bin] * n, dtype=KEY_DTYPES["distance_bin"]))
                 buffer.append(counts)
                 members.append(counts[counts["support"] == "own"][["var", "scale", "method", "regime", "distance_bin"]]
                                .drop_duplicates().assign(pair=f"{group}:{p.anchor}>{p.target}"))
                 n_done += 1
-                if len(buffer) >= 60:
+                if len(buffer) >= 40:
                     flush()
         flush()
         log(f"[{name}] group {group}: {n_done} pair x var in {time.time() - t0:.0f}s", flush=True)
         del cache, wide
-    counts = pd.concat(acc, ignore_index=True).groupby(KEYS, observed=True)[list(COUNT_COLS)].sum().reset_index()
-    return counts, pd.concat(members, ignore_index=True)
+    counts = acc[0]
+    for col in KEYS[:-1]:  # plain strings downstream
+        counts[col] = counts[col].astype(str)
+    return counts, pd.concat(members, ignore_index=True).astype(str)
 
 
 # ---------------------------------------------------------------- aggregation
@@ -692,14 +709,27 @@ def main(argv=None) -> int:
     ap.add_argument("--output-dir", type=Path, default=paths.EXPERIMENT_OUTPUT_DIR / RUN_NAME)
     ap.add_argument("--datasets", nargs="+", default=["usgs", "twdb", "nerrs", "mddnr"], choices=list(DATASETS))
     ap.add_argument("--n-boot", type=int, default=N_BOOT)
+    ap.add_argument("--resume", action="store_true",
+                    help="reuse per-dataset parts/ already written in this output dir (never overwritten)")
     args = ap.parse_args(argv)
     out = Path(args.output_dir)
-    if out.exists() and any(out.iterdir()):
+    parts = out / "parts"
+    if out.exists() and any(p for p in out.iterdir() if p.name != "parts"):
         raise FileExistsError(f"refusing to overwrite non-empty output dir: {out}")
-    out.mkdir(parents=True, exist_ok=True)
+    if parts.exists() and any(parts.iterdir()) and not args.resume:
+        raise FileExistsError(f"{parts} holds earlier parts; pass --resume to reuse them")
+    parts.mkdir(parents=True, exist_ok=True)
+    part_names = ("cells", "radius", "baseline_compare", "hourly_check")
 
     cells, radii, compares, checks = [], [], [], []
     for name in args.datasets:
+        files = {k: parts / f"{name}_{k}.csv" for k in part_names}
+        if all(f.exists() for f in files.values()):
+            print(f"[{name}] reusing parts", flush=True)
+            loaded = {k: pd.read_csv(f) for k, f in files.items()}
+            cells.append(loaded["cells"]), radii.append(loaded["radius"])
+            compares.append(loaded["baseline_compare"]), checks.append(loaded["hourly_check"])
+            continue
         t0 = time.time()
         counts, members = evaluate_dataset(name)
         label = DATASETS[name]["label"]
@@ -711,11 +741,13 @@ def main(argv=None) -> int:
         chk = checks[-1]
         print(f"[{name}] done in {time.time() - t0:.0f}s; hourly check max |delta share| = "
               f"{chk['delta_share'].abs().max() if len(chk) else float('nan')}", flush=True)
-        # write incrementally (still one write per file at the end; partial copies kept in memory only)
+        for k, frame in zip(part_names, (cells[-1], radii[-1], compares[-1], checks[-1])):
+            with open(files[k], "x", encoding="utf-8", newline="") as handle:  # write-once
+                frame.to_csv(handle, index=False)
         del counts, members
 
     cells = pd.concat(cells, ignore_index=True)
-    cells.to_csv(out / "cells.csv", index=False)
+    cells.to_csv(out / "cells.csv", index=False)  # parts/ keeps the per-dataset copies
     pd.concat(radii, ignore_index=True).to_csv(out / "radius.csv", index=False)
     pd.concat(compares, ignore_index=True).to_csv(out / "baseline_compare.csv", index=False)
     pd.concat(checks, ignore_index=True).to_csv(out / "hourly_check.csv", index=False)
