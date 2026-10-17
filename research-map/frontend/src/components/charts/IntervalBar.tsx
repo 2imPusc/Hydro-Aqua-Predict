@@ -51,7 +51,7 @@ export function CiBar({ value, ci, domain = [0.5, 1], reference, ariaLabel }: { 
         )}
         {ci && <line x1={x(ci[0])} x2={x(ci[1])} y1={16} y2={16} stroke="var(--series-1)" strokeWidth={4} strokeLinecap="round" opacity={0.45} />}
         <circle cx={x(value)} cy={16} r={6} fill="var(--series-1)" stroke="var(--surface)" strokeWidth={2} />
-        {ticks.map(tick => <text key={tick} x={x(tick)} y={40} fontSize={10} fill="var(--fg-subtle)" textAnchor="middle" className="tabular">{tick.toFixed(2)}</text>)}
+        {ticks.map((tick, i) => <text key={tick} x={x(tick)} y={40} fontSize={10} fill="var(--fg-subtle)" textAnchor={i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle"} className="tabular">{tick.toFixed(2)}</text>)}
       </svg>
     </div>
   )
