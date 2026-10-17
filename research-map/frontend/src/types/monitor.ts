@@ -14,3 +14,7 @@ export type AquacultureMap = GeoJSON.FeatureCollection & { status: 'ready' | 'bu
 export type BathymetryManifest = { status: 'ready' | 'building' | 'unavailable'; artifact_version?: string; source?: string; source_resolution?: string; quality_rule?: string; coverage_fraction?: number; valid_pixel_count?: number; depth_source?: string; disclaimer?: string; reason_code?: string }
 export type BathymetryVectorLayer = GeoJSON.FeatureCollection & { status: 'ready' | 'building' | 'unavailable'; lod?: string; artifact_version?: string; depth_source?: string; reason_code?: string }
 export type BathymetrySample = { status: 'available' | 'unavailable'; copernicus_depth_m?: number; quality_indicator?: number; sdb_type?: number; slope_degrees?: number | null; depth_source?: string; disclaimer?: string; reason_code?: string }
+
+export type DataMode = 'live' | 'mock'
+/** Freshness / provenance states shown by status chips across every view. */
+export type DataState = 'live' | 'fresh' | 'stale' | 'cache' | 'mock' | 'research_only' | 'withdrawn' | 'unavailable' | 'building' | 'loading' | 'exploratory' | 'legacy'

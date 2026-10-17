@@ -1,25 +1,20 @@
-/// <reference types="vite/client" />
-import type { AquacultureMap, BathymetryManifest, BathymetrySample, BathymetryVectorLayer, ContextDomain, FlowArtifact, FlowLatest, FlowScenarios, HsiZones, SensorLatest, Snapshot, StationNetwork, Stations } from './types'
+import { getJson } from './client'
+import type { AquacultureMap, BathymetryManifest, BathymetrySample, BathymetryVectorLayer, ContextDomain, DataMode, FlowArtifact, FlowLatest, FlowScenarios, HsiZones, SensorLatest, Snapshot, StationNetwork, Stations } from '../types/monitor'
 
-const API = import.meta.env.VITE_CONTEXT_API_URL || 'http://localhost:8010/api/v1'
+type Signal = AbortSignal | undefined
+const q = encodeURIComponent
 
-async function get<T>(path: string): Promise<T> {
-  const response = await fetch(`${API}${path}`)
-  if (!response.ok) throw new Error(`api_${response.status}`)
-  return response.json() as Promise<T>
-}
-
-export const getLatestContext = () => get<Snapshot>('/context/latest')
-export const getHsiZones = () => get<HsiZones>('/hsi-zones')
-export const getStations = () => get<Stations>('/stations')
-export const getContextDomain = () => get<ContextDomain>('/context-domain')
-export const getStationNetwork = () => get<StationNetwork>('/station-network')
-export const getFlowArtifact = (snapshotId: string) => get<FlowArtifact>(`/flow/${encodeURIComponent(snapshotId)}/artifact`)
-export const getFlowLatest = () => get<FlowLatest>('/flow/latest')
-export const getFlowScenarios = () => get<FlowScenarios>('/flow/scenarios')
-export const getSensorLatest = (station: string) => get<SensorLatest>(`/stations/${encodeURIComponent(station)}/latest`)
-export const getBathymetryManifest = () => get<BathymetryManifest>('/bathymetry/manifest')
-export const getBathymetryDepthBands = (lod: string) => get<BathymetryVectorLayer>(`/bathymetry/depth-bands?lod=${encodeURIComponent(lod)}`)
-export const getBathymetryContours = (lod: string) => get<BathymetryVectorLayer>(`/bathymetry/contours?lod=${encodeURIComponent(lod)}`)
-export const getBathymetrySample = (longitude: number, latitude: number) => get<BathymetrySample>(`/bathymetry/sample?lon=${encodeURIComponent(longitude)}&lat=${encodeURIComponent(latitude)}`)
-export const getAquacultureMap = (mode: 'live' | 'mock', scenario: string) => get<AquacultureMap>(`/aquaculture-map?mode=${mode}&scenario=${encodeURIComponent(scenario)}`)
+export const getLatestContext = (signal?: Signal) => getJson<Snapshot>('/context/latest', signal)
+export const getHsiZones = (signal?: Signal) => getJson<HsiZones>('/hsi-zones', signal)
+export const getStations = (signal?: Signal) => getJson<Stations>('/stations', signal)
+export const getContextDomain = (signal?: Signal) => getJson<ContextDomain>('/context-domain', signal)
+export const getStationNetwork = (signal?: Signal) => getJson<StationNetwork>('/station-network', signal)
+export const getFlowArtifact = (snapshotId: string, signal?: Signal) => getJson<FlowArtifact>(`/flow/${q(snapshotId)}/artifact`, signal)
+export const getFlowLatest = (signal?: Signal) => getJson<FlowLatest>('/flow/latest', signal)
+export const getFlowScenarios = (signal?: Signal) => getJson<FlowScenarios>('/flow/scenarios', signal)
+export const getSensorLatest = (station: string, signal?: Signal) => getJson<SensorLatest>(`/stations/${q(station)}/latest`, signal)
+export const getBathymetryManifest = (signal?: Signal) => getJson<BathymetryManifest>('/bathymetry/manifest', signal)
+export const getBathymetryDepthBands = (lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/depth-bands?lod=${q(lod)}`, signal)
+export const getBathymetryContours = (lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/contours?lod=${q(lod)}`, signal)
+export const getBathymetrySample = (longitude: number, latitude: number, signal?: Signal) => getJson<BathymetrySample>(`/bathymetry/sample?lon=${q(longitude)}&lat=${q(latitude)}`, signal)
+export const getAquacultureMap = (mode: DataMode, scenario: string, signal?: Signal) => getJson<AquacultureMap>(`/aquaculture-map?mode=${mode}&scenario=${q(scenario)}`, signal)
