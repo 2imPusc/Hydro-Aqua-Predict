@@ -1,13 +1,18 @@
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
 import { getFlowArtifact, getLatestContext, getSensorLatest } from '../api/monitor'
+import { getApiStatus } from '../api/research'
 import { isAbortError } from '../api/client'
 import { usePolling, type PollState } from '../hooks/usePolling'
 import type { DataMode, FlowArtifact, Layer, SensorLatest, Snapshot } from '../types/monitor'
+import type { ApiStatus } from '../types/research'
 
 export type ContextBundle = { snapshot: Snapshot; flow: FlowArtifact | null }
 
 type LiveData = {
   pilotStation: string
+  /** Light shell status (`/api/v1/status`), polled on every view for the top bar. */
+  status: PollState<ApiStatus>
+  /** Full context snapshot + sensor feeds: only polled while the monitoring view is open. */
   context: PollState<ContextBundle>
   sensor: PollState<SensorLatest>
   mode: DataMode
@@ -21,6 +26,7 @@ const LiveDataContext = createContext<LiveData | null>(null)
 export const PILOT_STATION: string = import.meta.env.VITE_SENSOR_STATION_SERIAL || '06M26042804'
 const CONTEXT_POLL_MS = 20_000
 const SENSOR_POLL_MS = 60_000
+const STATUS_POLL_MS = 20_000
 
 /**
  * Re-use layer objects from the previous poll when the snapshot is unchanged,
@@ -38,8 +44,13 @@ function stabilizeLayers(next: Snapshot, previous: Snapshot | null): Snapshot {
   return { ...next, layers: reused === next.layers.length && layers.length === previous.layers.length ? previous.layers : layers }
 }
 
-/** App-wide live feeds: environmental snapshot (+ matching flow artifact) and the pilot sensor. */
-export function LiveDataProvider({ children }: { children: ReactNode }) {
+/**
+ * App-wide live feeds. The light `/status` poll always runs (top bar); the full
+ * environmental snapshot (+ flow artifact) and the pilot sensor are polled only
+ * while the monitoring view is mounted, so research views do not download the
+ * whole snapshot every 20 s.
+ */
+export function LiveDataProvider({ children, monitorActive }: { children: ReactNode; monitorActive: boolean }) {
   const [mode, setMode] = useState<DataMode>('live')
   const [scenario, setScenario] = useState('normal')
   const previous = useRef<ContextBundle | null>(null)
@@ -60,11 +71,13 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
     const bundle = { snapshot, flow }
     previous.current = bundle
     return bundle
-  }, { intervalMs: CONTEXT_POLL_MS, keepPreviousData: true, retryBaseMs: 5_000, maxBackoffMs: 60_000 })
+  }, { intervalMs: CONTEXT_POLL_MS, enabled: monitorActive, keepPreviousData: true, retryBaseMs: 5_000, maxBackoffMs: 60_000 })
 
-  const sensor = usePolling(signal => getSensorLatest(PILOT_STATION, signal), { intervalMs: SENSOR_POLL_MS, keepPreviousData: true, retryBaseMs: 10_000 })
+  const sensor = usePolling(signal => getSensorLatest(PILOT_STATION, signal), { intervalMs: SENSOR_POLL_MS, enabled: monitorActive, keepPreviousData: true, retryBaseMs: 10_000 })
 
-  const value = useMemo<LiveData>(() => ({ pilotStation: PILOT_STATION, context, sensor, mode, setMode, scenario, setScenario }), [context, sensor, mode, scenario])
+  const status = usePolling(signal => getApiStatus(PILOT_STATION, signal), { intervalMs: STATUS_POLL_MS, keepPreviousData: true, retryBaseMs: 5_000, maxBackoffMs: 60_000 })
+
+  const value = useMemo<LiveData>(() => ({ pilotStation: PILOT_STATION, status, context, sensor, mode, setMode, scenario, setScenario }), [status, context, sensor, mode, scenario])
   return <LiveDataContext.Provider value={value}>{children}</LiveDataContext.Provider>
 }
 

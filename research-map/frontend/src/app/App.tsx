@@ -2,11 +2,11 @@ import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react
 import { TriangleAlert } from 'lucide-react'
 import { Shell } from './Shell'
 import { LiveDataProvider } from './LiveDataContext'
-import { useHashRoute, type ViewId } from './routes'
+import { useHashRoute, type ReliabilityTab, type ViewId } from './routes'
 import { useTheme, type Theme } from '../hooks/useTheme'
 import { EmptyState, Skeleton } from '../components/ui'
 
-export type ViewProps = { datasetId?: string; theme: Theme }
+export type ViewProps = { datasetId?: string; tab?: ReliabilityTab; theme: Theme }
 
 // Each view is its own chunk; Leaflet only loads with the map views.
 const VIEWS: Record<ViewId, React.LazyExoticComponent<React.ComponentType<ViewProps>>> = {
@@ -45,11 +45,11 @@ export default function App() {
   const { theme, toggle } = useTheme()
   const View = VIEWS[route.view]
   return (
-    <LiveDataProvider>
+    <LiveDataProvider monitorActive={route.view === 'monitor'}>
       <Shell route={route} theme={theme} onToggleTheme={toggle}>
         <ViewErrorBoundary resetKey={route.view}>
           <Suspense fallback={<ViewFallback />}>
-            <View datasetId={route.params.datasetId} theme={theme} />
+            <View datasetId={route.params.datasetId} tab={route.params.tab} theme={theme} />
           </Suspense>
         </ViewErrorBoundary>
       </Shell>

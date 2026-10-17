@@ -1,5 +1,5 @@
 import { ApiError, getJson } from './client'
-import type { ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, LongForecast, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
+import type { ApiStatus, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
 
 type Signal = AbortSignal | undefined
 const q = encodeURIComponent
@@ -32,11 +32,25 @@ export const getSuitability = (variant: SuitabilityVariant, region: SuitabilityR
 export const getForeignIndex = (signal?: Signal) => research<ForeignIndex>('/reliability/foreign', signal)
 export const getForeignDetail = (id: string, params: ForeignQuery = {}, signal?: Signal) => research<ForeignDetail>(`/reliability/foreign/${q(id)}${query({ var: params.var, scale: params.scale, transfer: params.transfer })}`, signal)
 export const getReliabilityVn = (signal?: Signal) => research<ReliabilityVn>('/reliability/vn', signal)
+export const getReliabilitySummary = (signal?: Signal) => research<ReliabilitySummary>('/reliability/summary', signal)
+/** Light shell status (snapshot + sensor freshness, export version); not a research envelope. */
+export const getApiStatus = (station: string, signal?: Signal) => getJson<ApiStatus>(`/status${query({ station })}`, signal)
 
 /** Human-readable reasons for `unavailable` research envelopes. */
 export const RESEARCH_REASON: Record<string, string> = {
   research_api_missing: 'Backend chưa có research router (/api/v1/research).',
   no_export: 'Chưa có bản export nghiên cứu (artifacts/research-map/).',
-  a6_not_exported: 'Lớp regime độ mặn VN (A6) chưa được export.',
+  research_export_missing: 'Chưa có bản export nghiên cứu (artifacts/research-map/).',
+  artifact_not_in_export: 'Bản export mới nhất không chứa mục này.',
+  run_dir_missing: 'Thư mục run nghiên cứu chưa có: chưa chạy hoặc chưa export.',
+  a6_not_exported: 'Lớp chế độ mặn VN (A6) chưa được export.',
+  ledger_missing: 'Sổ ghi shadow dài hạn (runtime/forecast-shadow/long_*.jsonl) chưa tồn tại: runner chưa phát hành bản dự báo dài hạn nào.',
+  snapshot_file_missing: 'Chưa có file snapshot thời tiết.',
+  no_records_for_station: 'File snapshot không có bản ghi cho trạm này.',
+  stale_last_capture: 'Lần thu gần nhất đã quá 2 giờ.',
+  coverage_below_min: 'Độ phủ 7 ngày dưới ngưỡng tối thiểu.',
+  database_unavailable: 'Không kết nối được Postgres của research-map.',
+  no_context_snapshot: 'Chưa có snapshot context nào.',
+  sensor_observations_missing: 'Chưa có quan trắc cảm biến.',
 }
-export const researchReason = (reason?: string) => (reason ? RESEARCH_REASON[reason] ?? reason : 'Không rõ lý do.')
+export const researchReason = (reason?: string | null) => (reason ? RESEARCH_REASON[reason] ?? reason : 'Không rõ lý do.')
