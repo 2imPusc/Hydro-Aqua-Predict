@@ -29,11 +29,11 @@ export function TopBarStatus() {
           <span className="hidden xl:inline">Mất kết nối backend</span><span className="xl:hidden">Offline</span>
         </Chip>
       )}
-              {sensorData
+      {sensorData
           ? <StateChip prefix="Cảm biến" state={sensor.error ? 'stale' : sensorData.status} suffix={sensorAge != null ? formatAge(sensorAge) : undefined}
               title={`Trạm ${pilotStation}${sensorData.latest_observed_at ? ` · đo lúc ${new Date(sensorData.latest_observed_at).toLocaleString('vi-VN')}` : ''}${sensor.error ? ` · lần tải gần nhất lỗi (${describeApiError(sensor.error)})` : ''}`} />
           : <StateChip prefix="Cảm biến" state={sensor.error ? 'unavailable' : 'loading'} title={describeApiError(sensor.error)} />}
-              {snapshot
+      {snapshot
           ? <StateChip prefix="Context" state={context.error ? 'stale' : snapshot.status} suffix={formatAge(snapshotAge)} title={`Snapshot ${snapshot.snapshot_id.slice(0, 8)} · lấy lúc ${new Date(snapshot.retrieved_at).toLocaleString('vi-VN')}`} />
           : <StateChip prefix="Context" state={context.error ? 'unavailable' : 'loading'} title={describeApiError(context.error)} />}
       {mode === 'mock'
