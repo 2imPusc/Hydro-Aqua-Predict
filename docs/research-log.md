@@ -422,3 +422,34 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kiểm tra:** in-sample nopH trong 2 % so với bản có pH; trên cửa sổ hiệu chỉnh (10–30/09, chồng lên lúc pH trôi) nopH tốt hơn ở 360/720 phút. Chạy thử offline: chế độ cache bị chốt dữ liệu cũ chặn (đúng); bản phát lại có nhãn: 12 dự báo nhiệt độ, 6 pH bị bỏ qua `bundle_withdrawn`.
 - **Artifact:** `sensor-future-v2-train-nopH-20261017/`; commit 04a93ae (414 test).
 - **Tiếp theo:** so with_pH và nopH trên sổ ghi thật sau ≥ 4 tuần shadow.
+
+## RL-27 · 2026-10-17 · H4.6: độ tin cậy theo thang ngày và theo lớp ngưỡng (4 bộ nước ngoài)
+
+- **Câu hỏi:** RL-24 cho thấy theo giờ gần như không chuyển được giá trị. Ở thang ngày/tuần, hoặc khi chỉ cần đúng **lớp ngưỡng** (tốt / cần theo dõi / xấu) như khuyến cáo thực sự dùng, thì sao? Chuyển giá trị có thắng được khí hậu tháng của chính trạm và giá trị cũ của chính trạm không?
+- **Thiết lập:** `experiments/h4_multiscale.py` dùng lại loader, QC và danh sách cặp của 4 lần chạy giờ (USGS SF Bay, Texas, NERRS 8 khu, Chesapeake); kiểm tra lại thang giờ khớp tuyệt đối (Δ = 0). Thang: giờ, trung bình/min/max ngày (≥ 18 giờ hợp lệ), trung bình 7 ngày. Lớp ngưỡng cá giò (bảng cobia + `core/alerts.py`): DO xấu < 4, theo dõi 4–5; nhiệt độ tốt 25–30, xấu < 18 hoặc > 33; độ mặn xấu < 15, tốt 26–32; pH tốt 7.5–8.2, xấu < 7.0 hoặc > 8.5. Lớp "suy biến" (lớp xấu < 5 % hoặc > 95 %, hoặc một lớp > 95 %) không được tính là bằng chứng. Mốc so sánh: khí hậu tháng của chính trạm (năm khác), giá trị chính trạm 1 ngày và 7 ngày trước. Chesapeake chồng lấn ≥ 90 ngày, các bộ khác ≥ 365 ngày.
+- **Kết quả, giá trị:**
+  - Lên thang ngày **gần như không cứu được** việc chuyển giá trị: bán kính 80 % (cùng chế độ) giữ nguyên ở hầu hết ô. Ngoại lệ: SF Bay trung bình ngày có hiệu chỉnh (DO, Sal, pH tới 30 km), trung bình 7 ngày (Temp Texas 20 km, NERRS 2 km).
+  - Chuyển giá trị (hiệu chỉnh) thắng khí hậu tháng ở mọi bộ, nhưng **thua giá trị 1 ngày trước của chính trạm** ở Sal, pH, DO, độ đục (ví dụ NERRS Sal 0.54 so với 0.78; Chesapeake pH 0.60 so với 0.80). Riêng nhiệt độ ngang hoặc hơn ở Texas (0.74 so với 0.59), NERRS (0.62 so với 0.61), Chesapeake (0.54 so với 0.52); thua ở SF Bay (0.83 so với 0.93).
+- **Kết quả, lớp ngưỡng (theo ngày, cùng chế độ, thô):**
+  - **Nhiệt độ: đạt 80 % tới 20–30 km ở cả 4 bộ**, kappa 0.66–0.94, lớp không suy biến, thắng khí hậu tháng.
+  - Độ mặn: NERRS 2–5 km (kappa 0.57–0.86); Chesapeake và SF Bay "đạt" tới 30 km nhưng suy biến (hầu hết ngày cùng một lớp) → không tính.
+  - DO, pH: "đạt" chủ yếu vì lớp xấu hiếm (0.1–6 %) → suy biến; chỉ NERRS DO hiệu chỉnh 2 km và Chesapeake pH hiệu chỉnh 2 km là có tín hiệu.
+- **Kết luận:**
+  - Thông tin dạng **lớp ngưỡng nhiệt độ theo ngày** chuyển được xa (20–30 km) và vững qua 4 hệ thống: đây là thứ duy nhất bản đồ tin cậy có thể hứa ngoài vài km.
+  - Với độ mặn, pH, DO, một số đo cũ (1 ngày) **của chính điểm đó** tốt hơn số chuyển từ trạm khác → nên ưu tiên lấy mẫu định kỳ tại điểm nuôi hơn là mượn sensor lân cận.
+  - Đánh giá lớp ngưỡng phải báo kèm tỷ lệ lớp xấu và kappa; nếu không, các biến hiếm khi xấu (DO, pH) cho "độ tin cậy" giả.
+- **Hạn chế:** lớp ngưỡng theo cá giò, áp sang hệ ôn đới/cận nhiệt đới làm lớp nhiệt độ mất cân bằng theo mùa; Chesapeake nới chồng lấn 90 ngày; persistence 1 ngày cần số đo hằng ngày tại điểm đích (thực tế VN là 2–3 tháng/lần).
+- **Artifact:** `h4-multiscale-20261017/` (cells, radius, baseline_compare, hourly_check, manifest; commit ae7a0b7).
+
+## RL-28 · 2026-10-17 · H4.7: IRLON, Indian River Lagoon (Florida)
+
+- **Thiết lập:** SECOORA ERDDAP (bản sao mở của IRLON, HBOI-FAU), 13 trạm, 2014-05 → 2026-10, theo giờ, chỉ cờ QARTOD 1; 156 cặp có hướng, 21 cặp ≤ 30 km, chỉ 2 cặp cùng chế độ (NF–SF 2.5 km, LP–VB 6.3 km). Mưa: ERA5 (máy đo tại trạm chỉ bằng 19–63 % ERA5). Mùa ướt theo dữ liệu: 10–2.
+- **Kết quả:**
+  - Bán kính 80 %: theo giờ Temp 5 km, còn lại 0; theo ngày Temp 10 km (cùng chế độ), pH hiệu chỉnh 10 km; DO, độ đục 0 ở mọi thang.
+  - Sal, pH: chế độ mặn giải thích độ tin cậy (R² 0.61, 0.67), khoảng cách ≈ 0 (r giữa hai biến 0.08 nên ít đa cộng tuyến).
+  - Hiệu chỉnh thắng khí hậu tháng (Sal +0.22…+0.50), chuyển thô thua.
+  - Mưa lớn: DO hiệu chỉnh −0.04…−0.08; độ đục lại tốt hơn.
+  - Nitrat hiệu chỉnh (thăm dò): 0.78–0.86 theo ngày, bán kính 5–10 km; phosphat 0.
+- **Kết luận:** bộ thứ 7 lặp lại kết quả RL-24 (chế độ mặn > khoảng cách cho Sal, pH; DO, độ đục không chuyển được).
+- **Hạn chế:** quá ít cặp cùng chế độ; trạm phía bắc chỉ từ 2022; hai lần chạy đầu hỏng vì thiếu bộ nhớ để lại `irlon-h4-reliability-20261017/` và `-r2/` (không có manifest, không dùng).
+- **Artifact:** `irlon-h4-reliability-20261017-r3/`; dữ liệu `data/foreign/irlon_secoora/` (33 MB); commit 37b9b50.

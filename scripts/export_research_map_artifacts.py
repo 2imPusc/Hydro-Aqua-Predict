@@ -142,15 +142,17 @@ FOREIGN: dict[str, dict] = {
                      "Mưa ≥ 20 mm/72 h (mùa ướt): Sal hiệu chỉnh −0.09…−0.11 [RL-23]"],
     },
     "irlon": {
-        "run": "irlon-h4-reliability-20261017", "adapter": "generic", "rl": None,
+        # -20261017 and -r2 are aborted partial runs (MemoryError, no manifest); -r3 is the complete one.
+        "run": "irlon-h4-reliability-20261017-r3", "adapter": "generic", "rl": "RL-28",
         "name": "IRLON (HBOI-FAU) — Indian River Lagoon", "region": "Indian River Lagoon, Florida", "country": "US",
         "cadence": "hourly", "period": "2014/15–2026", "climate": "cận nhiệt đới",
         "licence": "SECOORA ERDDAP: dùng và phát tán tự do, ghi nguồn hệ thống quan trắc vùng/NOAA",
         "credit": ("Indian River Lagoon Observatory Network of Environmental Sensors (IRLON), Harbor Branch "
                    "Oceanographic Institute at Florida Atlantic University; via SECOORA ERDDAP"),
         "redistributable": True,
-        "headline": "Kết quả IRLON chưa được ghi vào research log",
-        "findings": [],
+        "headline": "Bán kính 80 % theo giờ: Temp 5 km, còn lại 0; theo ngày: Temp 10 km, pH hiệu chỉnh 10 km [RL-28]",
+        "findings": ["Sal, pH: chế độ mặn > khoảng cách (R² 0.61/0.67 so với ≈ 0) [RL-28]",
+                     "DO, độ đục không chuyển được ở bất kỳ khoảng cách nào; chỉ 2 cặp cùng chế độ ≤ 30 km [RL-28]"],
     },
 }
 MULTISCALE_DATASETS = {"nerrs_pooled": "nerrs_multi", "nerrs": "nerrs_multi", "mddnr": "mddnr", "twdb": "twdb",
