@@ -243,6 +243,8 @@ body {
 .flow-particle-canvas { position: absolute; inset: 0; z-index: 650; pointer-events: none; }
 
 .station-marker { background: transparent; border: 0; }
+.nb1-label { background: transparent; border: 0; }
+.nb1-label span { display: inline-block; white-space: nowrap; padding: 2px 7px; border-radius: 6px; background: var(--surface); color: var(--fg); border: 1px solid var(--line-strong); box-shadow: var(--shadow-md); font-size: 11px; font-weight: 700; }
 .station-dot { display: block; width: 16px; height: 16px; border-radius: 999px; border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgb(15 27 43 / .25), 0 2px 6px rgb(15 27 43 / .4); }
 .station-dot.is-mock { border-style: dashed; border-color: #ede4ff; box-shadow: 0 0 0 2px #7c3aed, 0 2px 6px rgb(15 27 43 / .4); }
 .popup-mock { display: inline-block; margin-bottom: 4px; padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--mock); background: var(--mock-bg); }

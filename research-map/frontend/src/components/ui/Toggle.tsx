@@ -53,3 +53,16 @@ export function Segmented<T extends string>({ value, onChange, options, label, s
     </div>
   )
 }
+
+/** Labelled native select (keyboard/AT friendly) styled like the segmented control. */
+export function Select<T extends string>({ value, onChange, options, label, hideLabel }: { value: T; onChange: (value: T) => void; options: Array<{ value: T; label: string; disabled?: boolean }>; label: string; hideLabel?: boolean }) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className={hideLabel ? 'sr-only' : 'text-[10.5px] font-bold uppercase tracking-[.08em] text-fg-subtle'}>{label}</span>
+      <select value={value} onChange={event => onChange(event.target.value as T)}
+        className="h-[30px] w-full min-w-0 rounded-[var(--radius-sm)] border border-line bg-surface px-2 text-[12px] font-semibold text-fg outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus)]">
+        {options.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+      </select>
+    </label>
+  )
+}
