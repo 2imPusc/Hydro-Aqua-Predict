@@ -12,8 +12,8 @@ Mở `index.html` bằng Edge/Chrome/Firefox. 16 slide, khổ 1920×1080, tự c
 Mở đầu (kế hoạch 1 → 2 ‖ 3 → 4, 6 thuật ngữ, danh sách công việc) → 10 slide công việc, mỗi slide cùng bố cục
 **1 Vấn đề · 2 Giải pháp · 3 Kết quả · 4 Vấn đề còn lại · 5 Hướng tiếp** → bảng tổng kết → hướng triển khai và việc cần hỗ trợ.
 
-Số liệu lấy từ `docs/research-log.md` (RL-01 → RL-26) và `experiments/RESULTS.md`; chân mỗi slide ghi mã RL.
-Kết quả H4.6 (thang ngày, lớp ngưỡng) chưa có tại thời điểm làm slide.
+Số liệu lấy từ `docs/research-log.md` (RL-01 → RL-28) và `experiments/RESULTS.md`; chân mỗi slide ghi mã RL.
+Đã gồm kết quả H4.6 (thang ngày, lớp ngưỡng, RL-27) và IRLON (RL-28).
 
 ## Tệp
 
