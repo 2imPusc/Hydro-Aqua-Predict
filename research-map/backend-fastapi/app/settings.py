@@ -35,6 +35,12 @@ def _workspace_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+# Vite dev server (5173, or 5174 when 5173 is taken) and the docker frontend (8083),
+# under both localhost and 127.0.0.1. Override with a comma-separated CORS_ALLOW_ORIGINS.
+DEFAULT_CORS_ORIGINS = ",".join(
+    f"http://{host}:{port}" for port in (5173, 5174, 8083) for host in ("localhost", "127.0.0.1"))
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "postgresql://context_user:change_me@localhost:5434/context_research")
@@ -70,6 +76,7 @@ class Settings:
         "WEATHER_SNAPSHOTS_PATH", str(_workspace_root() / "artifacts" / "experiments" / "forecast-v2" / "weather-snapshots.jsonl"))
     sensor_future_manifest_path: str = os.getenv(
         "SENSOR_FUTURE_MANIFEST_PATH", str(_workspace_root() / "core" / "models" / "sensor_future" / "sensor_future_long_manifest.json"))
+    cors_allow_origins: tuple[str, ...] = _csv_env("CORS_ALLOW_ORIGINS", DEFAULT_CORS_ORIGINS)
     ledger_tail_bytes: int = int(os.getenv("RESEARCH_LEDGER_TAIL_BYTES", str(16 * 1024 * 1024)))
 
 

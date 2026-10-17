@@ -16,6 +16,11 @@ import { RedistributableBadge } from './ForeignOverview'
 
 const INSET = { top: 20, right: 420, bottom: 20, left: 20 }
 type RegimeFilter = 'all' | 'same' | 'different'
+type DistanceFilter = '10' | '20' | '30' | 'all'
+const DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
+  { value: '10', label: '≤ 10 km' }, { value: '20', label: '≤ 20 km' }, { value: '30', label: '≤ 30 km' }, { value: 'all', label: 'Tất cả' },
+]
+const passes = (p: ReliabilityPair) => (p.share ?? 0) >= 0.8
 
 const gateText = (gate: string | null) => (gate === 'pass' ? 'đạt' : gate === 'fail' ? 'trượt' : '—')
 
@@ -32,11 +37,12 @@ function pairTooltip(pair: ReliabilityPair, habitat: boolean) {
 function PairLayers({ detail, pairs, theme, habitat }: { detail: Detail; pairs: ReliabilityPair[]; theme: Theme; habitat: boolean }) {
   return (
     <>
+      {/* Failing pairs first, thin and faint; pairs passing the 80 % gate drawn on top. */}
       <CanvasLayer deps={[pairs, theme]} build={renderer => [...pairs]
         .filter(p => p.lat1 != null && p.lon1 != null && p.lat2 != null && p.lon2 != null)
-        .sort((a, b) => (a.share ?? 0) - (b.share ?? 0))
+        .sort((a, b) => Number(passes(a)) - Number(passes(b)) || (a.share ?? 0) - (b.share ?? 0))
         .map(p => L.polyline([[p.lat1!, p.lon1!], [p.lat2!, p.lon2!]], {
-          renderer, color: shareColor(p.share, theme), weight: (p.share ?? 0) >= 0.8 ? 3 : 2, opacity: 0.85,
+          renderer, color: shareColor(p.share, theme), weight: passes(p) ? 3 : 1.25, opacity: passes(p) ? 0.9 : 0.4,
           dashArray: (habitat ? p.same_habitat === false : p.same_regime === false) ? '5 4' : undefined,
         }).bindTooltip(pairTooltip(p, habitat), { sticky: true }))} />
       <CanvasLayer deps={[detail.stations, theme]} build={renderer => (detail.stations?.features ?? []).map(feature => {
@@ -92,7 +98,8 @@ function RadiusTable({ rows }: { rows: ReliabilityRadius[] }) {
 export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
   const [query, setQuery] = useState<{ var?: string; scale?: string; transfer?: string }>({})
   const [regime, setRegime] = useState<RegimeFilter>('all')
-  useEffect(() => { setQuery({}); setRegime('all') }, [id])
+  const [maxKm, setMaxKm] = useState<DistanceFilter>('30')
+  useEffect(() => { setQuery({}); setRegime('all'); setMaxKm('30') }, [id])
   const poll = useResearch(signal => getForeignDetail(id, query, signal), [id, query.var, query.scale, query.transfer], { keepPreviousData: true })
   const index = useResearch(getForeignIndex)
   const detail = poll.data?.status === 'ready' && poll.data.id === id ? poll.data : null
@@ -104,12 +111,15 @@ export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
     return boxOfPoints((detail?.stations?.features ?? []).map(f => f.geometry.coordinates as [number, number]))
   }, [card?.bbox, detail?.stations])
 
+  const allPairs = detail?.pairs ?? []
   const pairs = useMemo(() => (detail?.pairs ?? []).filter(p => {
+    // Pairs without a distance cannot be placed against a radius; show them only under "all".
+    if (maxKm !== 'all' && (p.km == null || p.km > Number(maxKm))) return false
     if (regime === 'all') return true
     const same = habitat ? p.same_habitat : p.same_regime
     return regime === 'same' ? same === true : same === false
-  }), [detail?.pairs, regime, habitat])
-  const passing = pairs.filter(p => (p.share ?? 0) >= 0.8).length
+  }), [detail?.pairs, regime, habitat, maxKm])
+  const passing = pairs.filter(passes).length
   const classes = useMemo(() => [...new Set((detail?.stations?.features ?? []).map(f => f.properties.regime_class))], [detail?.stations])
   const selected = detail?.selected
   const available = detail?.available
@@ -158,10 +168,16 @@ export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
               <Segmented size="xs" label={habitat ? 'Môi trường sống' : 'Chế độ mặn'} value={regime} onChange={setRegime} options={[{ value: 'all', label: 'Tất cả' }, { value: 'same', label: 'Cùng' }, { value: 'different', label: 'Khác' }]} />
             </div>
 
+            <div className="space-y-1">
+              <span className="text-[10.5px] font-bold uppercase tracking-[.08em] text-fg-subtle">Khoảng cách tối đa</span>
+              <Segmented size="xs" label="Khoảng cách tối đa" value={maxKm} onChange={setMaxKm} options={DISTANCE_OPTIONS} />
+            </div>
+
             <div className="rounded-[var(--radius-md)] border border-line bg-surface p-3">
-              <div className="mb-2 flex items-center gap-2 text-[12px]"><Spline size={14} className="text-accent" aria-hidden /><b className="tabular">{pairs.length}</b> cặp hiển thị · <b className="tabular">{passing}</b> cặp ≥ 80 %</div>
+              <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]"><Spline size={14} className="text-accent" aria-hidden /><span><b className="tabular">{pairs.length}</b> cặp hiển thị · <b className="tabular">{passing}</b> cặp ≥ 80 %</span>{pairs.length < allPairs.length && <span className="text-[11px] text-fg-subtle">(trên tổng {allPairs.length})</span>}</div>
+              {pairs.length === 0 && allPairs.length > 0 && <p className="m-0 mb-2 text-[11px] text-fg-subtle">Không có cặp nào khớp bộ lọc — nới khoảng cách tối đa hoặc chọn “Tất cả”.</p>}
               <GradientLegend title="Tỷ lệ thời gian trong dung sai (theo cặp)" gradient={shareGradient(theme)} ticks={['0 %', '20 %', '40 %', '60 %', '80 % (gate)', '100 %']}
-                note={`Đường liền = ${habitat ? 'cùng môi trường sống' : 'cùng chế độ'}; đứt = khác. ${detail.notes?.length ? 'Xem ghi chú bên dưới.' : ''}`} />
+                note={`Đường liền = ${habitat ? 'cùng môi trường sống' : 'cùng chế độ'}; đứt = khác. Cặp dưới 80 % vẽ mảnh, mờ; cặp đạt vẽ đậm, nằm trên. ${detail.notes?.length ? 'Xem ghi chú bên dưới.' : ''}`} />
               <div className="mt-3"><RegimeLegend theme={theme} classes={classes} title="Trạm theo chế độ mặn" /></div>
             </div>
 

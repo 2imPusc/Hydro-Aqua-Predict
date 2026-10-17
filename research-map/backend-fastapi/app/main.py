@@ -5,9 +5,10 @@ import time
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 import psycopg
 
 from app.repository import SnapshotRepository, snapshot_status
@@ -24,12 +25,27 @@ from app.research import latest_export_version, router as research_router
 
 
 app = FastAPI(title="Environmental Context Research API", version="0.1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:8083"], allow_methods=["GET", "POST"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_allow_origins), allow_methods=["GET", "POST"], allow_headers=["*"])
 # Research exports (foreign pairs, VN regime layer) are 0.1-1.3 MB of JSON; gzip cuts them ~10x.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 repository = SnapshotRepository(settings.database_url)
 app.include_router(research_router)
 logger = logging.getLogger(__name__)
+
+
+# Registered handlers run inside CORSMiddleware, so the browser sees a JSON error with CORS
+# headers instead of a bare 500 (which Starlette emits outside CORS and shows as a CORS error).
+@app.exception_handler(psycopg.OperationalError)
+@app.exception_handler(psycopg.InterfaceError)
+def database_unavailable(_request: Request, exc: psycopg.Error) -> JSONResponse:
+    logger.warning("context database unavailable: %s", exc)
+    return JSONResponse(status_code=503, content={"status": "unavailable", "reason": "database_unavailable"})
+
+
+@app.exception_handler(psycopg.Error)
+def database_error(_request: Request, exc: psycopg.Error) -> JSONResponse:
+    logger.exception("context database error", exc_info=exc)
+    return JSONResponse(status_code=500, content={"status": "error", "reason": "database_error"})
 
 
 @app.on_event("startup")
