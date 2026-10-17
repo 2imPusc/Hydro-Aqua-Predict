@@ -30,7 +30,7 @@ export function Toggle({ checked, onChange, label, description, disabled, badge,
           <span className="truncate text-[12.5px] font-medium text-fg">{label}</span>
           {badge && <span className="ml-auto flex-none">{badge}</span>}
         </span>
-        {description && <span className="mt-px block truncate text-[11px] text-fg-subtle" title={typeof description === 'string' ? description : undefined}>{description}</span>}
+        {description && <span className="mt-px line-clamp-2 text-[11px] leading-snug text-fg-subtle" title={typeof description === 'string' ? description : undefined}>{description}</span>}
       </span>
     </label>
   )
@@ -42,7 +42,7 @@ export function Segmented<T extends string>({ value, onChange, options, label, s
     <div role="radiogroup" aria-label={label} className="inline-flex w-full rounded-[var(--radius-sm)] border border-line bg-surface-3 p-0.5">
       {options.map(option => {
         const active = option.value === value
-        const activeClass = option.tone === 'mock' ? 'bg-mock text-white shadow-sm' : 'bg-surface text-fg shadow-sm'
+        const activeClass = option.tone === 'mock' ? 'bg-mock text-[var(--fg-inverse)] shadow-sm' : 'bg-surface text-fg shadow-sm'
         return (
           <button key={option.value} type="button" role="radio" aria-checked={active} onClick={() => onChange(option.value)}
             className={`flex-1 rounded-[6px] font-semibold transition-colors duration-150 ${size === 'xs' ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1 text-[12px]'} ${active ? activeClass : 'text-fg-muted hover:text-fg'}`}>
