@@ -137,7 +137,7 @@ export default function App() {
             <strong>Hải Phòng · Cát Bà · Lạch Huyện</strong>
             <span>Nền bản đồ khu vực · context dữ liệu 5 km</span>
           </div>
-          <MapContainer center={MAP_CENTER} zoom={11} minZoom={10} maxZoom={17} maxBounds={MAP_BOUNDS} maxBoundsViscosity={0.22} scrollWheelZoom worldCopyJump className="absolute inset-0 z-0 outline-none">
+          <MapContainer preferCanvas center={MAP_CENTER} zoom={11} minZoom={10} maxZoom={17} maxBounds={MAP_BOUNDS} maxBoundsViscosity={0.22} scrollWheelZoom worldCopyJump className="absolute inset-0 z-0 outline-none">
             <ZoomListener onZoom={setZoom} />
             <TileLayer attribution="Tiles © Esri · Map data © OpenStreetMap contributors" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}" />
             
