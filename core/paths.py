@@ -54,6 +54,7 @@ RUNTIME_DIR = _env_path("HAP_RUNTIME_DIR", PROJECT_ROOT / "runtime")
 FORECAST_SHADOW_DIR = RUNTIME_DIR / "forecast-shadow"
 ARTIFACTS_DIR = _env_path("HAP_ARTIFACTS_DIR", PROJECT_ROOT / "artifacts")
 EXPERIMENT_OUTPUT_DIR = ARTIFACTS_DIR / "experiments"
+RESEARCH_MAP_EXPORT_DIR = ARTIFACTS_DIR / "research-map"  # write-once JSON exports read by research-map/
 
 
 if __name__ == "__main__":

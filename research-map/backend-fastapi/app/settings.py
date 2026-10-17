@@ -23,6 +23,18 @@ def _default_copernicus_bathymetry_path() -> str:
     return str(Path(__file__).resolve().parents[3] / "data/depth/haiphong_copernicus_bathymetry_100m_202511.nc")
 
 
+def _workspace_root() -> Path:
+    """Repo root: the read-only Docker mount when present, else this checkout.
+
+    Checks the mount itself (not a leaf path) so a not-yet-created export dir
+    under /workspace never falls back to a path inside the image.
+    """
+    docker_root = Path("/workspace")
+    if docker_root.is_dir():
+        return docker_root
+    return Path(__file__).resolve().parents[3]
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "postgresql://context_user:change_me@localhost:5434/context_research")
@@ -51,6 +63,14 @@ class Settings:
     sensor_poll_seconds: int = int(os.getenv("SENSOR_POLL_SECONDS", "60"))
     nh4_unit_scale: float = float(os.getenv("NH4_UNIT_SCALE", "0.001"))
     nh3_max_metric_gap_minutes: int = int(os.getenv("NH3_MAX_METRIC_GAP_MINUTES", "5"))
+    # Read-only research views (app/research.py). Nothing here is ever written by the API.
+    research_export_dir: str = os.getenv("RESEARCH_EXPORT_DIR", str(_workspace_root() / "artifacts" / "research-map"))
+    hap_runtime_dir: str = os.getenv("RESEARCH_RUNTIME_DIR", str(_workspace_root() / "runtime"))
+    weather_snapshots_path: str = os.getenv(
+        "WEATHER_SNAPSHOTS_PATH", str(_workspace_root() / "artifacts" / "experiments" / "forecast-v2" / "weather-snapshots.jsonl"))
+    sensor_future_manifest_path: str = os.getenv(
+        "SENSOR_FUTURE_MANIFEST_PATH", str(_workspace_root() / "core" / "models" / "sensor_future" / "sensor_future_long_manifest.json"))
+    ledger_tail_bytes: int = int(os.getenv("RESEARCH_LEDGER_TAIL_BYTES", str(16 * 1024 * 1024)))
 
 
 settings = Settings()

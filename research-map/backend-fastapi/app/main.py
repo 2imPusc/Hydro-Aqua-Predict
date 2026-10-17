@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+import psycopg
 
 from app.repository import SnapshotRepository, snapshot_status
 from app.schemas import ContextSnapshot, LayerPayload, SensorLatest, SensorObservation, SensorObservationIn
@@ -16,16 +18,24 @@ from app.hsi_cache import load_hsi_cache
 from app.flow_artifacts import load_flow_artifact
 from app.bathymetry_artifacts import LODS, load_geojson as load_bathymetry_geojson, load_manifest as load_bathymetry_manifest, sample as sample_bathymetry
 from app.aquaculture_artifacts import MODES as AQUACULTURE_MODES, SCENARIOS as AQUACULTURE_SCENARIOS, load_aquaculture_artifact
+from app.research import router as research_router
 
 
 app = FastAPI(title="Environmental Context Research API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:8083"], allow_methods=["GET", "POST"], allow_headers=["*"])
 repository = SnapshotRepository(settings.database_url)
+app.include_router(research_router)
+logger = logging.getLogger(__name__)
 
 
 @app.on_event("startup")
 def initialize_repository() -> None:
-    repository.initialize()
+    try:
+        repository.initialize()
+    except psycopg.Error as exc:
+        # Research endpoints (/api/v1/research) are file-backed and must stay up without
+        # Postgres; database-backed endpoints keep failing until it is reachable.
+        logger.warning("context database unavailable at startup: %s", exc)
     # Warm the shapefile-backed domain once so concurrent map requests do not
     # repeat the expensive water-mask intersection.
     build_context_domain(settings.context_buffer_m)
