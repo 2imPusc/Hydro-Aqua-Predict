@@ -426,8 +426,17 @@ def load_units(name: str):
             yield gi, wide, pairs[pairs["reserve"] == code]
     elif name == "mddnr":
         from experiments import mddnr_load as ml
-        hourly, _, _ = ml.load_hourly(ml.MDDNR_DIR)
-        yield 0, _wide(hourly, "time_est", "station", "variable", {v: k for k, v in cfg["var_cols"].items()}), pairs
+        # station by station (same loader + QC) so the long hourly frame never holds all 67 stations
+        codes = sorted(set(pairs["anchor"]) | set(pairs["target"]))
+        cols: dict[str, dict[str, pd.Series]] = {}
+        for code in codes:
+            hourly, _, _ = ml.load_hourly(ml.MDDNR_DIR, stations=[code])
+            for var, w in _wide(hourly, "time_est", "station", "variable",
+                                {v: k for k, v in cfg["var_cols"].items()}).items():
+                for st in w.columns:
+                    cols.setdefault(var, {})[st] = w[st].dropna()
+            del hourly
+        yield 0, {var: pd.DataFrame(series).sort_index() for var, series in cols.items()}, pairs
     elif name == "twdb":
         from experiments import twdb_load as tl
         hourly, _, _ = tl.load_hourly(data_dir=tl.RAW_DIR, years=range(2008, 2020))
