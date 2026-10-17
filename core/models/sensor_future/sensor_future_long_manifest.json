@@ -26,7 +26,8 @@
   },
   "pi": {
     "Temperature": "aci_scaled, gamma = 0.005*15/h, pool seeded with calibration scores",
-    "pH": "static_night split conformal (night = local hour < 6), live residuals appended"
+    "pH": "static_night split conformal (night = local hour < 6), live residuals appended (bundles withdrawn 2026-10-17, RL-18)",
+    "Temperature_nopH": "aci_scaled, gamma = 0.005*15/h, pool seeded with calibration scores (same default, H1.6)"
   },
   "metrics_note": "in-sample only (sanity); out-of-sample evidence is RL-08/RL-09",
   "bundles": [
@@ -123,7 +124,10 @@
         }
       },
       "training_cutoff_local_date": null,
-      "training_cutoff_reason": null
+      "training_cutoff_reason": null,
+      "status": "active",
+      "variant": "with_pH",
+      "role": "primary_shadow"
     },
     {
       "file": "haiphong_temperature_ridge_B5_external_as_issued_180m_deb84b513_f7a7ca781.pkl",
@@ -225,7 +229,10 @@
         }
       },
       "training_cutoff_local_date": null,
-      "training_cutoff_reason": null
+      "training_cutoff_reason": null,
+      "status": "active",
+      "variant": "with_pH",
+      "role": "primary_shadow"
     },
     {
       "file": "haiphong_temperature_ridge_B4_quality_360m_deb84b513_fa712fbfe.pkl",
@@ -320,7 +327,10 @@
         }
       },
       "training_cutoff_local_date": null,
-      "training_cutoff_reason": null
+      "training_cutoff_reason": null,
+      "status": "active",
+      "variant": "with_pH",
+      "role": "primary_shadow"
     },
     {
       "file": "haiphong_temperature_ridge_B5_external_as_issued_360m_deb84b513_f7a7ca781.pkl",
@@ -422,7 +432,10 @@
         }
       },
       "training_cutoff_local_date": null,
-      "training_cutoff_reason": null
+      "training_cutoff_reason": null,
+      "status": "active",
+      "variant": "with_pH",
+      "role": "primary_shadow"
     },
     {
       "file": "haiphong_temperature_ridge_B4_quality_720m_deb84b513_fa712fbfe.pkl",
@@ -517,7 +530,10 @@
         }
       },
       "training_cutoff_local_date": null,
-      "training_cutoff_reason": null
+      "training_cutoff_reason": null,
+      "status": "active",
+      "variant": "with_pH",
+      "role": "primary_shadow"
     },
     {
       "file": "haiphong_temperature_ridge_B5_external_as_issued_720m_deb84b513_f7a7ca781.pkl",
@@ -619,7 +635,10 @@
         }
       },
       "training_cutoff_local_date": null,
-      "training_cutoff_reason": null
+      "training_cutoff_reason": null,
+      "status": "active",
+      "variant": "with_pH",
+      "role": "primary_shadow"
     },
     {
       "file": "haiphong_ph_ridge_B4_quality_180m_deb84b513_f960ec990.pkl",
@@ -714,7 +733,11 @@
         }
       },
       "training_cutoff_local_date": "2026-09-18",
-      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13"
+      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13",
+      "status": "withdrawn",
+      "withdrawn_reason": "RL-18: fail gate #16 on clean window (pH <= 2026-09-18, lockbox 04-18/09) at 180/360/720 min; owner decision H1.6",
+      "withdrawn_at": "2026-10-17",
+      "variant": "pH_target"
     },
     {
       "file": "haiphong_ph_ridge_B6_tide_180m_deb84b513_ffb88d15b.pkl",
@@ -813,7 +836,11 @@
         }
       },
       "training_cutoff_local_date": "2026-09-18",
-      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13"
+      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13",
+      "status": "withdrawn",
+      "withdrawn_reason": "RL-18: fail gate #16 on clean window (pH <= 2026-09-18, lockbox 04-18/09) at 180/360/720 min; owner decision H1.6",
+      "withdrawn_at": "2026-10-17",
+      "variant": "pH_target"
     },
     {
       "file": "haiphong_ph_ridge_B4_quality_360m_deb84b513_f960ec990.pkl",
@@ -908,7 +935,11 @@
         }
       },
       "training_cutoff_local_date": "2026-09-18",
-      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13"
+      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13",
+      "status": "withdrawn",
+      "withdrawn_reason": "RL-18: fail gate #16 on clean window (pH <= 2026-09-18, lockbox 04-18/09) at 180/360/720 min; owner decision H1.6",
+      "withdrawn_at": "2026-10-17",
+      "variant": "pH_target"
     },
     {
       "file": "haiphong_ph_ridge_B6_tide_360m_deb84b513_ffb88d15b.pkl",
@@ -1007,7 +1038,11 @@
         }
       },
       "training_cutoff_local_date": "2026-09-18",
-      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13"
+      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13",
+      "status": "withdrawn",
+      "withdrawn_reason": "RL-18: fail gate #16 on clean window (pH <= 2026-09-18, lockbox 04-18/09) at 180/360/720 min; owner decision H1.6",
+      "withdrawn_at": "2026-10-17",
+      "variant": "pH_target"
     },
     {
       "file": "haiphong_ph_ridge_B4_quality_720m_deb84b513_f960ec990.pkl",
@@ -1102,7 +1137,11 @@
         }
       },
       "training_cutoff_local_date": "2026-09-18",
-      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13"
+      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13",
+      "status": "withdrawn",
+      "withdrawn_reason": "RL-18: fail gate #16 on clean window (pH <= 2026-09-18, lockbox 04-18/09) at 180/360/720 min; owner decision H1.6",
+      "withdrawn_at": "2026-10-17",
+      "variant": "pH_target"
     },
     {
       "file": "haiphong_ph_ridge_B6_tide_720m_deb84b513_ffb88d15b.pkl",
@@ -1201,7 +1240,654 @@
         }
       },
       "training_cutoff_local_date": "2026-09-18",
-      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13"
+      "training_cutoff_reason": "ph_probe_suspect_from_2026-09-19, research-log RL-13",
+      "status": "withdrawn",
+      "withdrawn_reason": "RL-18: fail gate #16 on clean window (pH <= 2026-09-18, lockbox 04-18/09) at 180/360/720 min; owner decision H1.6",
+      "withdrawn_at": "2026-10-17",
+      "variant": "pH_target"
+    },
+    {
+      "file": "haiphong_temperature_ridge_B4_quality_nopH_180m_deb84b513_fcf6a3611.pkl",
+      "model_version": "haiphong_temperature_ridge_B4_quality_nopH_180m_deb84b513_fcf6a3611",
+      "target": "Temperature",
+      "horizon_minutes": 180,
+      "feature_set": "B4_quality_nopH",
+      "features": [
+        "Temperature_lag_1m",
+        "Temperature_lag_3m",
+        "Temperature_lag_5m",
+        "Temperature_lag_10m",
+        "Temperature_lag_15m",
+        "Temperature_lag_30m",
+        "Temperature_lag_60m",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "roll_mean_5m",
+        "roll_median_5m",
+        "roll_std_5m",
+        "roll_min_5m",
+        "roll_max_5m",
+        "roll_mean_15m",
+        "roll_median_15m",
+        "roll_std_15m",
+        "roll_min_15m",
+        "roll_max_15m",
+        "roll_mean_30m",
+        "roll_median_30m",
+        "roll_std_30m",
+        "roll_min_30m",
+        "roll_max_30m",
+        "roll_mean_60m",
+        "roll_median_60m",
+        "roll_std_60m",
+        "roll_min_60m",
+        "roll_max_60m",
+        "delta_15m",
+        "slope_60m",
+        "NH4_lag_1m",
+        "NH4_lag_15m",
+        "TSS_lag_1m",
+        "TSS_lag_15m",
+        "temperature_x_nh4",
+        "age_minutes",
+        "gap_before_minutes",
+        "quality_gap_flag"
+      ],
+      "n_train": 187643,
+      "training_window": [
+        "2026-05-28 18:00:00+00:00",
+        "2026-10-14 14:00:00+00:00"
+      ],
+      "in_sample": {
+        "mae": 0.3642182165301594,
+        "rmse": 0.5086965260268476,
+        "persistence_mae": 0.4421237402940691
+      },
+      "pi_method": "aci_scaled",
+      "aci_gamma": 0.00041666666666666664,
+      "calibration": {
+        "folds_used": [
+          3,
+          4,
+          5
+        ],
+        "rows": 28244,
+        "rows_night": 7048,
+        "rows_dropped_known_after_lockbox_start": 0,
+        "issued_from": "2026-09-10 09:33:00+00:00",
+        "issued_to": "2026-09-30 10:59:00+00:00",
+        "oos_mae": 0.46655018920063296
+      },
+      "calibration_quantiles": {
+        "pi80": {
+          "static": 0.6886532306671143,
+          "static_night": {
+            "0": 0.7176229357719421,
+            "1": 0.628228485584259
+          }
+        },
+        "pi90": {
+          "static": 0.9873416423797607,
+          "static_night": {
+            "0": 1.0441577434539795,
+            "1": 0.8375141620635986
+          }
+        }
+      },
+      "training_cutoff_local_date": null,
+      "training_cutoff_reason": null,
+      "variant": "nopH",
+      "role": "parallel_shadow",
+      "status": "active",
+      "added_at": "2026-10-17T05:42:05.646492+00:00",
+      "training_run": "sensor-future-v2-train-nopH-20261017"
+    },
+    {
+      "file": "haiphong_temperature_ridge_B5_external_as_issued_nopH_180m_deb84b513_faca712cf.pkl",
+      "model_version": "haiphong_temperature_ridge_B5_external_as_issued_nopH_180m_deb84b513_faca712cf",
+      "target": "Temperature",
+      "horizon_minutes": 180,
+      "feature_set": "B5_external_as_issued_nopH",
+      "features": [
+        "Temperature_lag_1m",
+        "Temperature_lag_3m",
+        "Temperature_lag_5m",
+        "Temperature_lag_10m",
+        "Temperature_lag_15m",
+        "Temperature_lag_30m",
+        "Temperature_lag_60m",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "roll_mean_5m",
+        "roll_median_5m",
+        "roll_std_5m",
+        "roll_min_5m",
+        "roll_max_5m",
+        "roll_mean_15m",
+        "roll_median_15m",
+        "roll_std_15m",
+        "roll_min_15m",
+        "roll_max_15m",
+        "roll_mean_30m",
+        "roll_median_30m",
+        "roll_std_30m",
+        "roll_min_30m",
+        "roll_max_30m",
+        "roll_mean_60m",
+        "roll_median_60m",
+        "roll_std_60m",
+        "roll_min_60m",
+        "roll_max_60m",
+        "delta_15m",
+        "slope_60m",
+        "NH4_lag_1m",
+        "NH4_lag_15m",
+        "TSS_lag_1m",
+        "TSS_lag_15m",
+        "temperature_x_nh4",
+        "age_minutes",
+        "gap_before_minutes",
+        "quality_gap_flag",
+        "external_cloud_cover",
+        "external_precipitation",
+        "external_relative_humidity_2m",
+        "external_surface_pressure",
+        "external_temperature_2m",
+        "external_wind_direction_10m",
+        "external_wind_speed_10m"
+      ],
+      "n_train": 187643,
+      "training_window": [
+        "2026-05-28 18:00:00+00:00",
+        "2026-10-14 14:00:00+00:00"
+      ],
+      "in_sample": {
+        "mae": 0.3380596808648288,
+        "rmse": 0.4679324768685361,
+        "persistence_mae": 0.4421237402940691
+      },
+      "pi_method": "aci_scaled",
+      "aci_gamma": 0.00041666666666666664,
+      "calibration": {
+        "folds_used": [
+          3,
+          4,
+          5
+        ],
+        "rows": 28244,
+        "rows_night": 7048,
+        "rows_dropped_known_after_lockbox_start": 0,
+        "issued_from": "2026-09-10 09:33:00+00:00",
+        "issued_to": "2026-09-30 10:59:00+00:00",
+        "oos_mae": 0.43058763332721955
+      },
+      "calibration_quantiles": {
+        "pi80": {
+          "static": 0.6406723856925964,
+          "static_night": {
+            "0": 0.654243528842926,
+            "1": 0.6111898422241211
+          }
+        },
+        "pi90": {
+          "static": 0.8884849548339844,
+          "static_night": {
+            "0": 0.9313834309577942,
+            "1": 0.7892105579376221
+          }
+        }
+      },
+      "training_cutoff_local_date": null,
+      "training_cutoff_reason": null,
+      "variant": "nopH",
+      "role": "parallel_shadow",
+      "status": "active",
+      "added_at": "2026-10-17T05:42:10.323512+00:00",
+      "training_run": "sensor-future-v2-train-nopH-20261017"
+    },
+    {
+      "file": "haiphong_temperature_ridge_B4_quality_nopH_360m_deb84b513_fcf6a3611.pkl",
+      "model_version": "haiphong_temperature_ridge_B4_quality_nopH_360m_deb84b513_fcf6a3611",
+      "target": "Temperature",
+      "horizon_minutes": 360,
+      "feature_set": "B4_quality_nopH",
+      "features": [
+        "Temperature_lag_1m",
+        "Temperature_lag_3m",
+        "Temperature_lag_5m",
+        "Temperature_lag_10m",
+        "Temperature_lag_15m",
+        "Temperature_lag_30m",
+        "Temperature_lag_60m",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "roll_mean_5m",
+        "roll_median_5m",
+        "roll_std_5m",
+        "roll_min_5m",
+        "roll_max_5m",
+        "roll_mean_15m",
+        "roll_median_15m",
+        "roll_std_15m",
+        "roll_min_15m",
+        "roll_max_15m",
+        "roll_mean_30m",
+        "roll_median_30m",
+        "roll_std_30m",
+        "roll_min_30m",
+        "roll_max_30m",
+        "roll_mean_60m",
+        "roll_median_60m",
+        "roll_std_60m",
+        "roll_min_60m",
+        "roll_max_60m",
+        "delta_15m",
+        "slope_60m",
+        "NH4_lag_1m",
+        "NH4_lag_15m",
+        "TSS_lag_1m",
+        "TSS_lag_15m",
+        "temperature_x_nh4",
+        "age_minutes",
+        "gap_before_minutes",
+        "quality_gap_flag"
+      ],
+      "n_train": 185936,
+      "training_window": [
+        "2026-05-28 18:00:00+00:00",
+        "2026-10-14 11:00:00+00:00"
+      ],
+      "in_sample": {
+        "mae": 0.5419103589035531,
+        "rmse": 0.737672568413521,
+        "persistence_mae": 0.6980612952843989
+      },
+      "pi_method": "aci_scaled",
+      "aci_gamma": 0.00020833333333333332,
+      "calibration": {
+        "folds_used": [
+          3,
+          4,
+          5
+        ],
+        "rows": 27800,
+        "rows_night": 6930,
+        "rows_dropped_known_after_lockbox_start": 0,
+        "issued_from": "2026-09-10 09:33:00+00:00",
+        "issued_to": "2026-09-30 04:59:00+00:00",
+        "oos_mae": 0.7286322576912222
+      },
+      "calibration_quantiles": {
+        "pi80": {
+          "static": 1.1166468858718872,
+          "static_night": {
+            "0": 1.0120782852172852,
+            "1": 1.4727672338485718
+          }
+        },
+        "pi90": {
+          "static": 1.6245468854904175,
+          "static_night": {
+            "0": 1.446136474609375,
+            "1": 2.200347900390625
+          }
+        }
+      },
+      "training_cutoff_local_date": null,
+      "training_cutoff_reason": null,
+      "variant": "nopH",
+      "role": "parallel_shadow",
+      "status": "active",
+      "added_at": "2026-10-17T05:42:13.072956+00:00",
+      "training_run": "sensor-future-v2-train-nopH-20261017"
+    },
+    {
+      "file": "haiphong_temperature_ridge_B5_external_as_issued_nopH_360m_deb84b513_faca712cf.pkl",
+      "model_version": "haiphong_temperature_ridge_B5_external_as_issued_nopH_360m_deb84b513_faca712cf",
+      "target": "Temperature",
+      "horizon_minutes": 360,
+      "feature_set": "B5_external_as_issued_nopH",
+      "features": [
+        "Temperature_lag_1m",
+        "Temperature_lag_3m",
+        "Temperature_lag_5m",
+        "Temperature_lag_10m",
+        "Temperature_lag_15m",
+        "Temperature_lag_30m",
+        "Temperature_lag_60m",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "roll_mean_5m",
+        "roll_median_5m",
+        "roll_std_5m",
+        "roll_min_5m",
+        "roll_max_5m",
+        "roll_mean_15m",
+        "roll_median_15m",
+        "roll_std_15m",
+        "roll_min_15m",
+        "roll_max_15m",
+        "roll_mean_30m",
+        "roll_median_30m",
+        "roll_std_30m",
+        "roll_min_30m",
+        "roll_max_30m",
+        "roll_mean_60m",
+        "roll_median_60m",
+        "roll_std_60m",
+        "roll_min_60m",
+        "roll_max_60m",
+        "delta_15m",
+        "slope_60m",
+        "NH4_lag_1m",
+        "NH4_lag_15m",
+        "TSS_lag_1m",
+        "TSS_lag_15m",
+        "temperature_x_nh4",
+        "age_minutes",
+        "gap_before_minutes",
+        "quality_gap_flag",
+        "external_cloud_cover",
+        "external_precipitation",
+        "external_relative_humidity_2m",
+        "external_surface_pressure",
+        "external_temperature_2m",
+        "external_wind_direction_10m",
+        "external_wind_speed_10m"
+      ],
+      "n_train": 185936,
+      "training_window": [
+        "2026-05-28 18:00:00+00:00",
+        "2026-10-14 11:00:00+00:00"
+      ],
+      "in_sample": {
+        "mae": 0.4745738431982029,
+        "rmse": 0.6462257301676428,
+        "persistence_mae": 0.6980612952843989
+      },
+      "pi_method": "aci_scaled",
+      "aci_gamma": 0.00020833333333333332,
+      "calibration": {
+        "folds_used": [
+          3,
+          4,
+          5
+        ],
+        "rows": 27800,
+        "rows_night": 6930,
+        "rows_dropped_known_after_lockbox_start": 0,
+        "issued_from": "2026-09-10 09:33:00+00:00",
+        "issued_to": "2026-09-30 04:59:00+00:00",
+        "oos_mae": 0.6345117708426475
+      },
+      "calibration_quantiles": {
+        "pi80": {
+          "static": 0.9336782097816467,
+          "static_night": {
+            "0": 0.8387564420700073,
+            "1": 1.378043532371521
+          }
+        },
+        "pi90": {
+          "static": 1.4130693674087524,
+          "static_night": {
+            "0": 1.1976492404937744,
+            "1": 2.1481869220733643
+          }
+        }
+      },
+      "training_cutoff_local_date": null,
+      "training_cutoff_reason": null,
+      "variant": "nopH",
+      "role": "parallel_shadow",
+      "status": "active",
+      "added_at": "2026-10-17T05:42:17.522273+00:00",
+      "training_run": "sensor-future-v2-train-nopH-20261017"
+    },
+    {
+      "file": "haiphong_temperature_ridge_B4_quality_nopH_720m_deb84b513_fcf6a3611.pkl",
+      "model_version": "haiphong_temperature_ridge_B4_quality_nopH_720m_deb84b513_fcf6a3611",
+      "target": "Temperature",
+      "horizon_minutes": 720,
+      "feature_set": "B4_quality_nopH",
+      "features": [
+        "Temperature_lag_1m",
+        "Temperature_lag_3m",
+        "Temperature_lag_5m",
+        "Temperature_lag_10m",
+        "Temperature_lag_15m",
+        "Temperature_lag_30m",
+        "Temperature_lag_60m",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "roll_mean_5m",
+        "roll_median_5m",
+        "roll_std_5m",
+        "roll_min_5m",
+        "roll_max_5m",
+        "roll_mean_15m",
+        "roll_median_15m",
+        "roll_std_15m",
+        "roll_min_15m",
+        "roll_max_15m",
+        "roll_mean_30m",
+        "roll_median_30m",
+        "roll_std_30m",
+        "roll_min_30m",
+        "roll_max_30m",
+        "roll_mean_60m",
+        "roll_median_60m",
+        "roll_std_60m",
+        "roll_min_60m",
+        "roll_max_60m",
+        "delta_15m",
+        "slope_60m",
+        "NH4_lag_1m",
+        "NH4_lag_15m",
+        "TSS_lag_1m",
+        "TSS_lag_15m",
+        "temperature_x_nh4",
+        "age_minutes",
+        "gap_before_minutes",
+        "quality_gap_flag"
+      ],
+      "n_train": 183398,
+      "training_window": [
+        "2026-05-28 18:00:00+00:00",
+        "2026-10-14 05:00:00+00:00"
+      ],
+      "in_sample": {
+        "mae": 0.6689613652895716,
+        "rmse": 0.8802552811453102,
+        "persistence_mae": 0.9425934306808144
+      },
+      "pi_method": "aci_scaled",
+      "aci_gamma": 0.00010416666666666666,
+      "calibration": {
+        "folds_used": [
+          3,
+          4,
+          5
+        ],
+        "rows": 27080,
+        "rows_night": 6840,
+        "rows_dropped_known_after_lockbox_start": 0,
+        "issued_from": "2026-09-10 09:33:00+00:00",
+        "issued_to": "2026-09-29 16:59:00+00:00",
+        "oos_mae": 0.9497277402293357
+      },
+      "calibration_quantiles": {
+        "pi80": {
+          "static": 1.5516542196273804,
+          "static_night": {
+            "0": 1.3269469738006592,
+            "1": 2.122476100921631
+          }
+        },
+        "pi90": {
+          "static": 2.1255035400390625,
+          "static_night": {
+            "0": 1.8821784257888794,
+            "1": 2.6198368072509766
+          }
+        }
+      },
+      "training_cutoff_local_date": null,
+      "training_cutoff_reason": null,
+      "variant": "nopH",
+      "role": "parallel_shadow",
+      "status": "active",
+      "added_at": "2026-10-17T05:42:20.090906+00:00",
+      "training_run": "sensor-future-v2-train-nopH-20261017"
+    },
+    {
+      "file": "haiphong_temperature_ridge_B5_external_as_issued_nopH_720m_deb84b513_faca712cf.pkl",
+      "model_version": "haiphong_temperature_ridge_B5_external_as_issued_nopH_720m_deb84b513_faca712cf",
+      "target": "Temperature",
+      "horizon_minutes": 720,
+      "feature_set": "B5_external_as_issued_nopH",
+      "features": [
+        "Temperature_lag_1m",
+        "Temperature_lag_3m",
+        "Temperature_lag_5m",
+        "Temperature_lag_10m",
+        "Temperature_lag_15m",
+        "Temperature_lag_30m",
+        "Temperature_lag_60m",
+        "hour_sin",
+        "hour_cos",
+        "dow_sin",
+        "dow_cos",
+        "roll_mean_5m",
+        "roll_median_5m",
+        "roll_std_5m",
+        "roll_min_5m",
+        "roll_max_5m",
+        "roll_mean_15m",
+        "roll_median_15m",
+        "roll_std_15m",
+        "roll_min_15m",
+        "roll_max_15m",
+        "roll_mean_30m",
+        "roll_median_30m",
+        "roll_std_30m",
+        "roll_min_30m",
+        "roll_max_30m",
+        "roll_mean_60m",
+        "roll_median_60m",
+        "roll_std_60m",
+        "roll_min_60m",
+        "roll_max_60m",
+        "delta_15m",
+        "slope_60m",
+        "NH4_lag_1m",
+        "NH4_lag_15m",
+        "TSS_lag_1m",
+        "TSS_lag_15m",
+        "temperature_x_nh4",
+        "age_minutes",
+        "gap_before_minutes",
+        "quality_gap_flag",
+        "external_cloud_cover",
+        "external_precipitation",
+        "external_relative_humidity_2m",
+        "external_surface_pressure",
+        "external_temperature_2m",
+        "external_wind_direction_10m",
+        "external_wind_speed_10m"
+      ],
+      "n_train": 183398,
+      "training_window": [
+        "2026-05-28 18:00:00+00:00",
+        "2026-10-14 05:00:00+00:00"
+      ],
+      "in_sample": {
+        "mae": 0.5755721358780127,
+        "rmse": 0.755203791141628,
+        "persistence_mae": 0.9425934306808144
+      },
+      "pi_method": "aci_scaled",
+      "aci_gamma": 0.00010416666666666666,
+      "calibration": {
+        "folds_used": [
+          3,
+          4,
+          5
+        ],
+        "rows": 27080,
+        "rows_night": 6840,
+        "rows_dropped_known_after_lockbox_start": 0,
+        "issued_from": "2026-09-10 09:33:00+00:00",
+        "issued_to": "2026-09-29 16:59:00+00:00",
+        "oos_mae": 0.829144404797938
+      },
+      "calibration_quantiles": {
+        "pi80": {
+          "static": 1.3364958763122559,
+          "static_night": {
+            "0": 1.1225308179855347,
+            "1": 2.1552958488464355
+          }
+        },
+        "pi90": {
+          "static": 1.9898818731307983,
+          "static_night": {
+            "0": 1.6461137533187866,
+            "1": 2.4852962493896484
+          }
+        }
+      },
+      "training_cutoff_local_date": null,
+      "training_cutoff_reason": null,
+      "variant": "nopH",
+      "role": "parallel_shadow",
+      "status": "active",
+      "added_at": "2026-10-17T05:42:24.375085+00:00",
+      "training_run": "sensor-future-v2-train-nopH-20261017"
     }
-  ]
+  ],
+  "additional_training_runs": [
+    {
+      "created_at": "2026-10-17T05:42:24.391876+00:00",
+      "training_data": {
+        "path": "artifacts\\experiments\\sensor-history-20261014\\06M26042804.csv",
+        "sha256": "eb84b513e5a107c1351171c557660e884c29576e5817b87f4983d208a1783923"
+      },
+      "model": "StandardScaler + Ridge(alpha=1.0), fitted on the full history (no lockbox)",
+      "frame_builder": "experiments.forecast_sensor_v2.build_frame(..., 'B4_quality') + feature_subset (unmodified)",
+      "external_weather_training": {
+        "path": "artifacts\\experiments\\external-context-06M26042804-2026-05-28_2026-10-15\\weather-snapshots-reconstructed.jsonl",
+        "sha256": "6f2b238448a71d161c42b647010efe25e0fb94f85ec48ed028afe4bd82a68d21",
+        "provenance_class": "reconstructed_run",
+        "join": "join_as_issued (retrieved_at <= issued_at, age <= 24 h)",
+        "runtime_provenance_class": "captured_live only (train/serve provenance shift, decisions #13)"
+      },
+      "calibration": {
+        "rule": "rolling_folds (unchanged), last 3 folds, drop known_at >= lockbox start; |actual - prediction|",
+        "note": "rolling_folds reserves the last 14 days, so calibration ends 14 days before the fit data"
+      },
+      "run_name": "sensor-future-v2-train-nopH-20261017",
+      "variant": "nopH",
+      "model_versions": [
+        "haiphong_temperature_ridge_B4_quality_nopH_180m_deb84b513_fcf6a3611",
+        "haiphong_temperature_ridge_B5_external_as_issued_nopH_180m_deb84b513_faca712cf",
+        "haiphong_temperature_ridge_B4_quality_nopH_360m_deb84b513_fcf6a3611",
+        "haiphong_temperature_ridge_B5_external_as_issued_nopH_360m_deb84b513_faca712cf",
+        "haiphong_temperature_ridge_B4_quality_nopH_720m_deb84b513_fcf6a3611",
+        "haiphong_temperature_ridge_B5_external_as_issued_nopH_720m_deb84b513_faca712cf"
+      ]
+    }
+  ],
+  "updated_at": "2026-10-17T05:42:24.391876+00:00",
+  "status_note": "status: active | withdrawn. Withdrawn bundles are kept for provenance and never issued (runtime logs bundle_withdrawn). variant: with_pH | nopH | pH_target; role: primary_shadow | parallel_shadow."
 }

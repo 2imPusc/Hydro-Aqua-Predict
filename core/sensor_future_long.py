@@ -6,6 +6,12 @@ tested against the research code), then ridge bundles trained by
 ``experiments/train_sensor_future_v2.py`` are applied.  Nothing here feeds
 alerts, advisories or the dashboard risk; records go to a separate shadow
 ledger (``core/forecast_evaluation.py``).
+
+H1.6 (RL-18): manifest entries with ``status: withdrawn`` (the pH bundles) are
+never issued, only logged as ``bundle_withdrawn`` skips.  Temperature
+``*_nopH`` bundles (``variant: nopH``, ``role: parallel_shadow``) run next to
+the with-pH bundles and need no pH input at all; with-pH records carry
+``ph_input_status`` so the ledger can compare the two when the probe drifts.
 """
 from __future__ import annotations
 
@@ -30,6 +36,8 @@ MANIFEST = MODEL_DIR / "sensor_future_long_manifest.json"
 PROMOTED_STATION = "06M26042804"
 EXTERNAL_FEATURE_SET = "B5_external_as_issued"
 TIDE_FEATURE_SET = "B6_tide"
+NOPH_SUFFIX = "_nopH"  # same suffix as experiments.forecast_sensor_v2 (tested)
+WITHDRAWN = "withdrawn"
 PH_PLAUSIBLE_SEAWATER = ledger.PH_PLAUSIBLE_SEAWATER
 PI_ALPHAS = (("pi80", 0.2), ("pi90", 0.1))
 
@@ -56,8 +64,20 @@ def clean_raw(raw: pd.DataFrame) -> pd.DataFrame:
     return frame.groupby("fetchedAt", as_index=False)[cols].median().sort_values("fetchedAt").reset_index(drop=True)
 
 
-def b4_feature_names(target: str, available: tuple[str, ...] = TARGETS) -> list[str]:
-    """Feature order of ``feature_subset(..., "B4_quality")``."""
+def base_feature_set(feature_set: str) -> str:
+    return feature_set.removesuffix(NOPH_SUFFIX)
+
+
+def is_nopH(feature_set: str) -> bool:
+    return feature_set != base_feature_set(feature_set)
+
+
+def b4_feature_names(target: str, available: tuple[str, ...] = TARGETS, exclude_ph: bool = False) -> list[str]:
+    """Feature order of ``feature_subset(..., "B4_quality")`` (``"B4_quality_nopH"`` with ``exclude_ph``)."""
+    if exclude_ph:
+        if target == "pH":
+            raise ValueError("nopH_variant_invalid_for_pH")
+        return [name for name in b4_feature_names(target, available) if not name.startswith("pH_")]
     names = [f"{target}_lag_{minute}m" for minute in LAGS_MINUTES] + list(CALENDAR)
     for window in WINDOWS_MINUTES:
         names += [f"roll_{stat}_{window}m" for stat in ("mean", "median", "std", "min", "max")]
@@ -85,11 +105,13 @@ def _series_arrays(source: pd.DataFrame, column: str) -> tuple[np.ndarray, np.nd
     return times, valid[column].to_numpy(dtype=float)
 
 
-def origin_features(source: pd.DataFrame, target: str) -> dict:
+def origin_features(source: pd.DataFrame, target: str, exclude_ph: bool = False) -> dict:
     """Features at the latest valid ``target`` observation (the forecast origin).
 
     ``source`` must come from :func:`clean_raw`.  Returns ``status="skip"`` with
-    the missing feature names instead of ever filling a value.
+    the missing feature names instead of ever filling a value.  With
+    ``exclude_ph`` no pH-derived feature is required or returned (nopH bundles),
+    so a missing or faulty pH probe cannot block the forecast.
     """
     if target not in source:
         return {"status": "skip", "reason": "target_column_missing"}
@@ -133,7 +155,7 @@ def origin_features(source: pd.DataFrame, target: str) -> dict:
     features["age_minutes"] = 0.0
     features["gap_before_minutes"] = float((times[-1] - times[-2]) / np.timedelta64(1, "m"))
     features["quality_gap_flag"] = 0.0
-    names = b4_feature_names(target, available)
+    names = b4_feature_names(target, available, exclude_ph=exclude_ph)
     missing = [name for name in names if not np.isfinite(features.get(name, math.nan))]
     current = float(values[-1])
     if missing:
@@ -163,6 +185,25 @@ def tide_features_at(issued_at: pd.Timestamp, valid_at: pd.Timestamp, tide: pd.D
 _BUNDLE_CACHE: dict[tuple, list[dict]] = {}
 
 
+MANIFEST_TAGS = ("status", "variant", "role", "withdrawn_reason", "withdrawn_at")
+STUB_FIELDS = ("file", "model_version", "target", "horizon_minutes", "feature_set")
+
+
+def _load_entry(directory: Path, entry: dict) -> dict:
+    """One manifest entry -> bundle dict carrying the manifest tags (status/variant/role).
+
+    Withdrawn entries are not unpickled: their stub only carries what the skip log needs.
+    """
+    tags = {key: entry[key] for key in MANIFEST_TAGS if key in entry}
+    tags.setdefault("status", "active")
+    if tags["status"] == WITHDRAWN:
+        return {**{key: entry.get(key) for key in STUB_FIELDS}, **tags}
+    bundle = dict(joblib.load(directory / entry["file"]))
+    default_variant = "nopH" if is_nopH(bundle["feature_set"]) else ("pH_target" if bundle["target"] == "pH" else "with_pH")
+    tags.setdefault("variant", default_variant)
+    return {**bundle, **tags}
+
+
 def load_bundles(manifest_path: Path = MANIFEST) -> list[dict]:
     """Bundles listed in the training manifest (cached on manifest mtime)."""
     manifest_path = Path(manifest_path)
@@ -172,7 +213,7 @@ def load_bundles(manifest_path: Path = MANIFEST) -> list[dict]:
     if key not in _BUNDLE_CACHE:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         _BUNDLE_CACHE.clear()
-        _BUNDLE_CACHE[key] = [joblib.load(manifest_path.parent / entry["file"]) for entry in manifest.get("bundles", [])]
+        _BUNDLE_CACHE[key] = [_load_entry(manifest_path.parent, entry) for entry in manifest.get("bundles", [])]
     return _BUNDLE_CACHE[key]
 
 
@@ -207,6 +248,20 @@ def _sensor_status(target: str, origin: dict) -> str:
         return "ok"
     values = [origin["current"]] + [origin["features"][f"pH_lag_{minute}m"] for minute in LAGS_MINUTES]
     return "ok" if all(ph_in_band(value) for value in values) else "ph_probe_suspect"
+
+
+def _ph_input_status(bundle: dict, features: dict) -> str:
+    """State of the pH inputs a non-pH bundle actually uses.
+
+    Kept apart from ``sensor_status`` (target sensor; gates ledger scoring) so
+    with-pH and nopH Temperature records stay comparable while pH drifts.
+    """
+    if bundle["target"] == "pH":
+        return "target"
+    used = [name for name in bundle["features"] if name.startswith("pH_")]
+    if not used:
+        return "not_used"
+    return "ok" if all(ph_in_band(features[name]) for name in used) else "ph_probe_suspect"
 
 
 _WEATHER_STORE: CapturedLiveWeather | None = None
@@ -257,9 +312,20 @@ def issue_long_horizon(raw: pd.DataFrame, station_serial: str, *, freshness: dic
 
     for bundle in bundles:
         target = bundle["target"]
-        if target not in origins:
-            origins[target] = origin_features(source, target)
-        origin = origins[target]
+        status = bundle.get("status", "active")
+        if status == WITHDRAWN:
+            # never issued; the latest target reading only dates the skip line (hourly evidence)
+            times = source.loc[source[target].notna(), "fetchedAt"] if target in source else pd.Series(dtype=object)
+            skip(bundle, "bundle_withdrawn", None if times.empty else times.iloc[-1],
+                 withdrawn_reason=bundle.get("withdrawn_reason"), withdrawn_at=bundle.get("withdrawn_at"))
+            continue
+        if status != "active":
+            skip(bundle, "bundle_not_active", None, status=status)
+            continue
+        exclude_ph = is_nopH(bundle["feature_set"])
+        if (target, exclude_ph) not in origins:
+            origins[(target, exclude_ph)] = origin_features(source, target, exclude_ph=exclude_ph)
+        origin = origins[(target, exclude_ph)]
         if origin["status"] != "ok":
             skip(bundle, origin["reason"], origin.get("issued_at"), missing_features=origin.get("missing_features", []))
             continue
@@ -271,14 +337,15 @@ def issue_long_horizon(raw: pd.DataFrame, station_serial: str, *, freshness: dic
         valid_at = issued_at + pd.Timedelta(minutes=bundle["horizon_minutes"])
         features = dict(origin["features"])
         extra: dict = {"weather_provenance": None, "tide_provenance": None}
-        if bundle["feature_set"] == EXTERNAL_FEATURE_SET:
+        base_set = base_feature_set(bundle["feature_set"])
+        if base_set == EXTERNAL_FEATURE_SET:
             context = store.features_at(issued_at, valid_at, station_serial, location.get("source", "unknown"))
             if context["status"] != "ok":
                 skip(bundle, context["reason"], issued_at, **{k: v for k, v in context.items() if k not in {"status", "reason"}})
                 continue
             features.update(context["features"])
             extra["weather_provenance"] = context["provenance"]
-        elif bundle["feature_set"] == TIDE_FEATURE_SET:
+        elif base_set == TIDE_FEATURE_SET:
             if tide is None:
                 tide = tide_fn(station_serial, weather)
             if tide["status"] != "ok":
@@ -299,8 +366,10 @@ def issue_long_horizon(raw: pd.DataFrame, station_serial: str, *, freshness: dic
         record = {
             "station_serial": station_serial, "issued_at": issued_at.isoformat(), "valid_at": valid_at.isoformat(),
             "horizon_minutes": bundle["horizon_minutes"], "target": target, "feature_set": bundle["feature_set"],
-            "model": "ridge", "model_version": bundle["model_version"], "forecast": prediction, "current": origin["current"],
+            "model": "ridge", "model_version": bundle["model_version"], "model_variant": bundle.get("variant"),
+            "bundle_role": bundle.get("role", "primary_shadow"), "forecast": prediction, "current": origin["current"],
             "pi": _intervals(bundle, prediction, issued_at), "sensor_status": _sensor_status(target, origin),
+            "ph_input_status": _ph_input_status(bundle, features),
             "input_freshness": {"latest_observed_at": freshness.get("latest_observed_at"), "age_minutes": freshness.get("age_minutes"),
                                 "origin_age_minutes": round(origin_age, 3), "gap_before_minutes": origin["features"]["gap_before_minutes"]},
             "data_source": data_source, "recorded_at": now.isoformat(), **extra,

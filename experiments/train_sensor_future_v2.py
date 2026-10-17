@@ -20,7 +20,12 @@ reserves the last 14 days, calibration ends 14 days before the fit data ends.
 pH is trained only on local dates <= 2026-09-18: the probe appears to have
 drifted/faulted from 2026-09-19 (median ~6.9, inverted diurnal cycle; RL-13).
 
+``--variant nopH`` (H1.6, RL-18) trains only the Temperature ``*_nopH`` bundles
+(every pH-derived feature removed) and *merges* them into the existing manifest
+as ``variant: nopH, role: parallel_shadow``; existing entries are kept as is.
+
     python experiments/train_sensor_future_v2.py
+    python experiments/train_sensor_future_v2.py --variant nopH --run-name sensor-future-v2-train-nopH-20261017
 """
 from __future__ import annotations
 
@@ -44,8 +49,8 @@ from core import paths  # noqa: E402
 from experiments.forecast_conformal import DEFAULT_GAMMA, REFERENCE_HORIZON, calibration_residuals, conformal_quantile  # noqa: E402
 from experiments.forecast_external_context import join_as_issued, read_snapshots  # noqa: E402
 from experiments.forecast_sensor_v2 import (  # noqa: E402
-    EXTERNAL_FEATURE_SET, LOCKBOX_DAYS, TIDE_COLUMNS, TIDE_FEATURE_SET, build_frame, feature_subset,
-    load_sensor_data, rolling_folds, tide_features,
+    EXTERNAL_FEATURE_SET, LOCKBOX_DAYS, NOPH_SUFFIX, TIDE_COLUMNS, TIDE_FEATURE_SET, base_feature_set, build_frame,
+    feature_subset, load_sensor_data, rolling_folds, tide_features,
 )
 
 STATION = "06M26042804"
@@ -64,6 +69,11 @@ PLAN = {
     "Temperature": (("B4_quality", EXTERNAL_FEATURE_SET), "aci_scaled", None, None),
     "pH": (("B4_quality", TIDE_FEATURE_SET), "static_night", "2026-09-18", "ph_probe_suspect_from_2026-09-19, research-log RL-13"),
 }
+# H1.6: Temperature without pH features, issued in parallel with the with-pH bundles (RL-18).
+PLAN_NOPH = {
+    "Temperature": (("B4_quality" + NOPH_SUFFIX, EXTERNAL_FEATURE_SET + NOPH_SUFFIX), "aci_scaled", None, None),
+}
+VARIANTS = {"default": PLAN, "nopH": PLAN_NOPH}
 
 
 def _sha256(path: Path) -> str:
@@ -94,11 +104,12 @@ def truncate_local_date(raw: pd.DataFrame, last_local_date: str | None) -> pd.Da
 def model_frame(raw: pd.DataFrame, target: str, horizon: int, feature_set: str, snapshots: pd.DataFrame | None, tide: pd.DataFrame | None) -> tuple[pd.DataFrame, list[str]]:
     """Same frame/feature construction as ``forecast_sensor_v2.run_benchmark``."""
     frame, all_features = build_frame(raw, target, horizon, "B4_quality", station=STATION)
-    features = feature_subset(all_features, target, "B4_quality")
-    if feature_set == TIDE_FEATURE_SET:
+    base = base_feature_set(feature_set)
+    features = feature_subset(all_features, target, "B4_quality" + feature_set[len(base):])
+    if base == TIDE_FEATURE_SET:
         frame = tide_features(frame, tide).dropna(subset=list(TIDE_COLUMNS))
         features += list(TIDE_COLUMNS)
-    elif feature_set == EXTERNAL_FEATURE_SET:
+    elif base == EXTERNAL_FEATURE_SET:
         frame = join_as_issued(frame, snapshots, prefix="external")
         external = [column for column in frame if column.startswith("external_")]
         features += external
@@ -198,7 +209,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tide", type=Path, default=DEFAULT_TIDE)
     parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
     parser.add_argument("--run-name", default="sensor-future-v2-train-20261016")
+    parser.add_argument("--variant", choices=tuple(VARIANTS), default="default",
+                        help="nopH: train only the Temperature *_nopH bundles and merge them into the existing manifest")
     args = parser.parse_args(argv)
+    plan = VARIANTS[args.variant]
+    merge = args.variant != "default"
+    manifest_path = args.model_dir / MANIFEST_NAME
+    if merge and not manifest_path.exists():
+        raise SystemExit(f"--variant {args.variant} merges into an existing manifest: {manifest_path} not found")
 
     run_dir = paths.EXPERIMENT_OUTPUT_DIR / args.run_name
     if run_dir.exists():
@@ -210,13 +228,18 @@ def main(argv: list[str] | None = None) -> int:
     tide["valid_at"] = pd.to_datetime(tide["valid_at"], utc=True)
     args.model_dir.mkdir(parents=True, exist_ok=True)
     entries = []
-    for target, (feature_sets, pi_method, cutoff, cutoff_reason) in PLAN.items():
+    for target, (feature_sets, pi_method, cutoff, cutoff_reason) in plan.items():
         target_raw = truncate_local_date(raw, cutoff)
         for horizon in HORIZONS:
             for feature_set in feature_sets:
                 bundle, entry = train_one(target_raw, target, horizon, feature_set, pi_method, data_sha, snapshots, tide)
                 bundle["training_cutoff_local_date"] = entry["training_cutoff_local_date"] = cutoff
                 bundle["training_cutoff_reason"] = entry["training_cutoff_reason"] = cutoff_reason
+                if merge:
+                    tags = {"variant": args.variant, "role": "parallel_shadow", "status": "active", "added_at": datetime.now(timezone.utc).isoformat(),
+                            "training_run": args.run_name}
+                    bundle.update(tags)
+                    entry.update(tags)
                 path = args.model_dir / entry["file"]
                 if path.exists():
                     raise SystemExit(f"refusing to overwrite bundle: {path}")
@@ -244,8 +267,22 @@ def main(argv: list[str] | None = None) -> int:
         "metrics_note": "in-sample only (sanity); out-of-sample evidence is RL-08/RL-09",
         "bundles": entries,
     }
-    (args.model_dir / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     run_dir.mkdir(parents=True)
+    if merge:
+        # keep every existing entry (incl. withdrawn ones) and the original provenance; record this run alongside
+        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        known = {entry["model_version"] for entry in existing["bundles"]}
+        clash = [entry["model_version"] for entry in entries if entry["model_version"] in known]
+        if clash:
+            raise SystemExit(f"refusing to duplicate manifest entries: {clash}")
+        run_record = {key: manifest[key] for key in ("created_at", "training_data", "model", "frame_builder", "external_weather_training", "calibration")}
+        run_record |= {"run_name": args.run_name, "variant": args.variant, "model_versions": [entry["model_version"] for entry in entries]}
+        existing["bundles"] = existing["bundles"] + entries
+        existing.setdefault("additional_training_runs", []).append(run_record)
+        existing["updated_at"] = manifest["created_at"]
+        (run_dir / "manifest_run.json").write_text(json.dumps({**manifest, "variant": args.variant}, indent=2, default=str), encoding="utf-8")
+        manifest = existing
+    manifest_path.write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     print(f"wrote {len(entries)} bundles, {args.model_dir / MANIFEST_NAME}, {run_dir}")
     return 0

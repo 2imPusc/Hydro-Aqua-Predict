@@ -89,16 +89,16 @@ def test_stale_cache_issues_no_long_horizon_records(monkeypatch, isolated_long_l
     assert not any(isolated_long_ledger.glob("long_*.jsonl"))
 
 
-def test_fresh_run_issues_b4_and_logs_b5_b6_skips(monkeypatch, isolated_long_ledger):
+def test_fresh_run_issues_b4_with_and_without_ph_and_logs_skips(monkeypatch, isolated_long_ledger):
     now = pd.Timestamp("2026-10-16T09:00:20", tz="UTC")
     _mock_legacy(monkeypatch, _fresh_raw(now.floor("min")))
     result = shadow_runner.run_once("06M26042804", now=now)
     long_horizon = result["long_horizon"]
     assert long_horizon["status"] == "ready"
     assert long_horizon["issued"] == 6
-    assert {s["reason"] for s in long_horizon["skips"]} == {"no_captured_live_snapshot_within_24h", "marine_disabled"}
+    assert {s["reason"] for s in long_horizon["skips"]} == {"no_captured_live_snapshot_within_24h", "bundle_withdrawn"}
     issued = _read_jsonl(forecast_evaluation.LONG_FORECAST_LOG)
-    assert {r["feature_set"] for r in issued} == {"B4_quality"}
+    assert {r["feature_set"] for r in issued} == {"B4_quality", "B4_quality_nopH"}
     assert all(r["weather_provenance"] is None and r["tide_provenance"] is None for r in issued)
     assert result["issued_records"] == 0  # 15/30/60 counts unchanged by the long-horizon path
 

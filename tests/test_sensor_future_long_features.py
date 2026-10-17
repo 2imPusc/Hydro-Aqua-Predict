@@ -87,3 +87,37 @@ def test_tide_out_of_range_is_skipped():
     got = sfl.tide_features_at(pd.Timestamp("2026-08-01 04:00", tz="UTC"), pd.Timestamp("2026-08-01 16:00", tz="UTC"), tide)
     assert got["status"] == "skip"
     assert got["reason"] == "tide_range_insufficient"
+
+
+def test_nopH_feature_order_matches_feature_subset(tmp_path):
+    source = _research_source(_raw(), tmp_path)
+    _, all_features = build_frame(source, "Temperature", 360, "B4_quality", station="06M26042804")
+    expected = feature_subset(all_features, "Temperature", "B4_quality_nopH")
+    assert sfl.b4_feature_names("Temperature", exclude_ph=True) == expected
+    assert not any(name.startswith("pH_") for name in expected)
+
+
+def test_nopH_origin_features_match_build_frame_and_ignore_ph(tmp_path):
+    raw = _raw()
+    source = _research_source(raw, tmp_path)
+    frame, all_features = build_frame(source, "Temperature", 180, "B4_quality", station="06M26042804")
+    features = feature_subset(all_features, "Temperature", "B4_quality_nopH")
+    runtime_source = sfl.clean_raw(raw)
+    no_ph = runtime_source.assign(pH=np.nan)
+    checked = 0
+    for issued_at in frame["issued_at"].iloc[::53]:
+        result = sfl.origin_features(no_ph[no_ph["fetchedAt"] <= issued_at], "Temperature", exclude_ph=True)
+        assert result["status"] == "ok", result
+        assert list(result["features"]) == features
+        expected = frame.loc[issued_at, features].astype(float).to_numpy()
+        np.testing.assert_allclose([result["features"][n] for n in features], expected, rtol=1e-9, atol=1e-9)
+        checked += 1
+    assert checked >= 5
+    # the default (with-pH) path still refuses to fill missing pH lags
+    assert sfl.origin_features(no_ph, "Temperature")["status"] == "skip"
+
+
+def test_core_nopH_suffix_matches_research():
+    from experiments import forecast_sensor_v2 as research
+    assert sfl.NOPH_SUFFIX == research.NOPH_SUFFIX
+    assert sfl.EXTERNAL_FEATURE_SET + sfl.NOPH_SUFFIX in research.NOPH_FEATURE_SETS

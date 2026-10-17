@@ -82,11 +82,15 @@ def test_missing_weather_and_tide_are_logged_skips_not_values(ledger):
     result = _issue(_raw(), ledger)
     assert result["status"] == "ready"
     forecasts = fe._read_jsonl(fe.LONG_FORECAST_LOG)
-    assert {(r["target"], r["feature_set"]) for r in forecasts} == {("Temperature", "B4_quality"), ("pH", "B4_quality")}
+    assert {(r["target"], r["feature_set"]) for r in forecasts} == {("Temperature", "B4_quality"), ("Temperature", "B4_quality_nopH")}
     assert len(forecasts) == 6
     skips = fe._read_jsonl(fe.LONG_SKIP_LOG)
-    assert {(s["feature_set"], s["reason"]) for s in skips} == {("B5_external_as_issued", "no_captured_live_snapshot_within_24h"), ("B6_tide", "marine_disabled")}
-    assert len(skips) == 6
+    assert {(s["feature_set"], s["reason"]) for s in skips} == {
+        ("B5_external_as_issued", "no_captured_live_snapshot_within_24h"),
+        ("B5_external_as_issued_nopH", "no_captured_live_snapshot_within_24h"),
+        ("B4_quality", "bundle_withdrawn"), ("B6_tide", "bundle_withdrawn"),
+    }
+    assert len(skips) == 12
     assert all(s["issued_at"] for s in skips)
 
 
@@ -98,7 +102,8 @@ def test_reconstructed_snapshots_never_feed_b5(ledger):
 
 def test_full_issue_has_provenance_pi_and_freshness(ledger):
     result = _issue(_raw(), ledger, store=_snapshots(ledger / "snaps.jsonl"), tide=_tide_ok)
-    assert result["issued"] == 12 and result["skipped"] == 0
+    assert result["issued"] == 12 and result["skipped"] == 6
+    assert {s["reason"] for s in result["skips"]} == {"bundle_withdrawn"}
     forecasts = fe._read_jsonl(fe.LONG_FORECAST_LOG)
     origin = NOW.floor("min").isoformat()
     for record in forecasts:
@@ -114,24 +119,116 @@ def test_full_issue_has_provenance_pi_and_freshness(ledger):
         assert record["data_source"] == "greenlab_api"
         assert record["input_freshness"]["origin_age_minutes"] == pytest.approx(0.5)
         assert record["mode"] == "shadow" and record["used_by_alerts"] is False
-        if record["feature_set"] == "B5_external_as_issued":
+        if record["feature_set"].startswith("B5_external_as_issued"):
             assert record["weather_provenance"]["provenance_class"] == "captured_live"
             assert pd.Timestamp(record["weather_provenance"]["retrieved_at"]) <= pd.Timestamp(origin)
         if record["feature_set"] == "B6_tide":
             assert record["tide_provenance"]["variable"] == "sea_level_height_msl"
             assert set(record["tide_features"]) == set(sfl.TIDE_COLUMNS)
-    methods = {r["target"]: r["pi"]["method"] for r in forecasts}
-    assert methods == {"Temperature": "aci_scaled", "pH": "static_night"}
+    assert {r["target"] for r in forecasts} == {"Temperature"}
+    assert {r["pi"]["method"] for r in forecasts} == {"aci_scaled"}
+    assert {(r["feature_set"], r["model_variant"]) for r in forecasts} == {
+        ("B4_quality", "with_pH"), ("B5_external_as_issued", "with_pH"),
+        ("B4_quality_nopH", "nopH"), ("B5_external_as_issued_nopH", "nopH")}
     # same origin again: nothing new
     assert _issue(_raw(), ledger, store=_snapshots(ledger / "snaps2.jsonl"), tide=_tide_ok)["issued"] == 0
 
 
-def test_suspect_ph_is_issued_and_tagged(ledger):
+def test_suspect_ph_tags_with_ph_temperature_and_nopH_still_issues(ledger):
     _issue(_raw(ph=6.9), ledger)
     records = fe._read_jsonl(fe.LONG_FORECAST_LOG)
-    ph = [r for r in records if r["target"] == "pH"]
-    assert ph and all(r["sensor_status"] == "ph_probe_suspect" for r in ph)
-    assert all(r["sensor_status"] == "ok" for r in records if r["target"] == "Temperature")
+    assert records and all(r["target"] == "Temperature" for r in records)
+    # sensor_status describes the target sensor (Temperature) and gates scoring: never changed by pH
+    assert all(r["sensor_status"] == "ok" for r in records)
+    with_ph = [r for r in records if r["model_variant"] == "with_pH"]
+    no_ph = [r for r in records if r["model_variant"] == "nopH"]
+    assert len(with_ph) == 3 and len(no_ph) == 3
+    assert all(r["ph_input_status"] == "ph_probe_suspect" for r in with_ph)
+    assert all(r["ph_input_status"] == "not_used" for r in no_ph)
+
+
+def test_plausible_ph_input_is_tagged_ok(ledger):
+    _issue(_raw(), ledger)
+    records = fe._read_jsonl(fe.LONG_FORECAST_LOG)
+    assert {r["ph_input_status"] for r in records if r["model_variant"] == "with_pH"} == {"ok"}
+
+
+def test_missing_ph_skips_with_ph_but_issues_nopH(ledger):
+    raw = _raw()
+    raw["pH"] = np.nan
+    result = _issue(raw, ledger)
+    records = fe._read_jsonl(fe.LONG_FORECAST_LOG)
+    assert {r["feature_set"] for r in records} == {"B4_quality_nopH"}
+    assert len(records) == 3
+    assert all(r["ph_input_status"] == "not_used" for r in records)
+    reasons = {(s["feature_set"], s["reason"]) for s in result["skips"]}
+    assert ("B4_quality", "insufficient_sensor_history") in reasons
+
+
+def test_absent_ph_column_issues_nopH(ledger):
+    raw = _raw().drop(columns=["pH"])
+    _issue(raw, ledger)
+    records = fe._read_jsonl(fe.LONG_FORECAST_LOG)
+    assert {r["feature_set"] for r in records} == {"B4_quality_nopH"}
+    skips = fe._read_jsonl(fe.LONG_SKIP_LOG)
+    assert {s["reason"] for s in skips if (s["target"], s["feature_set"]) == ("Temperature", "B4_quality")} == {"feature_missing"}
+
+
+def test_withdrawn_bundles_never_issue(ledger):
+    result = _issue(_raw(), ledger, store=_snapshots(ledger / "snaps.jsonl"), tide=_tide_ok)
+    assert not [r for r in fe._read_jsonl(fe.LONG_FORECAST_LOG) if r["target"] == "pH"]
+    withdrawn = [s for s in fe._read_jsonl(fe.LONG_SKIP_LOG) if s["reason"] == "bundle_withdrawn"]
+    assert len(withdrawn) == 6 and {s["target"] for s in withdrawn} == {"pH"}
+    assert all("RL-18" in s["detail"]["withdrawn_reason"] for s in withdrawn)
+    assert all(s["issued_at"] for s in withdrawn)
+    assert result["issued"] == 12
+
+
+def test_manifest_marks_ph_withdrawn_and_nopH_parallel():
+    manifest = json.loads(sfl.MANIFEST.read_text(encoding="utf-8"))
+    entries = manifest["bundles"]
+    ph = [e for e in entries if e["target"] == "pH"]
+    assert len(ph) == 6
+    for entry in ph:
+        assert entry["status"] == "withdrawn"
+        assert "RL-18" in entry["withdrawn_reason"] and entry["withdrawn_at"]
+        assert (sfl.MODEL_DIR / entry["file"]).exists()  # kept for provenance
+    no_ph = [e for e in entries if e.get("variant") == "nopH"]
+    assert {(e["feature_set"], e["horizon_minutes"]) for e in no_ph} == {
+        (fs, h) for fs in ("B4_quality_nopH", "B5_external_as_issued_nopH") for h in (180, 360, 720)}
+    for entry in no_ph:
+        assert entry["target"] == "Temperature" and entry["role"] == "parallel_shadow" and entry["status"] == "active"
+        assert not any(name.startswith("pH_") for name in entry["features"])
+        assert (sfl.MODEL_DIR / entry["file"]).exists()
+    with_ph = [e for e in entries if e["target"] == "Temperature" and e.get("variant") == "with_pH"]
+    assert len(with_ph) == 6 and all(e["status"] == "active" for e in with_ph)
+
+
+def test_load_bundles_does_not_unpickle_withdrawn(tmp_path):
+    manifest = {"bundles": [{"file": "does-not-exist.pkl", "model_version": "x", "target": "pH", "horizon_minutes": 180,
+                             "feature_set": "B4_quality", "status": "withdrawn", "withdrawn_reason": "test"}]}
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    bundles = sfl.load_bundles(path)
+    assert len(bundles) == 1 and bundles[0]["status"] == "withdrawn" and "model" not in bundles[0]
+
+
+def test_nopH_bundles_carry_compatible_calibration_scores():
+    for bundle in sfl.load_bundles():
+        if bundle.get("variant") != "nopH":
+            continue
+        assert bundle["pi_method"] == "aci_scaled" and bundle["aci_gamma"] > 0
+        assert len(bundle["calibration_scores"]) > 1000 and np.all(np.isfinite(bundle["calibration_scores"]))
+
+
+def test_ph_tagged_temperature_record_is_still_scored(ledger):
+    _issue(_raw(ph=6.9), ledger)
+    later = _raw(end=NOW.floor("min") + pd.Timedelta(minutes=725), minutes=900, ph=6.9)
+    assert fe.resolve_long_outcomes(later) >= 6
+    outcomes = fe._read_jsonl(fe.LONG_OUTCOME_LOG)
+    with_ph = [o for o in outcomes if o["model_variant"] == "with_pH"]
+    assert with_ph and all(o["status"] == "scored" for o in with_ph)
+    assert all(o["ph_input_status"] == "ph_probe_suspect" for o in with_ph)
 
 
 def test_aci_uses_matured_outcomes_only(ledger):

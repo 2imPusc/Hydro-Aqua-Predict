@@ -255,7 +255,8 @@ def resolve_long_outcomes(raw: pd.DataFrame) -> int:
             series_cache[target] = _valid_series(frame, target)
         series = series_cache[target]
         window = series[(series.index >= valid_at - LONG_TOLERANCE) & (series.index <= valid_at + LONG_TOLERANCE)]
-        base = {key: forecast.get(key) for key in ("station_serial", "issued_at", "valid_at", "horizon_minutes", "target", "feature_set", "model_version", "forecast", "current", "sensor_status")}
+        base = {key: forecast.get(key) for key in ("station_serial", "issued_at", "valid_at", "horizon_minutes", "target", "feature_set", "model_version",
+                                                   "model_variant", "forecast", "current", "sensor_status", "ph_input_status")}
         base["forecast_record_id"] = forecast["record_id"]
         if window.empty:
             if latest < valid_at + LONG_TOLERANCE or first > valid_at - LONG_TOLERANCE:
