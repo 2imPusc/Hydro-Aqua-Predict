@@ -52,7 +52,7 @@ export const LayerControl = memo(function LayerControl(props: Props) {
         <div className="scroll-thin min-h-0 overflow-y-auto border-t border-line px-2 pb-3 pt-2">
           <SectionLabel icon={<MapPin size={12} />}>Bối cảnh</SectionLabel>
           <Toggle checked={enabled.hsi_zones} onChange={value => onToggle('hsi_zones', value)} label="Vùng HSI lịch sử"
-            description={`${HSI_LEGACY_LABEL}${zones ? '' : ' · đang tải…'}`} badge={<StateChip size="xs" state="legacy" title={HSI_LEGACY_LABEL} />} />
+            description={`${HSI_LEGACY_LABEL}${enabled.hsi_zones && !zones ? ' · đang tải…' : ''}`} badge={<StateChip size="xs" state="legacy" title={HSI_LEGACY_LABEL} />} />
           <Toggle checked={enabled.context_buffer} onChange={value => onToggle('context_buffer', value)} label="Phạm vi context 5 km" description="buffer quanh mạng trạm · cắt theo mặt nước" />
           {environmentLayers.map(layer => {
             const unavailable = layer.status === 'unavailable'
