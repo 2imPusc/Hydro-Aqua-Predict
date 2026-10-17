@@ -397,3 +397,28 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Không vẽ vùng tin cậy cho DO và TSS; hạ mức tin cậy sau mưa lớn.
   - Muốn chuyển theo giờ cần sensor đối chứng thứ hai để hiệu chỉnh (H4.4 VN).
 - **Tiếp theo:** chạy lại giao thức ở thang ngày (trung bình, min/max) và theo lớp ngưỡng trên dữ liệu đã tải, kèm baseline khí hậu; thử IRLON (SECOORA ERDDAP); A6 lớp chế độ mặn HP/QN.
+
+## RL-25 · 2026-10-17 · H4.1 (A6): lớp chế độ mặn HP/QN và P0/P1 tách theo chế độ
+
+- **Câu hỏi:** dựng lớp chế độ mặn cho HP/QN từ quan trắc tỉnh; chạy lại P0/P1 tách cùng/khác chế độ, bỏ HSI rò rỉ.
+- **Phát hiện chính:** **độ mặn và nhiệt độ trong bảng HP là số liệu mô hình** (lưới GLORYS 1/12°), không phải đo: 14 chữ số thập phân; 10 cặp trạm có chuỗi giống hệt nhau (NB1=NB2=NB25=NB27, NB16=NB19=NB6, NB17=NB26); khớp ô CMEMS r = 0.964, MAE 0.08 psu. DO, pH, TSS, NH3 của HP là số đo thật. → Kết quả cũ "1/36" (Sal 5–10 km; thực ra 2/36) là **ảo** do trạm chung ô lưới; `assets/spatial_applicability/haiphong_gate_v1.json` dựa trên số liệu này (chờ chủ dự án quyết định rút/gắn nhãn; research-map đã gắn nhãn "Legacy · chưa kiểm chứng").
+- **Thiết lập:** HP 14 trạm, 22 đợt (2020-08 → 2024-11); QN 99 trạm (97 dùng được), 16 đợt theo quý (2021–2024). Tọa độ VN-2000 TM-3, kinh tuyến trục HP 105°45', QN 107°45' (khớp EPSG "VN-2000 to WGS 84 (2)"). Mùa ướt 5–10. Lớp: lưới 1 km trên mặt nước, gán lớp trạm đo gần nhất trong 10 km.
+- **Kết quả:**
+  - QN (đo thật): 4 cửa sông (< 20 psu), 16 chuyển tiếp (20–28), 77 biển (≥ 28). Mùa vụ rất yếu (chênh trung vị −0.2 psu). HP (mô hình): cả 14 trạm "biển" 31.3–32.0 psu — lưới 1/12° không thấy được vệt nước sông.
+  - **NB1 (Cát Bà) thuộc chế độ biển**; trạm đo thật gần nhất là QN NB43 Cống Tầu 11.6 km (30.8 psu).
+  - Gate chuẩn (≥ 30 đợt): **0/294 ô** — dữ liệu không thể đạt (22 và 16 đợt).
+  - Chẩn đoán nới (≥ 10 đợt, không tính là đạt): QN cùng chế độ — pH ≥ 80 % mọi khoảng cách, Sal ≥ 80 % tới 10 km; khác chế độ — Sal chỉ 0.5–3 % trong ±1 psu, pH 0.57–0.69 (cùng chế độ 0.94–0.98). TSS, NH3, HSI không đạt ở đâu.
+  - Conformal P1 (≥ 30 cặp, ≤ 10 km): QN cùng chế độ 24/108, khác chế độ 8/72 (bound thường vô dụng).
+  - HSI chỉ từ trạm neo: đồng thuận nhãn 0.62–0.69 (QN cùng chế độ), "báo phù hợp sai" 0.1–0.3 % cùng chế độ so với 0.6–7.3 % khác chế độ.
+  - So khí hậu tháng của chính trạm: lấy số trạm neo chỉ thắng ở nhiệt độ; thua ở Sal, pH, TSS, NH3 (QN rất ít biến động giữa các năm; khí hậu dùng cả năm sau nên là cận trên).
+- **Lỗi dữ liệu:** QN NB74, NB78 lệch ~200 km (nghi gõ nhầm "21"/"23"), đã gắn `coordinate_suspect`, chưa sửa; `data/map/station_coordinates.csv` thiếu dịch datum (lệch đều ~224 m).
+- **Kết luận:** xác nhận "chế độ mặn trước, khoảng cách sau" trên dữ liệu VN (QN). Lớp độ mặn HP cần số đo thật. Không vẽ vùng tin cậy cho TSS, NH3, DO. Muốn đạt gate cần thêm đợt đo hoặc sensor thứ hai (H4.4).
+- **Artifact:** `vn-salinity-regime-h41-20261017/` (17 tệp, 8.6 MB, chạy lại cho kết quả giống hệt byte); commit 7396dd9 (lẫn 2 file đổi tên frontend, không ảnh hưởng).
+
+## RL-26 · 2026-10-17 · H1.6: rút mô hình pH dài hạn, thêm nhiệt độ không dùng pH chạy song song
+
+- **Quyết định chủ dự án (theo RL-18):** rút 6 bundle pH 3/6/12 h khỏi shadow; thêm bundle nhiệt độ nopH chạy song song; giữ mặc định conformal.
+- **Thay đổi:** manifest đánh dấu pH `status: withdrawn` (giữ nguyên tệp); runtime bỏ qua với lý do `bundle_withdrawn`. 6 bundle nhiệt độ nopH (B4/B5 × 180/360/720) huấn luyện trên `sensor-history-20261014` như bundle hiện tại; bản ghi có `model_variant`, `bundle_role`, `ph_input_status`. nopH vẫn phát hành khi pH thiếu/nghi vấn.
+- **Kiểm tra:** in-sample nopH trong 2 % so với bản có pH; trên cửa sổ hiệu chỉnh (10–30/09, chồng lên lúc pH trôi) nopH tốt hơn ở 360/720 phút. Chạy thử offline: chế độ cache bị chốt dữ liệu cũ chặn (đúng); bản phát lại có nhãn: 12 dự báo nhiệt độ, 6 pH bị bỏ qua `bundle_withdrawn`.
+- **Artifact:** `sensor-future-v2-train-nopH-20261017/`; commit 04a93ae (414 test).
+- **Tiếp theo:** so with_pH và nopH trên sổ ghi thật sau ≥ 4 tuần shadow.
