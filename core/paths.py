@@ -42,6 +42,7 @@ COBIA_THRESHOLDS = PROJECT_ROOT / "hap_shared" / "thresholds" / "cobia_threshold
 SUITABILITY_LAYERS_DIR = DATA_DIR / "suitability"  # direction 3 (HP + QN) site-suitability inputs
 SUITABILITY_HK_DIR = DATA_DIR / "suitability_hk"  # direction 3 out-of-sample check (Hong Kong)
 FOREIGN_DATA_DIR = DATA_DIR / "foreign"  # direction 4 foreign test datasets, one subfolder per source
+HAZARD_DATA_DIR = DATA_DIR / "hazards"  # theory track: IBTrACS, OISST, ERA5, marine SST downloads (write-once)
 
 
 def clean_data(region: str) -> Path:
