@@ -9,7 +9,7 @@ Cảm biến và lấy mẫu nước khó mở rộng. Vì vậy hai chỉ báo 
 - **A. Bão:** mức phơi nhiễm gió tại lồng NB1 và cấp độ rủi ro tham khảo.
 - **B. Nắng nóng:** mức stress nhiệt của cá giò theo nhiệt độ nước mặt (SST).
 
-Mỗi phần gồm một module `core/` thuần (không mạng, có test) và một script `experiments/` tải dữ liệu công khai (ghi một lần vào `data/hazards/`) rồi ghi thư mục chạy trong `artifacts/experiments/`. Mọi đầu ra mang `used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"` và thẻ `source`.
+Mỗi phần gồm một module `core/` thuần (không mạng, có test) và một script `experiments/` tải dữ liệu công khai (ghi một lần vào `data/hazards/`) rồi ghi thư mục chạy trong `artifacts/experiments/`. Mọi đầu ra cảnh báo (advisory) mang `used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"` và thẻ `source`; file hindcast (passages, manifest) chỉ mang thẻ `source`.
 
 ## 2. Đường dữ liệu: dữ liệu nào được dùng cho việc gì
 
@@ -18,7 +18,7 @@ Mỗi phần gồm một module `core/` thuần (không mạng, có test) và m�
 | Vận hành (as-issued) | Open-Meteo dự báo `wind_speed_10m` (+ `wind_gusts_10m`); Open-Meteo marine `sea_surface_temperature`, `wave_height` | Cảnh báo shadow | `forecast` |
 | Phơi nhiễm hồi cứu | IBTrACS v04r01 best track | "Lồng đã chịu gì", khí hậu. **Không** dùng cho độ chính xác dự báo hay thời gian báo trước | `best_track_oracle` |
 | Thời tiết / SST hồi cứu | ERA5 (Open-Meteo archive); NOAA OISST v2.1 theo ngày | Khí hậu, kiểm chéo Yagi | `reanalysis` |
-| Sự thật mặt đất (có sẵn) | Sensor `Temperature` 2026-05-29 → 10-14 | Sai lệch SST so với lồng; mô tả phản ứng khi có bão (n = 2) | `sensor` |
+| Sự thật mặt đất (có sẵn) | Sensor `Temperature` 2026-05-29 → 10-20 | Sai lệch SST so với lồng; mô tả phản ứng khi có bão (n = 2) | `sensor` |
 
 ## 3. Ngưỡng và nguồn
 
@@ -97,7 +97,7 @@ Mỗi `--stamp` tạo thư mục chạy mới (`storm-hindcast-<stamp>/`, `heat-
 
 ## 8. Cờ shadow
 
-`used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"`, `source` ∈ {`forecast`, `best_track_oracle`, `reanalysis`, `sensor`}. Không sửa `core/alerts.py`, ngưỡng `core/weather_advisory.py` hay `HOURLY_VARIABLES` trong `core/weather.py`.
+Advisory: `used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"`. Mọi đầu ra: `source` ∈ {`forecast`, `best_track_oracle`, `reanalysis`, `sensor`}. Không sửa `core/alerts.py`, ngưỡng `core/weather_advisory.py` hay `HOURLY_VARIABLES` trong `core/weather.py`.
 
 ## 9. Việc tiếp theo
 
