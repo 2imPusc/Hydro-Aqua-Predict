@@ -73,6 +73,16 @@ def compare(sensor: pd.Series, product: pd.Series) -> dict:
             "pearson_r": round(float(joined["sensor"].corr(joined["product"])), 3)}
 
 
+def offset_info(bias: dict) -> dict:
+    """OISST offset and its honest label. No overlap -> no offset (never a silent 0.0)."""
+    b = bias["vs_oisst"]
+    if "median_diff_c" not in b:
+        return {"offset_c": None, "offset_status": "no_overlap_unadjusted"}
+    note = (f"median over {b['first']}..{b['last']} only; MAE {b['mae_c']} C, r {b['pearson_r']}"
+            " - sensitivity case, not calibration")
+    return {"offset_c": b["median_diff_c"], "offset_status": "single_season_median", "offset_note": note}
+
+
 def yearly(days: pd.DataFrame, hot_calm: pd.Series) -> pd.DataFrame:
     g = days.groupby(days.index.year)
     out = pd.DataFrame({f"days_alert_ge{k}": g["alert_level"].apply(lambda s, k=k: int((s >= k).sum())) for k in (1, 2, 3)})
@@ -117,20 +127,26 @@ def main(argv: list[str] | None = None) -> int:
 
     sensor = sensor_daily()
     bias = {"vs_oisst": compare(sensor, oisst), "vs_openmeteo_marine": compare(sensor, marine_daily)}
-    offset = bias["vs_oisst"].get("median_diff_c", 0.0)
-    raw, adj = hs.daily_heat_stress(oisst), hs.daily_heat_stress(oisst + offset)
-    raw.join(adj, rsuffix="_adjusted").to_csv(run_dir / "daily_oisst.csv", index_label="date")
-    years = yearly(raw, hot_calm).join(yearly(adj, hot_calm), rsuffix="_adjusted")
+    info = offset_info(bias)
+    offset = info["offset_c"]
+    raw = hs.daily_heat_stress(oisst)
+    adj = hs.daily_heat_stress(oisst + offset) if offset is not None else None  # no overlap: raw only
+    (raw.join(adj, rsuffix="_adjusted") if adj is not None else raw).to_csv(run_dir / "daily_oisst.csv", index_label="date")
+    years = yearly(raw, hot_calm)
+    if adj is not None:
+        years = years.join(yearly(adj, hot_calm), rsuffix="_adjusted")
     years.to_csv(run_dir / "climatology_year.csv", index_label="year")
-    trends = [trend(years, c) for c in ("days_alert_ge1", "days_alert_ge2", "days_alert_ge1_adjusted", "days_alert_ge2_adjusted")]
+    cols = ("days_alert_ge1", "days_alert_ge2") + (("days_alert_ge1_adjusted", "days_alert_ge2_adjusted") if adj is not None else ())
+    trends = [trend(years, c) for c in cols]
     # calendar only over complete years, so a partial current year does not bias late weeks
-    complete = adj[adj.index.year.isin(years.index)]
+    base = adj if adj is not None else raw
+    complete = base[base.index.year.isin(years.index)]
     calendar(complete).to_csv(run_dir / "heat_calendar.csv")
     # OISST (0.25 deg offshore) never reaches 33 C, so the level>=2 calendar is empty; keep a watch-level (>=1) one
     calendar(complete, min_level=1).to_csv(run_dir / "heat_calendar_watch.csv")
     (run_dir / "bias.json").write_text(json.dumps(bias, indent=2), encoding="utf-8")
     (run_dir / "trend.json").write_text(json.dumps(trends, indent=2), encoding="utf-8")
-    manifest = {"run": run_dir.name, "source": "reanalysis", "oisst_offset_c": offset,
+    manifest = {"run": run_dir.name, "source": "reanalysis", "oisst_offset_c": offset, **{k: v for k, v in info.items() if k != "offset_c"},
                 "thresholds_c": {"watch": hs.WATCH_C, "stress": hs.STRESS_C, "severe": hs.SEVERE_C,
                                  "min_run_days": hs.MIN_RUN_DAYS, "hot_air": hs.HOT_AIR_C, "calm_wind_ms": hs.CALM_WIND_MS},
                 "inputs": {p.name: _sha(p) for p in (oisst_file, marine_file, era5_file)}, "sensor_days": int(len(sensor))}

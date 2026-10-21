@@ -52,3 +52,19 @@ def test_calendar_share_by_iso_week():
     cal = hh.calendar(hs.daily_heat_stress(temp))
     assert cal.loc[27, "share_years_with_stress_day"] == 0.5
     assert cal["share_years_with_stress_day"].drop(27).max() == 0.0
+
+
+def test_offset_info_no_overlap_is_not_zero():
+    idx = pd.date_range("2026-06-01", periods=5, freq="D")
+    s = pd.Series(28.0, index=idx)
+    bias = {"vs_oisst": hh.compare(s, s)}  # < 10 overlapping days
+    info = hh.offset_info(bias)
+    assert info == {"offset_c": None, "offset_status": "no_overlap_unadjusted"}
+
+
+def test_offset_info_single_season_note():
+    idx = pd.date_range("2026-06-01", periods=20, freq="D")
+    p = pd.Series(28.0, index=idx)
+    info = hh.offset_info({"vs_oisst": hh.compare(p + 0.5, p)})
+    assert info["offset_c"] == 0.5 and info["offset_status"] == "single_season_median"
+    assert "2026-06-01..2026-06-20" in info["offset_note"] and "not calibration" in info["offset_note"]
