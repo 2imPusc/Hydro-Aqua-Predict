@@ -33,6 +33,9 @@ OISST_URL = ("https://www.ncei.noaa.gov/erddap/griddap/ncdc_oisst_v2_avhrr_by_ti
              "sst%5B({start}T12:00:00Z):1:({end}T12:00:00Z)%5D%5B(0.0)%5D%5B({lat})%5D%5B({lon})%5D")
 # Nearest non-land-masked OISST cell to NB1 (checked 2026-10-22; 20.875 N is land).
 OISST_CELL = (20.625, 107.125)
+# This NCEI ERDDAP dataset only starts 2020-02-28 (checked 2026-10-22); earlier requests 404.
+# Pre-2020 history needs another host (coastwatch.pfeg timed out), so it is clamped here.
+OISST_MIN_DATE = date(2020, 2, 28)
 MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
@@ -72,7 +75,10 @@ def fetch_oisst(start_year: int, end: date) -> dict:
     parts, urls = [], []
     for year in range(start_year, end.year + 1):
         stop = min(date(year, 12, 31), end)
-        url = OISST_URL.format(start=f"{year}-01-01", end=stop.isoformat(), lat=lat, lon=lon)
+        first = max(date(year, 1, 1), OISST_MIN_DATE)
+        if first > stop:
+            continue
+        url = OISST_URL.format(start=first.isoformat(), end=stop.isoformat(), lat=lat, lon=lon)
         urls.append(url)
         parts.append(parse_erddap_csv(_get(url).text))
     series = pd.concat(parts).sort_index()
