@@ -109,6 +109,29 @@ def test_storm_passages_keeps_peak_and_drops_far():
     assert row["site_beaufort"] == 11
     assert row["qd18_level"] == 4               # TOKYO 90 kt -> 46.3 m/s -> cấp 15
     assert row["source"] == "best_track_oracle"
+    assert row["storm_wind_source"] == "tokyo_10min"
+    assert bool(row["site_wind_lower_bound"]) is True        # wind_radii gives only a floor
+    for col in ("storm_beaufort_max", "qd18_level", "site_beaufort"):
+        assert str(out[col].dtype) == "Int64"
+
+
+def test_storm_passages_intensity_only_within_coastal_radius():
+    near = _row(TOKYO_WIND=60.0)                              # 30.9 m/s -> cấp 11
+    far = _row(ISO_TIME=pd.Timestamp("2024-09-06T06:00Z"), LAT=24.77, LON=107.043, TOKYO_WIND=105.0)
+    out = storm_passages(pd.DataFrame([near, far]), *SITE, radius_km=500)
+    assert len(out) == 1 and 440 < haversine_km(24.77, 107.043, *SITE) < 460
+    assert out.iloc[0]["storm_beaufort_max"] == 11
+    assert out.iloc[0]["qd18_level"] == 3
+    assert out.iloc[0]["min_dist_km"] < 50
+
+
+def test_storm_passages_no_row_in_coastal_radius_is_na():
+    far = _row(LAT=24.77, LON=107.043, TOKYO_WIND=105.0)
+    out = storm_passages(pd.DataFrame([far]), *SITE, radius_km=500)
+    assert len(out) == 1
+    row = out.iloc[0]
+    assert pd.isna(row["storm_beaufort_max"]) and pd.isna(row["qd18_level"]) and row["storm_class_vi"] is None
+    assert bool(row["site_wind_lower_bound"]) is False
 
 
 def test_load_ibtracs_skips_units_row(tmp_path):
@@ -149,3 +172,19 @@ def test_storm_advisory_keeps_stale_status():
 def test_storm_advisory_unavailable():
     assert evaluate_storm_advisory({"status": "unavailable"}, now=NOW)["status"] == "unavailable"
     assert evaluate_storm_advisory(_weather([]), now=NOW)["status"] == "unavailable"
+
+
+def test_storm_advisory_unknown_unit_is_unavailable():
+    w = _weather([20.0] * 5)
+    w["hourly_units"] = {"wind_speed_10m": "furlong/h"}
+    out = evaluate_storm_advisory(w, now=NOW)
+    assert out["status"] == "unavailable" and out["reason"] == "unknown_wind_unit"
+    assert out["used_by_alerts"] is False
+
+
+def test_storm_advisory_passes_through_stale_info():
+    w = _weather([10.0] * 5, status="stale")
+    w.update({"stale_age_seconds": 7200, "reason": "fetch_failed"})
+    out = evaluate_storm_advisory(w, now=NOW)
+    assert out["status"] == "stale" and out["stale_age_seconds"] == 7200 and out["reason"] == "fetch_failed"
+    assert "stale_age_seconds" not in evaluate_storm_advisory(_weather([10.0] * 5), now=NOW)

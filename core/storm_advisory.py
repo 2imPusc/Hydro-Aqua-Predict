@@ -163,10 +163,17 @@ def load_ibtracs(path) -> pd.DataFrame:
 
 
 def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius_km: float = 500.0,
-                   factor: float = ONE_MIN_TO_TEN_MIN) -> pd.DataFrame:
-    """One row per storm passing within ``radius_km``: peak site exposure + QĐ 18 level."""
+                   coastal_radius_km: float = 200.0, factor: float = ONE_MIN_TO_TEN_MIN) -> pd.DataFrame:
+    """One row per storm passing within ``radius_km``: peak site exposure + QĐ 18 level.
+
+    Storm intensity (``storm_beaufort_max`` etc.) is the max over track rows within
+    ``coastal_radius_km`` of the site (Điều 42 concerns the storm on the coastal waters);
+    NA when no row is that close.  ``site_wind_lower_bound`` is True when the site wind
+    comes from wind radii, which only give a floor.
+    """
     cols = ["SID", "SEASON", "NAME", "peak_time", "min_dist_km", "storm_beaufort_max", "storm_class_vi",
-            "qd18_level", "site_wind_ms", "site_beaufort", "exposure_method", "source"]
+            "qd18_level", "storm_wind_source", "site_wind_ms", "site_beaufort", "exposure_method",
+            "site_wind_lower_bound", "source"]
     df = track.dropna(subset=["LAT", "LON"]).copy()
     df["dist_km"] = haversine_km(df["LAT"].to_numpy(), df["LON"].to_numpy(), site_lat, site_lon)
     df = df[df["dist_km"] <= radius_km]
@@ -178,15 +185,20 @@ def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius
         for col in ("site_wind_ms", "storm_wind_ms", "dist_km"):
             exp[col] = pd.to_numeric(exp[col], errors="coerce")
         peak = exp.sort_values(["site_wind_ms", "dist_km"], ascending=[False, True], na_position="last").iloc[0]
-        storm_max = exp["storm_wind_ms"].max()
+        storm_max = exp.loc[exp["dist_km"] <= coastal_radius_km, "storm_wind_ms"].max()
         storm_bf = beaufort(storm_max) if not _missing(storm_max) else None
         rows.append({"SID": sid, "SEASON": grp["SEASON"].iloc[0], "NAME": grp["NAME"].iloc[0],
                      "peak_time": peak["ISO_TIME"], "min_dist_km": float(exp["dist_km"].min()),
                      "storm_beaufort_max": storm_bf, "storm_class_vi": storm_class_vi(storm_bf),
-                     "qd18_level": qd18_risk_level(storm_bf), "site_wind_ms": peak["site_wind_ms"],
+                     "qd18_level": qd18_risk_level(storm_bf), "storm_wind_source": peak["storm_wind_source"],
+                     "site_wind_ms": peak["site_wind_ms"],
                      "site_beaufort": peak["site_beaufort"], "exposure_method": peak["exposure_method"],
+                     "site_wind_lower_bound": peak["exposure_method"] == "wind_radii",
                      "source": "best_track_oracle"})
-    return pd.DataFrame(rows, columns=cols)
+    out = pd.DataFrame(rows, columns=cols)
+    for col in ("storm_beaufort_max", "qd18_level", "site_beaufort"):
+        out[col] = pd.to_numeric(out[col], errors="coerce").astype("Int64")
+    return out
 
 
 _FLAGS = {"used_by_models": False, "used_by_alerts": False, "notification_eligible": False,
@@ -207,6 +219,7 @@ def _future_hourly(weather: dict, key: str, now: pd.Timestamp, hours: int) -> pd
 
 
 def evaluate_storm_advisory(weather: dict | None, now=None, hours: int = 72) -> dict:
+    """Forecast-wind advisory.  A naive ``now`` is interpreted as UTC."""
     weather = weather or {}
     status = weather.get("status")
     if status not in {"ready", "stale"}:
@@ -217,11 +230,16 @@ def evaluate_storm_advisory(weather: dict | None, now=None, hours: int = 72) -> 
     wind = _future_hourly(weather, "wind_speed_10m", now, hours)
     if wind.empty:
         return {"status": "unavailable", "reason": "no_future_wind_hours", **_FLAGS}
-    wind_ms = wind.map(lambda v: to_ms(v, units.get("wind_speed_10m", "km/h")))
-    gust = _future_hourly(weather, "wind_gusts_10m", now, hours)
-    gust_ms = gust.map(lambda v: to_ms(v, units.get("wind_gusts_10m", "km/h"))) if not gust.empty else gust
+    try:
+        wind_ms = wind.map(lambda v: to_ms(v, units.get("wind_speed_10m", "km/h")))
+        gust = _future_hourly(weather, "wind_gusts_10m", now, hours)
+        gust_ms = gust.map(lambda v: to_ms(v, units.get("wind_gusts_10m", "km/h"))) if not gust.empty else gust
+    except ValueError:
+        return {"status": "unavailable", "reason": "unknown_wind_unit", **_FLAGS}
     level = beaufort(float(wind_ms.max()))
+    extra = {k: weather[k] for k in ("stale_age_seconds", "reason") if k in weather}
     return {
+        **extra,
         "status": status, "source": "forecast", "retrieved_at": weather.get("retrieved_at"),
         "window_hours": hours, "hours_available": int(len(wind_ms)),
         "max_wind_ms": round(float(wind_ms.max()), 2), "max_wind_at": wind_ms.idxmax().isoformat(),
