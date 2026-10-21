@@ -89,7 +89,8 @@ DEFAULT_RMW_NMI = 30.0
 RANKINE_ALPHA = 0.5
 _RADII = (("USA_R64", 64.0), ("USA_R50", 50.0), ("USA_R34", 34.0))
 _QUADS = ("NE", "SE", "SW", "NW")
-IBTRACS_COLUMNS = ["SID", "SEASON", "NAME", "ISO_TIME", "LAT", "LON", "TOKYO_WIND", "USA_WIND", "USA_RMW",
+IBTRACS_COLUMNS = ["SID", "SEASON", "NAME", "ISO_TIME", "LAT", "LON", "TOKYO_WIND", "HKO_WIND", "CMA_WIND",
+                   "USA_WIND", "USA_RMW",
                    *[f"{p}_{q}" for p, _ in _RADII for q in _QUADS]]
 
 
@@ -122,8 +123,14 @@ def rankine_wind_ms(vmax_ms: float, rmw_km: float, r_km: float, alpha: float = R
 def storm_wind_ms(row: pd.Series, factor: float = ONE_MIN_TO_TEN_MIN) -> tuple[float | None, str | None]:
     if not _missing(row.get("TOKYO_WIND")):
         return float(row["TOKYO_WIND"]) * KNOT_MS, "tokyo_10min"
+    if not _missing(row.get("HKO_WIND")):
+        return float(row["HKO_WIND"]) * KNOT_MS, "hko_10min"
     if not _missing(row.get("USA_WIND")):
         return float(row["USA_WIND"]) * KNOT_MS * factor, "usa_1min_scaled"
+    # CMA reports a 2-min mean; used without conversion, a slight overestimate vs a 10-min mean.
+    # Order: 10-min agencies first, then JTWC with a documented 1->10 min factor, then CMA.
+    if not _missing(row.get("CMA_WIND")):
+        return float(row["CMA_WIND"]) * KNOT_MS, "cma_2min_unscaled"
     return None, None
 
 

@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from core.storm_advisory import (beaufort, bearing_deg, evaluate_storm_advisory, haversine_km, load_ibtracs,
-                                 qd18_risk_level, quadrant, rankine_wind_ms, site_action, site_exposure,
+from core.storm_advisory import (KNOT_MS, beaufort, bearing_deg, evaluate_storm_advisory, haversine_km, load_ibtracs,
+                                 qd18_risk_level, quadrant, rankine_wind_ms, site_action, site_exposure, storm_wind_ms,
                                  storm_class_vi, storm_passages, to_ms)
 
 
@@ -188,3 +188,42 @@ def test_storm_advisory_passes_through_stale_info():
     out = evaluate_storm_advisory(w, now=NOW)
     assert out["status"] == "stale" and out["stale_age_seconds"] == 7200 and out["reason"] == "fetch_failed"
     assert "stale_age_seconds" not in evaluate_storm_advisory(_weather([10.0] * 5), now=NOW)
+
+
+_NAN = float("nan")
+
+
+def test_storm_wind_precedence_tokyo_wins():
+    row = _row(TOKYO_WIND=50.0, HKO_WIND=60.0, USA_WIND=70.0, CMA_WIND=80.0)
+    assert storm_wind_ms(row) == (pytest.approx(50.0 * KNOT_MS), "tokyo_10min")
+
+
+def test_storm_wind_hko_fallback_beats_usa():
+    row = _row(TOKYO_WIND=_NAN, HKO_WIND=60.0, USA_WIND=70.0, CMA_WIND=80.0)
+    assert storm_wind_ms(row) == (pytest.approx(60.0 * KNOT_MS), "hko_10min")
+
+
+def test_storm_wind_usa_beats_cma():
+    row = _row(TOKYO_WIND=_NAN, HKO_WIND=_NAN, USA_WIND=70.0, CMA_WIND=80.0)
+    assert storm_wind_ms(row, 0.93) == (pytest.approx(70.0 * KNOT_MS * 0.93), "usa_1min_scaled")
+
+
+def test_storm_wind_cma_last_resort_unscaled():
+    row = _row(TOKYO_WIND=_NAN, HKO_WIND=_NAN, USA_WIND=_NAN, CMA_WIND=58.0)
+    assert storm_wind_ms(row, 0.93) == (pytest.approx(58.0 * KNOT_MS), "cma_2min_unscaled")
+
+
+def test_site_exposure_uses_cma_when_only_intensity():
+    out = site_exposure(_row(TOKYO_WIND=_NAN, USA_WIND=_NAN, CMA_WIND=58.0), *SITE)
+    assert out["exposure_method"] != "no_intensity"
+    assert out["storm_wind_source"] == "cma_2min_unscaled"
+
+
+def test_load_ibtracs_coerces_cma_hko(tmp_path):
+    csv = tmp_path / "t.csv"
+    csv.write_text("SID,SEASON,NAME,ISO_TIME,LAT,LON,TOKYO_WIND,HKO_WIND,CMA_WIND\n"
+                   ",,,,degrees_north,degrees_east,kts,kts,kts\n"
+                   "S1,2024,X,2024-09-07 06:00:00,20.9,107.1, ,45,50\n", encoding="utf-8")
+    df = load_ibtracs(csv)
+    assert df.loc[0, "HKO_WIND"] == 45.0 and df.loc[0, "CMA_WIND"] == 50.0
+    assert pd.isna(df.loc[0, "TOKYO_WIND"])

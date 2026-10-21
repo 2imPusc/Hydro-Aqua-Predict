@@ -124,7 +124,10 @@ def sensor_response(passages: pd.DataFrame, hist: pd.DataFrame | None = None) ->
             day = peak + pd.Timedelta(days=offset)
             rec = daily.loc[day].to_dict() if day in daily.index else {"rows": 0}
             rows.append({"SID": p.SID, "NAME": p.NAME, "day_offset": offset, "date": day, **rec})
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out["rows"] = out["rows"].astype("Int64")
+    out["partial"] = out["rows"] < 1296
+    return out
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -158,6 +161,8 @@ def main(argv: list[str] | None = None) -> int:
                 "params": {"radius_km": args.radius_km, "coastal_radius_km": args.coastal_radius_km,
                            "factor": 0.93, "factor_sensitivity": 0.88},
                 "seasons": [first, last], "passages": int(len(passages)),
+                "exposure_method_counts": passages["exposure_method"].value_counts(dropna=False).to_dict(),
+                "storm_wind_source_counts": passages["storm_wind_source"].value_counts(dropna=False).to_dict(),
                 "inputs": {p.name: _sha(p) for p in inputs}}
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps(manifest, indent=2))
