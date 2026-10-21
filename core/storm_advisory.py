@@ -82,3 +82,108 @@ def site_action(level: int | None) -> dict:
         if level >= min_level:
             return {**base, "tier": tier, "label_vi": label, "action_vi": action}
     return {**base, "tier": 0, "label_vi": "bình thường", "action_vi": None}
+
+
+EARTH_RADIUS_KM = 6371.0088
+DEFAULT_RMW_NMI = 30.0
+RANKINE_ALPHA = 0.5
+_RADII = (("USA_R64", 64.0), ("USA_R50", 50.0), ("USA_R34", 34.0))
+_QUADS = ("NE", "SE", "SW", "NW")
+IBTRACS_COLUMNS = ["SID", "SEASON", "NAME", "ISO_TIME", "LAT", "LON", "TOKYO_WIND", "USA_WIND", "USA_RMW",
+                   *[f"{p}_{q}" for p, _ in _RADII for q in _QUADS]]
+
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    p1, p2 = np.radians(lat1), np.radians(lat2)
+    dphi, dlmb = p2 - p1, np.radians(np.asarray(lon2) - np.asarray(lon1))
+    a = np.sin(dphi / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dlmb / 2) ** 2
+    return 2 * EARTH_RADIUS_KM * np.arcsin(np.sqrt(a))
+
+
+def bearing_deg(lat1, lon1, lat2, lon2) -> float:
+    """Initial bearing from point 1 to point 2, degrees clockwise from north."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dl = math.radians(lon2 - lon1)
+    x = math.sin(dl) * math.cos(p2)
+    y = math.cos(p1) * math.sin(p2) - math.sin(p1) * math.cos(p2) * math.cos(dl)
+    return (math.degrees(math.atan2(x, y)) + 360.0) % 360.0
+
+
+def quadrant(bearing: float) -> str:
+    return _QUADS[int(bearing // 90) % 4]
+
+
+def rankine_wind_ms(vmax_ms: float, rmw_km: float, r_km: float, alpha: float = RANKINE_ALPHA) -> float:
+    if r_km <= rmw_km:
+        return vmax_ms * r_km / rmw_km
+    return vmax_ms * (rmw_km / r_km) ** alpha
+
+
+def storm_wind_ms(row: pd.Series, factor: float = ONE_MIN_TO_TEN_MIN) -> tuple[float | None, str | None]:
+    if not _missing(row.get("TOKYO_WIND")):
+        return float(row["TOKYO_WIND"]) * KNOT_MS, "tokyo_10min"
+    if not _missing(row.get("USA_WIND")):
+        return float(row["USA_WIND"]) * KNOT_MS * factor, "usa_1min_scaled"
+    return None, None
+
+
+def site_exposure(row: pd.Series, site_lat: float, site_lon: float, factor: float = ONE_MIN_TO_TEN_MIN) -> dict:
+    dist = float(haversine_km(row["LAT"], row["LON"], site_lat, site_lon))
+    quad = quadrant(bearing_deg(row["LAT"], row["LON"], site_lat, site_lon))
+    vmax, wind_source = storm_wind_ms(row, factor)
+    out = {"dist_km": dist, "quadrant": quad, "storm_wind_ms": vmax, "storm_wind_source": wind_source}
+    for prefix, kt in _RADII:
+        radius = row.get(f"{prefix}_{quad}")
+        if not _missing(radius) and dist <= float(radius) * NMI_KM:
+            speed = kt * KNOT_MS * factor
+            return {**out, "site_wind_ms": speed, "site_beaufort": beaufort(speed), "exposure_method": "wind_radii"}
+    if vmax is None:
+        return {**out, "site_wind_ms": None, "site_beaufort": None, "exposure_method": "no_intensity"}
+    rmw_nmi = DEFAULT_RMW_NMI if _missing(row.get("USA_RMW")) else float(row["USA_RMW"])
+    speed = rankine_wind_ms(vmax, rmw_nmi * NMI_KM, max(dist, 0.1))
+    method = "rankine"
+    if not _missing(row.get(f"USA_R34_{quad}")):
+        speed = min(speed, 34 * KNOT_MS * factor)
+        method = "rankine_capped_by_r34"
+    return {**out, "site_wind_ms": speed, "site_beaufort": beaufort(speed), "exposure_method": method}
+
+
+def load_ibtracs(path) -> pd.DataFrame:
+    # usecols keeps memory low on the full WP file (~250 MB, ~170 columns)
+    df = pd.read_csv(path, skiprows=[1], usecols=lambda c: c in IBTRACS_COLUMNS, low_memory=False,
+                     na_values=[" ", ""], keep_default_na=True)
+    for col in IBTRACS_COLUMNS:
+        if col not in df.columns:
+            df[col] = np.nan
+    df = df[IBTRACS_COLUMNS].copy()
+    df["ISO_TIME"] = pd.to_datetime(df["ISO_TIME"], utc=True)
+    for col in IBTRACS_COLUMNS[4:]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius_km: float = 500.0,
+                   factor: float = ONE_MIN_TO_TEN_MIN) -> pd.DataFrame:
+    """One row per storm passing within ``radius_km``: peak site exposure + QĐ 18 level."""
+    cols = ["SID", "SEASON", "NAME", "peak_time", "min_dist_km", "storm_beaufort_max", "storm_class_vi",
+            "qd18_level", "site_wind_ms", "site_beaufort", "exposure_method", "source"]
+    df = track.dropna(subset=["LAT", "LON"]).copy()
+    df["dist_km"] = haversine_km(df["LAT"].to_numpy(), df["LON"].to_numpy(), site_lat, site_lon)
+    df = df[df["dist_km"] <= radius_km]
+    rows = []
+    for sid, grp in df.groupby("SID", sort=False):
+        exposures = [site_exposure(r, site_lat, site_lon, factor) for _, r in grp.iterrows()]
+        exp = pd.DataFrame(exposures, index=grp.index)
+        exp["ISO_TIME"] = grp["ISO_TIME"]
+        for col in ("site_wind_ms", "storm_wind_ms", "dist_km"):
+            exp[col] = pd.to_numeric(exp[col], errors="coerce")
+        peak = exp.sort_values(["site_wind_ms", "dist_km"], ascending=[False, True], na_position="last").iloc[0]
+        storm_max = exp["storm_wind_ms"].max()
+        storm_bf = beaufort(storm_max) if not _missing(storm_max) else None
+        rows.append({"SID": sid, "SEASON": grp["SEASON"].iloc[0], "NAME": grp["NAME"].iloc[0],
+                     "peak_time": peak["ISO_TIME"], "min_dist_km": float(exp["dist_km"].min()),
+                     "storm_beaufort_max": storm_bf, "storm_class_vi": storm_class_vi(storm_bf),
+                     "qd18_level": qd18_risk_level(storm_bf), "site_wind_ms": peak["site_wind_ms"],
+                     "site_beaufort": peak["site_beaufort"], "exposure_method": peak["exposure_method"],
+                     "source": "best_track_oracle"})
+    return pd.DataFrame(rows, columns=cols)
