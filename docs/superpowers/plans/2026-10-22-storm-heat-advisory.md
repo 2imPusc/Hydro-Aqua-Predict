@@ -37,7 +37,7 @@ Lead-time evaluation (did the forecast warn early enough?) is out of scope here;
 | --- | --- | --- | --- |
 | Beaufort lower bounds (m/s) | cấp 6 10.8, 7 13.9, 8 17.2, 9 20.8, 10 24.5, 11 28.5, 12 32.7, 13 37.0, 14 41.5, 15 46.2, 16 51.0, 17 56.1 | Beaufort scale as used in QĐ 18/2021/QĐ-TTg | regulation |
 | Storm class | ATNĐ 6–7; bão 8–9; bão mạnh 10–11; bão rất mạnh 12–15; siêu bão ≥16 | QĐ 18/2021/QĐ-TTg | regulation |
-| Risk level (storm on coastal waters / Đông Bắc Bộ) | ATNĐ, 8–11 → cấp độ 3; 12–15 → 4; ≥16 → 5 | QĐ 18/2021/QĐ-TTg Điều 42 | regulation |
+| Risk level (storm on coastal waters / Đông Bắc Bộ) | ATNĐ, 8–11 → cấp độ 3; 12–15 → 4; ≥16 → 5 | QĐ 18/2021/QĐ-TTg Điều 42 (from a secondary summary) | **verify against the primary .doc**; open-sea (Biển Đông) cases may map lower. Hindcast only, labelled indicative |
 | 1-min → 10-min wind | 0.93 (at sea); sensitivity 0.88 | Harper et al. 2010, WMO/TD-1555 | **verify table before thesis use** |
 | Site action tiers (cấp 6/8/10/12) | see `SITE_ACTIONS_VI` | own proposal | **needs expert / farmer review** |
 | Wave threshold for cages | none | no source found | **unset; report wave height as context only** |
@@ -415,7 +415,9 @@ def site_exposure(row: pd.Series, site_lat: float, site_lon: float, factor: floa
 
 
 def load_ibtracs(path) -> pd.DataFrame:
-    df = pd.read_csv(path, skiprows=[1], low_memory=False, na_values=[" ", ""], keep_default_na=True)
+    # usecols keeps memory low on the full WP file (~250 MB, ~170 columns)
+    df = pd.read_csv(path, skiprows=[1], usecols=lambda c: c in IBTRACS_COLUMNS, low_memory=False,
+                     na_values=[" ", ""], keep_default_na=True)
     for col in IBTRACS_COLUMNS:
         if col not in df.columns:
             df[col] = np.nan
@@ -439,6 +441,8 @@ def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius
         exposures = [site_exposure(r, site_lat, site_lon, factor) for _, r in grp.iterrows()]
         exp = pd.DataFrame(exposures, index=grp.index)
         exp["ISO_TIME"] = grp["ISO_TIME"]
+        for col in ("site_wind_ms", "storm_wind_ms", "dist_km"):
+            exp[col] = pd.to_numeric(exp[col], errors="coerce")
         peak = exp.sort_values(["site_wind_ms", "dist_km"], ascending=[False, True], na_position="last").iloc[0]
         storm_max = exp["storm_wind_ms"].max()
         storm_bf = beaufort(storm_max) if not _missing(storm_max) else None
@@ -485,7 +489,7 @@ def test_storm_advisory_levels():
     assert out["max_wind_ms"] == pytest.approx(70 / 3.6)
     assert out["site_beaufort"] == 8
     assert out["action"]["tier"] == 2
-    assert out["qd18_level"] == 3
+    assert "qd18_level" not in out and "storm_class_vi" not in out   # no storm source on this path
     assert out["source"] == "forecast"
     assert out["used_by_alerts"] is False and out["notification_eligible"] is False
 
@@ -541,14 +545,13 @@ def evaluate_storm_advisory(weather: dict | None, now=None, hours: int = 72) -> 
         "window_hours": hours, "hours_available": int(len(wind_ms)),
         "max_wind_ms": round(float(wind_ms.max()), 2), "max_wind_at": wind_ms.idxmax().isoformat(),
         "max_gust_ms": round(float(gust_ms.max()), 2) if not gust_ms.empty else None,
-        "site_beaufort": level, "storm_class_vi": storm_class_vi(level), "qd18_level": qd18_risk_level(level),
-        "action": site_action(level),
+        "site_beaufort": level, "action": site_action(level),
         "disclaimer": "Chỉ số lý thuyết, chưa kiểm chứng tại hiện trường; không thay thế bản tin của cơ quan khí tượng.",
         **_FLAGS,
     }
 ```
 
-Note: `qd18_level` here is computed from site wind, not storm-centre intensity; the doc (Task 11) must say it is an indicative mapping, not an official cấp độ rủi ro.
+Note: this path has no tropical-cyclone source, so it emits only site wind, Beaufort and the action tier. Storm class and the Điều 42 level are **not** derived from site wind: winter northeast-monsoon wind reaches cấp 6–7 off Cát Bà with no storm anywhere, and labelling that "áp thấp nhiệt đới · cấp độ 3" would break hard rule 4. A regulatory level for strong wind at sea (separate article of QĐ 18) is a follow-up, after reading the primary text.
 
 - [ ] **Step 4: Run, expect PASS.** Then the full suite: `.venv\Scripts\python -m pytest -q` → no new failures.
 
@@ -666,14 +669,15 @@ def fetch_ibtracs(subset: str) -> dict:
 
 def fetch_oisst(start_year: int, end: date) -> dict:
     lat, lon = OISST_CELL
-    parts = []
+    parts, urls = [], []
     for year in range(start_year, end.year + 1):
         stop = min(date(year, 12, 31), end)
         url = OISST_URL.format(start=f"{year}-01-01", end=stop.isoformat(), lat=lat, lon=lon)
+        urls.append(url)
         parts.append(parse_erddap_csv(_get(url).text))
     series = pd.concat(parts).sort_index()
     target = paths.HAZARD_DATA_DIR / "sst" / f"oisst_{lat}_{lon}_{start_year}_{end:%Y%m%d}.csv"
-    return write_once(target, series.rename("sst").to_csv(index_label="time").encode(), OISST_URL)
+    return write_once(target, series.rename("sst").to_csv(index_label="time").encode(), urls[0])
 
 
 def _open_meteo_hourly(url: str, params: dict, chunks: list[tuple[str, str]]) -> pd.DataFrame:
@@ -1081,6 +1085,7 @@ def evaluate_heat_advisory(marine: dict | None, now=None) -> dict:
     sst = pd.Series(pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(), index=times.tz_convert("UTC"))
     if now is not None:
         now = pd.Timestamp(now)
+        now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
         sst = sst[sst.index >= now.floor("h")]
     days = daily_heat_stress(daily_from_hourly(sst))
     if days.empty:
