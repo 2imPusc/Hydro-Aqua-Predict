@@ -169,23 +169,60 @@ def load_ibtracs(path) -> pd.DataFrame:
     return df
 
 
+_INTERP_COLS = ["LAT", "LON", "TOKYO_WIND", "HKO_WIND", "USA_WIND", "CMA_WIND", "USA_RMW",
+                *[f"{p}_{q}" for p, _ in _RADII for q in _QUADS]]
+
+
+def interpolate_track(grp: pd.DataFrame, step: str = "30min") -> pd.DataFrame:
+    """Densify one storm's track to a ``step`` grid (original times kept, flagged ``interpolated=False``).
+
+    Numeric columns are linearly interpolated in time, only between two valid values
+    (``limit_area="inside"``): a column missing at either end of a gap stays NaN.
+    """
+    g = grp.sort_values("ISO_TIME").drop_duplicates("ISO_TIME").set_index("ISO_TIME")
+    idx = pd.date_range(g.index[0], g.index[-1], freq=step).union(g.index)
+    out = g.reindex(idx)
+    out["interpolated"] = ~idx.isin(g.index)
+    for col in out.columns.intersection(_INTERP_COLS):
+        out[col] = out[col].astype(float).interpolate(method="time", limit_area="inside")
+    for col in ("SID", "SEASON", "NAME"):
+        if col in out.columns:
+            out[col] = out[col].ffill()
+    out.index.name = "ISO_TIME"
+    return out.reset_index()
+
+
 def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius_km: float = 500.0,
-                   coastal_radius_km: float = 200.0, factor: float = ONE_MIN_TO_TEN_MIN) -> pd.DataFrame:
+                   coastal_radius_km: float = 200.0, factor: float = ONE_MIN_TO_TEN_MIN,
+                   interp_step: str | None = "30min") -> pd.DataFrame:
     """One row per storm passing within ``radius_km``: peak site exposure + QĐ 18 level.
 
     Storm intensity (``storm_beaufort_max`` etc.) is the max over track rows within
     ``coastal_radius_km`` of the site (Điều 42 concerns the storm on the coastal waters);
     NA when no row is that close.  ``site_wind_lower_bound`` is True when the site wind
-    comes from wind radii, which only give a floor.
+    comes from wind radii, which only give a floor.  With ``interp_step`` each storm's 3-hourly
+    track is linearly densified first so a pass over the eyewall is not missed between rows.
     """
     cols = ["SID", "SEASON", "NAME", "peak_time", "min_dist_km", "storm_beaufort_max", "storm_class_vi",
             "qd18_level", "storm_wind_source", "site_wind_ms", "site_beaufort", "exposure_method",
             "site_wind_lower_bound", "source"]
     df = track.dropna(subset=["LAT", "LON"]).copy()
     df["dist_km"] = haversine_km(df["LAT"].to_numpy(), df["LON"].to_numpy(), site_lat, site_lon)
-    df = df[df["dist_km"] <= radius_km]
+    if interp_step:
+        # only storms with an original row near enough can have an interpolated point inside radius_km
+        sids = df.loc[df["dist_km"] <= radius_km + 100.0, "SID"].unique()
+        groups = []
+        for sid in sids:
+            dense = interpolate_track(df[df["SID"] == sid].drop(columns="dist_km"), interp_step)
+            dense["dist_km"] = haversine_km(dense["LAT"].to_numpy(), dense["LON"].to_numpy(), site_lat, site_lon)
+            dense = dense[dense["dist_km"] <= radius_km]
+            if not dense.empty:
+                groups.append((sid, dense))
+    else:
+        df = df[df["dist_km"] <= radius_km]
+        groups = list(df.groupby("SID", sort=False))
     rows = []
-    for sid, grp in df.groupby("SID", sort=False):
+    for sid, grp in groups:
         exposures = [site_exposure(r, site_lat, site_lon, factor) for _, r in grp.iterrows()]
         exp = pd.DataFrame(exposures, index=grp.index)
         exp["ISO_TIME"] = grp["ISO_TIME"]

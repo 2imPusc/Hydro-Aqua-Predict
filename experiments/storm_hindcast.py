@@ -130,6 +130,9 @@ def sensor_response(passages: pd.DataFrame, hist: pd.DataFrame | None = None) ->
     return out
 
 
+INTERP_STEP = "30min"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stamp", required=True)
@@ -141,7 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     loc = weather_location_for_station(STATION)
     lat, lon = loc["latitude"], loc["longitude"]
     tracks, track_files = load_tracks()
-    kw = {"coastal_radius_km": args.coastal_radius_km}
+    kw = {"coastal_radius_km": args.coastal_radius_km, "interp_step": INTERP_STEP}
     passages = storm_passages(tracks, lat, lon, args.radius_km, factor=0.93, **kw)
     alt = storm_passages(tracks, lat, lon, args.radius_km, factor=0.88, **kw)[["SID", "site_beaufort"]]
     passages = passages.merge(alt.rename(columns={"site_beaufort": "site_beaufort_088"}), on="SID", how="left")
@@ -159,6 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     inputs = [*track_files, era5_file, events_file]
     manifest = {"run": run_dir.name, "source": "best_track_oracle", "site": {"lat": lat, "lon": lon, "anchor": "NB1"},
                 "params": {"radius_km": args.radius_km, "coastal_radius_km": args.coastal_radius_km,
+                           "interp_step": INTERP_STEP,
                            "factor": 0.93, "factor_sensitivity": 0.88},
                 "seasons": [first, last], "passages": int(len(passages)),
                 "exposure_method_counts": passages["exposure_method"].value_counts(dropna=False).to_dict(),

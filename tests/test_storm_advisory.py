@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from core.storm_advisory import (KNOT_MS, beaufort, bearing_deg, evaluate_storm_advisory, haversine_km, load_ibtracs,
+from core.storm_advisory import (KNOT_MS, beaufort, bearing_deg, evaluate_storm_advisory, haversine_km, interpolate_track,
+                                 load_ibtracs,
                                  qd18_risk_level, quadrant, rankine_wind_ms, site_action, site_exposure, storm_wind_ms,
                                  storm_class_vi, storm_passages, to_ms)
 
@@ -102,7 +103,7 @@ def test_storm_passages_keeps_peak_and_drops_far():
                   **{f"USA_R34_{q}": 10.0 for q in ("NE", "SE", "SW", "NW")})
     near_b = _row(**{f"USA_R64_{q}": 45.0 for q in ("NE", "SE", "SW", "NW")})
     far = _row(SID="S2", NAME="FAR", LAT=10.0, LON=120.0)
-    out = storm_passages(pd.DataFrame([near_a, near_b, far]), *SITE, radius_km=500)
+    out = storm_passages(pd.DataFrame([near_a, near_b, far]), *SITE, radius_km=500, interp_step=None)
     assert list(out["SID"]) == ["S1"]
     row = out.iloc[0]
     assert row["peak_time"] == pd.Timestamp("2024-09-07T06:00Z")
@@ -118,7 +119,7 @@ def test_storm_passages_keeps_peak_and_drops_far():
 def test_storm_passages_intensity_only_within_coastal_radius():
     near = _row(TOKYO_WIND=60.0)                              # 30.9 m/s -> cấp 11
     far = _row(ISO_TIME=pd.Timestamp("2024-09-06T06:00Z"), LAT=24.77, LON=107.043, TOKYO_WIND=105.0)
-    out = storm_passages(pd.DataFrame([near, far]), *SITE, radius_km=500)
+    out = storm_passages(pd.DataFrame([near, far]), *SITE, radius_km=500, interp_step=None)
     assert len(out) == 1 and 440 < haversine_km(24.77, 107.043, *SITE) < 460
     assert out.iloc[0]["storm_beaufort_max"] == 11
     assert out.iloc[0]["qd18_level"] == 3
@@ -227,3 +228,29 @@ def test_load_ibtracs_coerces_cma_hko(tmp_path):
     df = load_ibtracs(csv)
     assert df.loc[0, "HKO_WIND"] == 45.0 and df.loc[0, "CMA_WIND"] == 50.0
     assert pd.isna(df.loc[0, "TOKYO_WIND"])
+
+
+def test_interpolation_catches_eyewall_between_rows():
+    # two rows 3 h apart, ~30 km either side of the site along a meridian; RMW 10 nmi, no radii
+    a = _row(ISO_TIME=pd.Timestamp("2024-09-07T03:00Z"), LAT=SITE[0] - 0.27, LON=SITE[1], TOKYO_WIND=80.0,
+             USA_WIND=float("nan"), USA_RMW=10.0)
+    b = _row(ISO_TIME=pd.Timestamp("2024-09-07T06:00Z"), LAT=SITE[0] + 0.27, LON=SITE[1], TOKYO_WIND=80.0,
+             USA_WIND=float("nan"), USA_RMW=10.0)
+    track = pd.DataFrame([a, b])
+    storm_bf = beaufort(80 * KNOT_MS)
+    raw = storm_passages(track, *SITE, interp_step=None).iloc[0]
+    dense = storm_passages(track, *SITE, interp_step="30min").iloc[0]
+    assert raw["site_beaufort"] < storm_bf - 1
+    assert dense["site_beaufort"] >= storm_bf - 1
+    assert dense["min_dist_km"] < raw["min_dist_km"]
+
+
+def test_interpolate_track_keeps_nan_ends_and_flags():
+    rows = [_row(ISO_TIME=pd.Timestamp("2024-09-07T00:00Z"), LAT=20.0, LON=107.0, TOKYO_WIND=float("nan"), USA_WIND=60.0),
+            _row(ISO_TIME=pd.Timestamp("2024-09-07T03:00Z"), LAT=21.0, LON=107.0, TOKYO_WIND=80.0, USA_WIND=100.0)]
+    out = interpolate_track(pd.DataFrame(rows), "1h")
+    assert list(out["interpolated"]) == [False, True, True, False]
+    assert out["TOKYO_WIND"].isna().iloc[:3].all() and out["TOKYO_WIND"].iloc[3] == 80.0
+    assert out["USA_WIND"].iloc[1] == pytest.approx(73.333, abs=0.01)
+    assert out["LAT"].iloc[1] == pytest.approx(20.3333, abs=1e-3)
+    assert (out["SID"] == "S1").all()
