@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
-from core.storm_advisory import (beaufort, bearing_deg, haversine_km, load_ibtracs, qd18_risk_level, quadrant,
-                                 rankine_wind_ms, site_action, site_exposure, storm_class_vi, storm_passages,
-                                 to_ms)
+from core.storm_advisory import (beaufort, bearing_deg, evaluate_storm_advisory, haversine_km, load_ibtracs,
+                                 qd18_risk_level, quadrant, rankine_wind_ms, site_action, site_exposure,
+                                 storm_class_vi, storm_passages, to_ms)
 
 
 @pytest.mark.parametrize("speed, level", [(0.0, 0), (10.79, 5), (10.8, 6), (17.1, 7), (17.2, 8),
@@ -121,3 +121,31 @@ def test_load_ibtracs_skips_units_row(tmp_path):
     assert str(df["ISO_TIME"].dt.tz) == "UTC"
     assert pd.isna(df.loc[0, "USA_WIND"])
     assert "USA_R64_SW" in df.columns          # missing radius columns are added as NaN
+
+
+NOW = pd.Timestamp("2026-07-02T00:00Z")
+
+
+def _weather(speeds_kmh, status="ready"):
+    times = pd.date_range("2026-07-02T07:00", periods=len(speeds_kmh), freq="h").strftime("%Y-%m-%dT%H:%M").tolist()
+    return {"status": status, "timezone": "Asia/Ho_Chi_Minh", "retrieved_at": "2026-07-02T00:00:00+00:00",
+            "hourly_units": {"wind_speed_10m": "km/h"}, "hourly": {"time": times, "wind_speed_10m": speeds_kmh}}
+
+
+def test_storm_advisory_levels():
+    out = evaluate_storm_advisory(_weather([20.0] * 10 + [70.0] + [30.0] * 10), now=NOW)
+    assert out["max_wind_ms"] == pytest.approx(70 / 3.6, abs=0.01)
+    assert out["site_beaufort"] == 8
+    assert out["action"]["tier"] == 2
+    assert "qd18_level" not in out and "storm_class_vi" not in out   # no storm source on this path
+    assert out["source"] == "forecast"
+    assert out["used_by_alerts"] is False and out["notification_eligible"] is False
+
+
+def test_storm_advisory_keeps_stale_status():
+    assert evaluate_storm_advisory(_weather([10.0] * 5, status="stale"), now=NOW)["status"] == "stale"
+
+
+def test_storm_advisory_unavailable():
+    assert evaluate_storm_advisory({"status": "unavailable"}, now=NOW)["status"] == "unavailable"
+    assert evaluate_storm_advisory(_weather([]), now=NOW)["status"] == "unavailable"

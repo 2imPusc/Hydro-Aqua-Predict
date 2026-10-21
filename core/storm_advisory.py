@@ -187,3 +187,46 @@ def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius
                      "site_beaufort": peak["site_beaufort"], "exposure_method": peak["exposure_method"],
                      "source": "best_track_oracle"})
     return pd.DataFrame(rows, columns=cols)
+
+
+_FLAGS = {"used_by_models": False, "used_by_alerts": False, "notification_eligible": False,
+          "basis": "theory_only_unvalidated"}
+
+
+def _future_hourly(weather: dict, key: str, now: pd.Timestamp, hours: int) -> pd.Series:
+    hourly = weather.get("hourly") or {}
+    times = pd.to_datetime(hourly.get("time") or [], errors="coerce")
+    values = hourly.get(key)
+    if values is None or len(times) == 0:
+        return pd.Series(dtype=float)
+    if getattr(times, "tz", None) is None:
+        times = times.tz_localize(weather.get("timezone", "Asia/Ho_Chi_Minh"))
+    series = pd.Series(pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(), index=times.tz_convert("UTC"))
+    start = now.floor("h")
+    return series[(series.index >= start) & (series.index < start + pd.Timedelta(hours=hours))].dropna()
+
+
+def evaluate_storm_advisory(weather: dict | None, now=None, hours: int = 72) -> dict:
+    weather = weather or {}
+    status = weather.get("status")
+    if status not in {"ready", "stale"}:
+        return {"status": "unavailable", "reason": weather.get("reason", "weather_unavailable"), **_FLAGS}
+    now = pd.Timestamp(now) if now is not None else pd.Timestamp.now(tz="UTC")
+    now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
+    units = weather.get("hourly_units") or {}
+    wind = _future_hourly(weather, "wind_speed_10m", now, hours)
+    if wind.empty:
+        return {"status": "unavailable", "reason": "no_future_wind_hours", **_FLAGS}
+    wind_ms = wind.map(lambda v: to_ms(v, units.get("wind_speed_10m", "km/h")))
+    gust = _future_hourly(weather, "wind_gusts_10m", now, hours)
+    gust_ms = gust.map(lambda v: to_ms(v, units.get("wind_gusts_10m", "km/h"))) if not gust.empty else gust
+    level = beaufort(float(wind_ms.max()))
+    return {
+        "status": status, "source": "forecast", "retrieved_at": weather.get("retrieved_at"),
+        "window_hours": hours, "hours_available": int(len(wind_ms)),
+        "max_wind_ms": round(float(wind_ms.max()), 2), "max_wind_at": wind_ms.idxmax().isoformat(),
+        "max_gust_ms": round(float(gust_ms.max()), 2) if not gust_ms.empty else None,
+        "site_beaufort": level, "action": site_action(level),
+        "disclaimer": "Chỉ số lý thuyết, chưa kiểm chứng tại hiện trường; không thay thế bản tin của cơ quan khí tượng.",
+        **_FLAGS,
+    }
