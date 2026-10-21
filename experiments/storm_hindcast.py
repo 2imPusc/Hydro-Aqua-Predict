@@ -22,6 +22,7 @@ STATION = "06M26042804"
 BANDS = [(6, 7, "cap6_7"), (8, 9, "cap8_9"), (10, 11, "cap10_11"), (12, 17, "cap12_plus")]
 PH_TRUSTED_UNTIL = pd.Timestamp("2026-09-18").date()  # pH probe drift from 09-19 (RL-18)
 LOCAL_TZ = "Asia/Ho_Chi_Minh"
+MIN_ROWS_PER_DAY = 1296  # 90 % of 1,440 one-minute rows (Phase 0 gate)
 
 
 def _latest(pattern: str) -> Path:
@@ -126,7 +127,7 @@ def sensor_response(passages: pd.DataFrame, hist: pd.DataFrame | None = None) ->
             rows.append({"SID": p.SID, "NAME": p.NAME, "day_offset": offset, "date": day, **rec})
     out = pd.DataFrame(rows)
     out["rows"] = out["rows"].astype("Int64")
-    out["partial"] = out["rows"] < 1296
+    out["partial"] = out["rows"] < MIN_ROWS_PER_DAY
     return out
 
 

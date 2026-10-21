@@ -64,3 +64,28 @@ def test_heat_advisory_naive_now_and_all_missing():
     marine = {"status": "ready", "hourly": {"time": times, "sea_surface_temperature": [None] * 24}}
     out = evaluate_heat_advisory(marine, now=pd.Timestamp("2026-07-01T17:00"))
     assert out["status"] == "unavailable"
+
+
+def test_absent_date_is_nan_day_and_breaks_run():
+    idx = pd.to_datetime(["2026-07-01", "2026-07-02", "2026-07-04"])
+    out = daily_heat_stress(pd.Series([31.0, 31.0, 31.0], index=idx))
+    assert len(out) == 4 and np.isnan(out["level"].iloc[2])
+    assert list(out["run_days"]) == [1, 2, 0, 1]
+    assert out["alert_level"].iloc[3] == 1
+    assert out["degree_days_7d"].iloc[3] == 0
+
+
+def test_heat_advisory_keeps_today_when_now_is_midday():
+    # 2026-07-02 local day complete (24 h); now = 2026-07-02 15:00 local -> today still reported
+    times = pd.date_range("2026-07-01T00:00", periods=72, freq="h").strftime("%Y-%m-%dT%H:%M").tolist()
+    marine = {"status": "ready", "timezone": "Asia/Ho_Chi_Minh",
+              "hourly": {"time": times, "sea_surface_temperature": [33.5] * 72}}
+    out = evaluate_heat_advisory(marine, now=pd.Timestamp("2026-07-02T08:00Z"))
+    assert [d["date"] for d in out["days"]] == ["2026-07-02", "2026-07-03"]
+
+
+def test_heat_advisory_length_mismatch():
+    times = pd.date_range("2026-07-02T00:00", periods=24, freq="h").strftime("%Y-%m-%dT%H:%M").tolist()
+    marine = {"status": "ready", "hourly": {"time": times, "sea_surface_temperature": [30.0] * 23}}
+    out = evaluate_heat_advisory(marine)
+    assert out["status"] == "unavailable" and out["reason"] == "sst_length_mismatch"

@@ -176,15 +176,32 @@ _INTERP_COLS = ["LAT", "LON", "TOKYO_WIND", "HKO_WIND", "USA_WIND", "CMA_WIND", 
 def interpolate_track(grp: pd.DataFrame, step: str = "30min") -> pd.DataFrame:
     """Densify one storm's track to a ``step`` grid (original times kept, flagged ``interpolated=False``).
 
-    Numeric columns are linearly interpolated in time, only between two valid values
-    (``limit_area="inside"``): a column missing at either end of a gap stays NaN.
+    A value at an interpolated time is filled only when both bracketing ORIGINAL rows have a value
+    for that column; original rows keep their own value or NaN.  Duplicate ``ISO_TIME`` rows
+    collapse to the one with the most non-NaN fields (ties: the last).
     """
-    g = grp.sort_values("ISO_TIME").drop_duplicates("ISO_TIME").set_index("ISO_TIME")
+    g = grp.sort_values("ISO_TIME", kind="stable").copy()
+    g["_n"] = g.notna().sum(axis=1)
+    # stable sort by (time, n) then keep the last -> most fields, ties -> last in input order
+    g = g.sort_values(["ISO_TIME", "_n"], kind="stable").drop_duplicates("ISO_TIME", keep="last").drop(columns="_n")
+    g = g.set_index("ISO_TIME")
     idx = pd.date_range(g.index[0], g.index[-1], freq=step).union(g.index)
     out = g.reindex(idx)
-    out["interpolated"] = ~idx.isin(g.index)
-    for col in out.columns.intersection(_INTERP_COLS):
-        out[col] = out[col].astype(float).interpolate(method="time", limit_area="inside")
+    is_new = ~idx.isin(g.index)
+    out["interpolated"] = is_new
+    if is_new.any():
+        t_orig = g.index.asi8.astype(float)
+        t_new = idx[is_new].asi8.astype(float)
+        hi = np.searchsorted(t_orig, t_new, side="right")
+        lo = hi - 1
+        frac = (t_new - t_orig[lo]) / (t_orig[hi] - t_orig[lo])
+        for col in out.columns.intersection(_INTERP_COLS):
+            v = g[col].astype(float).to_numpy()
+            # linear LON: no dateline unwrap (fine for this region).  NaN at either end -> NaN.
+            # Wind radius 0 means "no such wind"; NaN means missing - both interpolate as plain numbers.
+            col_vals = out[col].astype(float).to_numpy().copy()
+            col_vals[is_new] = v[lo] + (v[hi] - v[lo]) * frac
+            out[col] = col_vals
     for col in ("SID", "SEASON", "NAME"):
         if col in out.columns:
             out[col] = out[col].ffill()
@@ -210,6 +227,7 @@ def storm_passages(track: pd.DataFrame, site_lat: float, site_lon: float, radius
     df["dist_km"] = haversine_km(df["LAT"].to_numpy(), df["LON"].to_numpy(), site_lat, site_lon)
     if interp_step:
         # only storms with an original row near enough can have an interpolated point inside radius_km
+        # (the +100 km margin assumes rows at most ~3-hourly apart)
         sids = df.loc[df["dist_km"] <= radius_km + 100.0, "SID"].unique()
         groups = []
         for sid in sids:

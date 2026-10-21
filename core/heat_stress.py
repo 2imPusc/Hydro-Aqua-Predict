@@ -21,7 +21,9 @@ _FLAGS = {"used_by_models": False, "used_by_alerts": False, "notification_eligib
 
 
 def daily_heat_stress(sst_daily: pd.Series) -> pd.DataFrame:
-    s = sst_daily.astype(float)
+    s = sst_daily.astype(float).sort_index()
+    if isinstance(s.index, pd.DatetimeIndex) and len(s) > 1:
+        s = s.asfreq("D")  # absent calendar dates become NaN days (break runs, count as zero degree-days)
     level = pd.Series(np.select([s >= SEVERE_C, s >= STRESS_C, s >= WATCH_C], [3, 2, 1], 0), index=s.index, dtype=float)
     level[s.isna()] = np.nan
     above = (s >= WATCH_C).astype(int)
@@ -57,12 +59,15 @@ def evaluate_heat_advisory(marine: dict | None, now=None) -> dict:
         return {"status": "unavailable", "reason": "sst_missing", **_FLAGS}
     if getattr(times, "tz", None) is None:
         times = times.tz_localize(marine.get("timezone", "Asia/Ho_Chi_Minh"))
+    if len(values) != len(times):
+        return {"status": "unavailable", "reason": "sst_length_mismatch", **_FLAGS}
     sst = pd.Series(pd.to_numeric(pd.Series(values), errors="coerce").to_numpy(), index=times.tz_convert("UTC"))
+    daily = daily_from_hourly(sst)  # full local days first (min_hours rule) so today is not truncated
     if now is not None:
         now = pd.Timestamp(now)
         now = now.tz_localize("UTC") if now.tzinfo is None else now.tz_convert("UTC")
-        sst = sst[sst.index >= now.floor("h")]
-    days = daily_heat_stress(daily_from_hourly(sst))
+        daily = daily[daily.index >= pd.Timestamp(now.tz_convert("Asia/Ho_Chi_Minh").date())]
+    days = daily_heat_stress(daily)
     days = days[days["level"].notna()]  # guard: never int() a NaN level
     if days.empty:
         return {"status": "unavailable", "reason": "no_complete_forecast_day", **_FLAGS}

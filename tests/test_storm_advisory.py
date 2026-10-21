@@ -254,3 +254,24 @@ def test_interpolate_track_keeps_nan_ends_and_flags():
     assert out["USA_WIND"].iloc[1] == pytest.approx(73.333, abs=0.01)
     assert out["LAT"].iloc[1] == pytest.approx(20.3333, abs=1e-3)
     assert (out["SID"] == "S1").all()
+
+
+def test_interpolate_track_original_nan_stays_nan():
+    times = ["2024-09-07T00:00Z", "2024-09-07T02:00Z", "2024-09-07T04:00Z"]
+    winds = [50.0, float("nan"), 70.0]
+    rows = [_row(ISO_TIME=pd.Timestamp(t), LAT=20.0 + i, LON=107.0, TOKYO_WIND=w) for i, (t, w) in enumerate(zip(times, winds))]
+    out = interpolate_track(pd.DataFrame(rows), "1h")
+    assert list(out["interpolated"]) == [False, True, False, True, False]
+    assert out["TOKYO_WIND"].iloc[0] == 50.0 and out["TOKYO_WIND"].iloc[4] == 70.0
+    assert out["TOKYO_WIND"].iloc[1:4].isna().all()
+    assert out["LAT"].notna().all()
+
+
+def test_interpolate_track_duplicate_time_keeps_fullest_row():
+    t = pd.Timestamp("2024-09-07T00:00Z")
+    sparse = _row(ISO_TIME=t, LAT=20.0, LON=107.0, TOKYO_WIND=float("nan"), USA_WIND=float("nan"))
+    full = _row(ISO_TIME=t, LAT=20.0, LON=107.0, TOKYO_WIND=65.0, USA_WIND=70.0)
+    nxt = _row(ISO_TIME=pd.Timestamp("2024-09-07T02:00Z"), LAT=21.0, LON=107.0, TOKYO_WIND=65.0, USA_WIND=70.0)
+    for order in ([sparse, full, nxt], [full, sparse, nxt]):
+        out = interpolate_track(pd.DataFrame(order), "1h")
+        assert len(out) == 3 and out["TOKYO_WIND"].iloc[0] == 65.0
