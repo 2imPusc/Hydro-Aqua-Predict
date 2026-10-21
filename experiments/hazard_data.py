@@ -2,7 +2,7 @@
 
     python experiments/hazard_data.py ibtracs --subset WP
     python experiments/hazard_data.py ibtracs --subset last3years
-    python experiments/hazard_data.py oisst --start-year 1982
+    python experiments/hazard_data.py oisst --start-year 1982   # NOAA PSL THREDDS NCSS, daily 0.25 deg
     python experiments/hazard_data.py marine-sst --start 2023-07-01
     python experiments/hazard_data.py era5 --start-year 1982
 
@@ -16,6 +16,8 @@ import hashlib
 import io
 import json
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -29,13 +31,11 @@ from core.config import weather_location_for_station  # noqa: E402
 STATION = "06M26042804"
 IBTRACS_URL = ("https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/"
                "v04r01/access/csv/ibtracs.{subset}.list.v04r01.csv")
-OISST_URL = ("https://www.ncei.noaa.gov/erddap/griddap/ncdc_oisst_v2_avhrr_by_time_zlev_lat_lon.csv?"
-             "sst%5B({start}T12:00:00Z):1:({end}T12:00:00Z)%5D%5B(0.0)%5D%5B({lat})%5D%5B({lon})%5D")
+# NOAA PSL THREDDS NetCDF Subset Service, one file per year (1981-09 -> near present).
+OISST_URL = ("https://psl.noaa.gov/thredds/ncss/grid/Datasets/noaa.oisst.v2.highres/sst.day.mean.{year}.nc?"
+             "var=sst&latitude={lat}&longitude={lon}&time_start={start}T00:00:00Z&time_end={end}T00:00:00Z&accept=csv")
 # Nearest non-land-masked OISST cell to NB1 (checked 2026-10-22; 20.875 N is land).
 OISST_CELL = (20.625, 107.125)
-# This NCEI ERDDAP dataset only starts 2020-02-28 (checked 2026-10-22); earlier requests 404.
-# Pre-2020 history needs another host (coastwatch.pfeg timed out), so it is clamped here.
-OISST_MIN_DATE = date(2020, 2, 28)
 MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
 ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
 
@@ -52,9 +52,10 @@ def write_once(target: Path, payload: bytes, url: str) -> dict:
     return meta
 
 
-def parse_erddap_csv(text: str) -> pd.Series:
-    df = pd.read_csv(io.StringIO(text), skiprows=[1])
-    return pd.Series(pd.to_numeric(df["sst"], errors="coerce").to_numpy(),
+def parse_psl_ncss_csv(text: str) -> pd.Series:
+    df = pd.read_csv(io.StringIO(text))
+    sst_col = next(c for c in df.columns if c.split("[")[0] == "sst")
+    return pd.Series(pd.to_numeric(df[sst_col], errors="coerce").to_numpy(),
                      index=pd.to_datetime(df["time"], utc=True), name="sst")
 
 
@@ -70,19 +71,38 @@ def fetch_ibtracs(subset: str) -> dict:
     return write_once(target, _get(url, timeout=600).content, url)
 
 
+def _oisst_windows(start_year: int, end: date) -> list[tuple[int, date, date]]:
+    """Quarter-year request windows: the PSL proxy 502s past ~60 s (~0.3 s per day requested)."""
+    out = []
+    for year in range(start_year, end.year + 1):
+        for q in range(4):
+            first = date(year, 3 * q + 1, 1)
+            last = date(year, 3 * q + 3, [31, 30, 30, 31][q])
+            if first <= end:
+                out.append((year, first, min(last, end)))
+    return out
+
+
+def _fetch_oisst_window(year: int, first: date, last: date, lat: float, lon: float, tries: int = 4) -> pd.Series:
+    url = OISST_URL.format(year=year, start=first.isoformat(), end=last.isoformat(), lat=lat, lon=lon)
+    for attempt in range(tries):
+        try:
+            return parse_psl_ncss_csv(_get(url, timeout=120).text)
+        except requests.RequestException:
+            if attempt == tries - 1:
+                raise
+            time.sleep(5 * (attempt + 1))
+
+
 def fetch_oisst(start_year: int, end: date) -> dict:
     lat, lon = OISST_CELL
-    parts, urls = [], []
-    for year in range(start_year, end.year + 1):
-        stop = min(date(year, 12, 31), end)
-        first = max(date(year, 1, 1), OISST_MIN_DATE)
-        if first > stop:
-            continue
-        url = OISST_URL.format(start=first.isoformat(), end=stop.isoformat(), lat=lat, lon=lon)
-        urls.append(url)
-        parts.append(parse_erddap_csv(_get(url).text))
+    windows = _oisst_windows(start_year, end)
+    urls = [OISST_URL.format(year=y, start=f.isoformat(), end=e.isoformat(), lat=lat, lon=lon) for y, f, e in windows]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        parts = list(pool.map(lambda w: _fetch_oisst_window(*w, lat, lon), windows))
     series = pd.concat(parts).sort_index()
     target = paths.HAZARD_DATA_DIR / "sst" / f"oisst_{lat}_{lon}_{start_year}_{end:%Y%m%d}.csv"
+    series.index = series.index.strftime("%Y-%m-%dT%H:%M:%SZ")
     return write_once(target, series.rename("sst").to_csv(index_label="time").encode(), urls[0])
 
 

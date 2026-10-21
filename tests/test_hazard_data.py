@@ -2,7 +2,7 @@ import hashlib
 
 import pytest
 
-from experiments.hazard_data import parse_erddap_csv, write_once
+from experiments.hazard_data import parse_psl_ncss_csv, write_once
 
 
 def test_write_once_refuses_overwrite(tmp_path):
@@ -14,9 +14,15 @@ def test_write_once_refuses_overwrite(tmp_path):
         write_once(target, b"other", url="http://example")
 
 
-def test_parse_erddap_csv_skips_units_row():
-    text = ("time,depth,latitude,longitude,sst\nUTC,m,degrees_north,degrees_east,Celsius\n"
-            "2024-07-01T12:00:00Z,0.0,20.625,107.125,30.23\n2024-07-02T12:00:00Z,0.0,20.625,107.125,NaN\n")
-    s = parse_erddap_csv(text)
-    assert list(s.round(2).dropna()) == [30.23]
+def test_parse_psl_ncss_csv_handles_header_and_missing():
+    hdr = 'time,station,latitude[unit="degrees_north"],longitude[unit="degrees_east"],sst[unit="degC"]'
+    cell = "GridPointRequestedAt[20.625N_107.125E],20.625,107.125"
+    rows = [hdr, f"1982-07-01T00:00:00Z,{cell},27.72", f"1982-07-02T00:00:00Z,{cell},NaN",
+            f"1982-07-03T00:00:00Z,{cell},"]
+    text = "\n".join(rows) + "\n"
+    s = parse_psl_ncss_csv(text)
+    assert s.name == "sst"
     assert str(s.index.tz) == "UTC"
+    assert len(s) == 3
+    assert s.iloc[0] == pytest.approx(27.72)
+    assert s.isna().sum() == 2
