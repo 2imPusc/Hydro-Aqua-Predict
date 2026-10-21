@@ -150,4 +150,4 @@ choices in `docs/decisions.md` (append-only log).
 
 Start with `docs/guide/00-tong-quan-du-an.md` (overview), `06-runbook.md` (ops),
 `07-alerts.md` (alert logic), `17/18` (forecast shadow + advisory),
-`23-research-map-implementation-roadmap.md`, `research-map/README.md` (current research-map state), `docs/data-policy.md`.
+`23-research-map-implementation-roadmap.md`, `27-hazard-advisory-theory.md` (storm + heat theory track), `research-map/README.md` (current research-map state), `docs/data-policy.md`.

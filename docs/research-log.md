@@ -453,3 +453,37 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết luận:** bộ thứ 7 lặp lại kết quả RL-24 (chế độ mặn > khoảng cách cho Sal, pH; DO, độ đục không chuyển được).
 - **Hạn chế:** quá ít cặp cùng chế độ; trạm phía bắc chỉ từ 2022; hai lần chạy đầu hỏng vì thiếu bộ nhớ để lại `irlon-h4-reliability-20261017/` và `-r2/` (không có manifest, không dùng).
 - **Artifact:** `irlon-h4-reliability-20261017-r3/`; dữ liệu `data/foreign/irlon_secoora/` (33 MB); commit 37b9b50.
+
+## RL-29 · 2026-10-22 · Bão: mức phơi nhiễm tại NB1 từ IBTrACS (hồi cứu, theory-only)
+
+- **Câu hỏi:** từ 1980 đến nay, cơn bão nào đã đi gần lồng ở Cát Bà, gió tại lồng ước tính cỡ nào, và Yagi 2024 có được tái hiện đúng không?
+- **Thiết lập:** `experiments/storm_hindcast.py` (`core/storm_advisory.py`), chạy cuối `storm-hindcast-20261022d`. 265 lượt bão trong 500 km quanh NB1, mùa 1980–2026. Cường độ lấy theo thứ tự TOKYO, HKO, USA×0.93, CMA. Gió tại lồng: từ bán kính gió (cận dưới) hoặc Rankine biến đổi (α 0.5), chặn ở 34 kt ngoài R34. Đường đi nội suy mỗi 30 phút. Loại bão / cấp độ QĐ 18 chỉ tính khi bão ở trong 200 km. Các lần chạy `-20261022`, `-b`, `-c` bị thay thế: b thêm gió CMA/HKO, c thêm nội suy 30 phút, d sửa lỗi nội suy làm đầy NaN gốc.
+- **Kết quả:**
+  - `exposure_method`: rankine 194, rankine_capped_by_r34 42, wind_radii 25, no_intensity 4.
+  - Cấp Beaufort tại lồng: cấp 6–7: 92; 8–9: 21; 10–11: 8; ≥ 12: 0; không xác định: 4. Từ cấp 8 trở lên: 29 lượt = 0.62 lượt/năm.
+  - Theo tháng (lượt/năm, ≥ cấp 8): T6 0.106, T7 0.128, T8 0.128, T9 0.149, T10 0.085, T11 0.021, T12–T5 là 0.
+  - YAGI 2024: gần nhất 21 km lúc 2024-09-07 06Z; gió tại lồng ≥ cấp 11 (cận dưới theo bán kính gió, cả hai hệ số 0.93 và 0.88); bão cấp 15, cấp độ QĐ 18 tham khảo = 4. ERA5 tại NB1: tối đa 29.56 m/s (cấp 11), giật 52.9 m/s. Khớp một dòng trong danh mục sự kiện. Ảnh SAR (VAST, sơ bộ): khoảng 80 % lồng bè phía nam Cẩm Phả bị phá hủy.
+  - WIPHA 2025: 17 km, lồng cấp 7. MAYSAK 2026 (đỉnh 07-04 giờ địa phương, 74 km): lồng cấp 7, bão cấp 9. NARRA 2026 (đỉnh 08-23, 74 km): lồng cấp 7, bão cấp 8.
+  - Cảm biến (mô tả, n = 2): NARRA, nhiệt độ giảm khoảng 3.3 °C từ ngày −3 (30.34) xuống ngày 0 (27.01) rồi hồi phục; TSS không có tín hiệu rõ. MAYSAK ngày −2 (2026-07-02) thiếu dữ liệu (1058 dòng).
+- **Kết luận:** phương pháp tái hiện được mức gió cao ở Yagi (≥ cấp 11, phù hợp ERA5 và thiệt hại thực tế) và cho tần suất bão ảnh hưởng theo tháng: mùa nguy cơ là T6–T10, đỉnh T9. Đây là số liệu hồi cứu theo best track, không phải năng lực dự báo.
+- **Hạn chế:** chỉ là cận dưới trong vùng bán kính gió (không có cấp ≥ 12 kể cả Yagi); Rankine bỏ qua che chắn của đất liền / vịnh và tính bất đối xứng; best track là oracle, không có tuyên bố về thời gian báo trước; mapping Điều 42 QĐ 18 lấy từ tóm tắt thứ cấp, cần đối chiếu bản gốc; bậc hành động chỉ là đề xuất; chưa có ngưỡng sóng; sensor n = 2 chỉ mô tả.
+- **Artifact:** `storm-hindcast-20261022d/` (passages, climatology_year/month, yagi_check, events_check, sensor_response_2026, manifest).
+- **Tiếp theo:** độ trễ báo trước bằng Open-Meteo Previous Runs cho Yagi/Maysak/Narra; nối vào shadow runner.
+
+## RL-30 · 2026-10-22 · Nắng nóng: SST tại NB1, sai lệch với sensor và khí hậu 1982–2026
+
+- **Câu hỏi:** nhiệt độ nước có từng chạm các mức stress của cá giò (31 / 33 / 34 °C) không, tần suất tăng chưa, và mùa nào rủi ro nhất?
+- **Thiết lập:** `experiments/heat_hindcast.py` (`core/heat_stress.py`), chạy `heat-hindcast-20261022`. NOAA OISST v2.1, ô 20.625 N 107.125 E (~13 km từ NB1), 1982-01-01 → 2026-10-20, tải từ NOAA PSL THREDDS (ERDDAP NCEI chỉ có từ 2020). Sai lệch tính trên 129 ngày 2026-05-29 → 10-20. Mức theo trung bình ngày; mức 1 ("theo dõi") là ngày ≥ 31 °C; mức 2–3 (33 / 34 °C) chỉ được tính khi đã có ≥ 3 ngày liên tiếp ≥ 31 °C, nếu không bị hạ về mức 1; bản hiệu chỉnh cộng độ lệch trung vị +0.30 °C.
+- **Kết quả:**
+  - OISST: cực đại 31.93 °C (2023-07-15); trung bình tháng 7 là 29.55, tháng 1 là 20.05.
+  - Sensor − OISST: trung vị +0.30 °C, MAE 0.82, r 0.44. Sensor − Open-Meteo marine: trung vị −0.73, MAE 0.88, r 0.62. Trung vị theo tháng so với OISST: T6 +0.15, T7 +0.35, T8 +0.28, T9 −0.05, T10 +0.45; p90 +1.18; max +1.91 (2026-08-17, sensor 31.99 so với OISST 30.09).
+  - Sensor 2026: 31/129 ngày có trung bình ngày ≥ 31 °C; 0 ngày ≥ 33. OISST: 0 ngày ≥ 31 trong cùng giai đoạn.
+  - Khí hậu 1982–2025 (44 năm đủ), số ngày/năm ở mức cảnh báo ≥ 1 (ngày ≥ 31 °C): thô 5.75 (10 năm đầu 0.1; 10 năm cuối 17.3); hiệu chỉnh +0.30: 10.16 (0.9 → 28.5). Mức ≥ 2 (33 °C) và ≥ 3: 0 ở mọi năm, cả thô lẫn hiệu chỉnh. Với độ lệch p90 +1.18: tổng 8 ngày ≥ 33 °C, đều sau 2012; chưa có ngày ≥ 34 °C.
+  - Xu hướng Theil–Sen của số ngày mức ≥ 1: thô +1.41 ngày/thập kỷ (KTC 95 % 0.0–3.08); hiệu chỉnh +3.94 (1.94–6.67).
+  - Lịch (mức ≥ 1, hiệu chỉnh): tuần ISO 21–40, đỉnh tuần 29 (tỷ lệ năm có ngày nóng 0.295). Lịch stress (≥ 33 °C) trống.
+  - Cờ nóng + lặng gió: 0.02 ngày/năm, gần như không bao giờ; giả thuyết chưa kiểm được vì không có DO.
+- **Kết luận:** mức 31 °C tăng rõ trong 44 năm và tập trung giữa tuần 21 và 40 (khoảng tháng 5 đến tháng 10). Mức stress 33 °C chưa xuất hiện trong OISST. Sensor cho thấy nước ở lồng có thể nóng hơn sản phẩm vài phần mười °C, có ngày tới ~2 °C.
+- **Hạn chế:** độ lệch chỉ ước từ một mùa (độ bất định ~1 °C, lớn hơn chính độ lệch) nên bản hiệu chỉnh chỉ là ca nhạy cảm, không phải hiệu chuẩn; ô OISST 0.25° ngoài khơi đọc thấp đỉnh nóng trong vịnh; mức nhiệt là rủi ro tăng trưởng/stress, không phải tử vong; tài liệu mâu thuẫn về nhiệt độ tối ưu (27–29 so với 33 °C).
+- **Ghi chú quy trình:** thư mục `heat-hindcast-20261022` (lần chạy đầu, mới vài phút tuổi) đã bị agent triển khai xóa và tạo lại để thêm một file đầu ra. Đây là ngoại lệ so với quy tắc run dir ghi một lần; không mất dữ liệu nguồn nào. Manifest của lần chạy này có trước trường `offset_status` (code thêm sau; run dir không chạy lại).
+- **Artifact:** `heat-hindcast-20261022/` (bias, trend, daily_oisst, climatology_year, heat_calendar, heat_calendar_watch, manifest).
+- **Tiếp theo:** lịch thả giống (kết hợp `heat_calendar_watch.csv`); chỉ số bệnh (Vibrio/Streptococcus); thêm mùa sensor để ước độ lệch tốt hơn.

@@ -92,3 +92,12 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Lý do:** mô phỏng Monte Carlo cho thấy kernel Bartlett bác bỏ sai giả thuyết đúng tới 8–11 % (danh nghĩa 5 %), theo hướng có lợi cho mô hình. Kernel rectangular cho 5–7 %.
 - **Hệ quả:** kết quả H1.1 (RL-03) dùng purge cũ và fold 5 có nhãn lấn sang lockbox. So với H1.2, các con số 15/30/60 phút có thể lệch nhẹ.
 
+## #17 — 2026-10-22 · Hướng lý thuyết + dữ liệu công khai cho cảnh báo bão và nắng nóng
+
+- **Quyết định:** cảm biến và lấy mẫu nước khó mở rộng, nên cảnh báo bão và nắng nóng đi theo hướng lý thuyết + dữ liệu công khai trước (chủ dự án chốt 2026-10-22).
+  - Bão: IBTrACS v04r01 chỉ là **oracle** để tính mức phơi nhiễm tại NB1 (hồi cứu, khí hậu). Không dùng để nói về độ chính xác dự báo hay thời gian báo trước.
+  - Ngưỡng lấy từ QĐ 18/2021/QĐ-TTg (cấp bão, cấp độ rủi ro), Sun & Chen 2014 (31 / 33 °C) và Le et al. 2024 (34 °C).
+  - `hap_shared/thresholds/cobia_thresholds.json` **giữ nguyên**.
+  - Bậc hành động tại lồng (cấp 6/8/10/12) và ngưỡng sóng cho lồng cần chuyên gia / người nuôi xem lại. Chưa có ngưỡng sóng.
+- **Lý do:** tài liệu về nhiệt độ tối ưu của cá giò mâu thuẫn (27–29 °C cho cá ~22 g trong Le et al. 2024, so với 33 °C trong Sun & Chen 2014). Vì vậy mức nhiệt được gọi là rủi ro tăng trưởng/stress, không phải tử vong.
+- **Hệ quả:** mọi đầu ra mang `used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"`. Mapping Điều 42 của QĐ 18 lấy từ bản tóm tắt thứ cấp; cần đối chiếu bản .doc gốc trước khi dùng trong luận văn. Chi tiết: `docs/guide/27-hazard-advisory-theory.md`, RL-29, RL-30.
