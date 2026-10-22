@@ -1,6 +1,6 @@
 import { Archive, FlaskConical, WifiOff } from 'lucide-react'
 import { useLiveData } from './LiveDataContext'
-import { Chip, StateChip } from '../components/ui'
+import { Chip, StateChip, stateMeta, type Tone } from '../components/ui'
 import { formatAge, useNow } from '../hooks/useNow'
 import { describeApiError } from '../api/client'
 import { researchReason } from '../api/research'
@@ -11,9 +11,14 @@ const SCENARIO_LABEL: Record<string, string> = {
 }
 export const scenarioLabel = (id: string) => SCENARIO_LABEL[id] ?? id
 
+const RANK: Record<Tone, number> = { danger: 4, warn: 3, mock: 2, info: 1, neutral: 1, accent: 0, ok: 0 }
+
 /**
  * Live status chips from the light `/api/v1/status` poll: backend link, sensor
- * freshness/age, context snapshot age, research export, data mode.
+ * freshness/age, context snapshot age, research export, data mode. The mode
+ * chip never says "live" while the backend is unreachable or the sensor feed
+ * is not fresh. Phones get one summary chip (worst state) with the full list
+ * in its tooltip and accessible name.
  */
 export function TopBarStatus() {
   const { status, mode, scenario, pilotStation } = useLiveData()
@@ -29,31 +34,45 @@ export function TopBarStatus() {
   const sensorAge = sensor?.age_seconds != null ? sensor.age_seconds + elapsed : null
   const exportVersion = data?.research.export_version
 
+  const sensorState = sensor ? (failed && sensor.status === 'fresh' ? 'stale' : sensor.status) : failed ? 'unavailable' : 'loading'
+  const contextState = context ? (failed && context.status === 'fresh' ? 'stale' : context.status) : failed ? 'unavailable' : 'loading'
+  // Advisory mode: "live" only when the sensor feed actually is fresh; otherwise say what it is.
+  const modeChip = mode === 'mock'
+    ? { tone: 'mock' as Tone, label: `Mô phỏng · ${scenarioLabel(scenario)}`, title: 'Dữ liệu khuyến nghị đang ở chế độ mô phỏng, không phải dữ liệu thật' }
+    : offline ? { tone: 'danger' as Tone, label: 'Live · mất kết nối', title: 'Không kết nối được backend: không có dữ liệu trực tiếp' }
+    : sensorState === 'fresh' ? { tone: 'neutral' as Tone, label: 'Live · shadow', title: 'Khuyến nghị dựng từ cảm biến + API (shadow mode, không gửi tới người nuôi)' }
+    : sensorState === 'stale' ? { tone: 'warn' as Tone, label: 'Live · dữ liệu cũ', title: 'Chế độ live nhưng cảm biến đã quá hạn tươi: đang thấy giá trị cũ, không phải hiện tại' }
+    : sensorState === 'loading' ? { tone: 'neutral' as Tone, label: 'Live · đang tải', title: 'Đang kiểm tra trạng thái cảm biến' }
+    : { tone: 'danger' as Tone, label: 'Live · không có cảm biến', title: 'Chế độ live nhưng không có dữ liệu cảm biến' }
+
+  const sensorTitle = `Cảm biến: ${stateMeta(sensorState).label}${sensorAge != null ? ` (${formatAge(sensorAge)})` : ''} · trạm ${pilotStation}${sensor?.latest_observed_at ? ` · đo lúc ${new Date(sensor.latest_observed_at).toLocaleString('vi-VN')}` : ''}${sensor?.reason ? ` · ${researchReason(sensor.reason)}` : ''}`
+  const contextTitle = `Context: ${stateMeta(contextState).label}${contextAge != null ? ` (${formatAge(contextAge)})` : ''}${context?.snapshot_id ? ` · snapshot ${context.snapshot_id.slice(0, 8)}` : context?.reason ? ` · ${researchReason(context.reason)}` : ''}`
+  const worst = [stateMeta(sensorState).tone, stateMeta(contextState).tone, modeChip.tone].sort((a, b) => RANK[b] - RANK[a])[0]
+  const summaryLabel = mode === 'mock' ? 'Mô phỏng' : worst === 'danger' ? 'Thiếu dữ liệu' : worst === 'warn' ? 'Dữ liệu cũ' : sensorState === 'loading' ? 'Đang tải' : 'Trực tiếp'
+  const summaryTitle = [offline ? describeApiError(status.error) : null, sensorTitle, contextTitle, modeChip.label].filter(Boolean).join(' · ')
+
   return (
     <div className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-live="polite">
-      {offline && (
-        <Chip tone="danger" icon={<WifiOff size={12} />} title={describeApiError(status.error)}>
-          <span className="hidden xl:inline">Mất kết nối backend</span><span className="xl:hidden">Offline</span>
-        </Chip>
-      )}
-      {sensor
-        ? <StateChip prefix="Cảm biến" state={failed && sensor.status === 'fresh' ? 'stale' : sensor.status} suffix={sensorAge != null ? formatAge(sensorAge) : undefined}
-            title={`Trạm ${pilotStation}${sensor.latest_observed_at ? ` · đo lúc ${new Date(sensor.latest_observed_at).toLocaleString('vi-VN')}` : ''}${sensor.reason ? ` · ${researchReason(sensor.reason)}` : ''}`} />
-        : <StateChip prefix="Cảm biến" state={failed ? 'unavailable' : 'loading'} title={describeApiError(status.error)} />}
-      {context
-        ? <StateChip prefix="Context" state={failed && context.status === 'fresh' ? 'stale' : context.status} suffix={contextAge != null ? formatAge(contextAge) : undefined}
-            title={context.snapshot_id ? `Snapshot ${context.snapshot_id.slice(0, 8)}${context.retrieved_at ? ` · lấy lúc ${new Date(context.retrieved_at).toLocaleString('vi-VN')}` : ''}` : researchReason(context.reason)} />
-        : <StateChip prefix="Context" state={failed ? 'unavailable' : 'loading'} title={describeApiError(status.error)} />}
-      {data && (
-        <span className="hidden 2xl:inline-flex">
-          <Chip tone={exportVersion ? 'neutral' : 'warn'} icon={<Archive size={12} />} title={exportVersion ? 'Bản export nghiên cứu đang dùng (artifacts/research-map/)' : researchReason('research_export_missing')}>
-            {exportVersion ? `Export ${exportVersion}` : 'Chưa có export'}
+      <span className="md:hidden" role="status" aria-label={summaryTitle}>
+        <Chip tone={mode === 'mock' ? 'mock' : worst} icon={offline ? <WifiOff size={12} /> : mode === 'mock' ? <FlaskConical size={12} /> : undefined} dot={!offline && mode !== 'mock'} title={summaryTitle} className={mode === 'mock' ? 'mock-stripes' : ''}>{summaryLabel}</Chip>
+      </span>
+      <span className="hidden min-w-0 items-center gap-1.5 md:inline-flex">
+        {offline && (
+          <Chip tone="danger" icon={<WifiOff size={12} />} title={describeApiError(status.error)}>
+            <span className="hidden xl:inline">Mất kết nối backend</span><span className="xl:hidden">Offline</span>
           </Chip>
-        </span>
-      )}
-      {mode === 'mock'
-        ? <Chip tone="mock" icon={<FlaskConical size={12} />} className="mock-stripes" title="Dữ liệu khuyến nghị đang ở chế độ mô phỏng, không phải dữ liệu thật">MÔ PHỎNG · {scenarioLabel(scenario)}</Chip>
-        : <Chip tone="neutral" dot title="Khuyến nghị dựng từ cảm biến + API (shadow mode, không gửi tới người nuôi)">Live · shadow</Chip>}
+        )}
+        <StateChip prefix="Cảm biến" state={sensorState} suffix={sensorAge != null ? formatAge(sensorAge) : undefined} title={sensorTitle} />
+        <span className="hidden lg:inline-flex"><StateChip prefix="Context" state={contextState} suffix={contextAge != null ? formatAge(contextAge) : undefined} title={contextTitle} /></span>
+        {data && (
+          <span className="hidden 2xl:inline-flex">
+            <Chip tone={exportVersion ? 'neutral' : 'warn'} icon={<Archive size={12} />} title={exportVersion ? 'Bản export nghiên cứu đang dùng (artifacts/research-map/)' : researchReason('research_export_missing')}>
+              {exportVersion ? `Export ${exportVersion}` : 'Chưa có export'}
+            </Chip>
+          </span>
+        )}
+        <Chip tone={modeChip.tone} icon={mode === 'mock' ? <FlaskConical size={12} /> : undefined} dot={mode !== 'mock'} className={mode === 'mock' ? 'mock-stripes' : ''} title={modeChip.title}>{modeChip.label}</Chip>
+      </span>
     </div>
   )
 }

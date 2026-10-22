@@ -41,22 +41,19 @@ export function FindingList({ items, icon, empty = 'Không có mục nào.' }: {
   )
 }
 
-/** Page header for research views: direction code, title, stage + headline from the export. */
+/**
+ * Compact page header for research views: code, title and provenance chips.
+ * The answer itself lives in the view's Verdict card, so the export headline
+ * is not repeated here as prose.
+ */
 export function ResearchHeader({ code, title, direction, exportVersion, children }: { code: string; title: string; direction: Direction | null; exportVersion?: string | null; children?: ReactNode }) {
   return (
-    <header className="flex flex-wrap items-start gap-x-6 gap-y-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-[var(--radius-xs)] bg-accent-soft px-1.5 py-0.5 text-[11px] font-bold text-accent">{code}</span>
-          <h2 className="m-0 text-[20px] font-semibold tracking-tight text-fg">{title}</h2>
-          <Chip size="xs" tone="info" icon={<FlaskConical size={11} />} title="Kết quả nghiên cứu, không dùng cho cảnh báo hay người nuôi">Chỉ nghiên cứu</Chip>
-          {direction?.stage && <Chip size="xs" tone="neutral">{direction.stage}</Chip>}
-        </div>
-        {direction?.headline
-          ? <p className="m-0 mt-1.5 max-w-3xl text-[13.5px] leading-snug text-fg-muted">{direction.headline}</p>
-          : <Skeleton className="mt-2 h-3.5 w-2/3" />}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
+    <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="rounded-[var(--radius-xs)] bg-accent-soft px-1.5 py-0.5 text-[12px] font-bold text-accent">{code}</span>
+      <h2 className="m-0 text-[20px] font-semibold tracking-tight text-fg">{title}</h2>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Chip size="xs" tone="info" icon={<FlaskConical size={11} />} title="Kết quả nghiên cứu, không dùng cho cảnh báo hay người nuôi">Chỉ nghiên cứu</Chip>
+        {direction?.stage && <Chip size="xs" tone="neutral" title="Giai đoạn nghiên cứu">{direction.stage}</Chip>}
         {children}
         {exportVersion !== undefined && (
           <Chip size="xs" tone={exportVersion ? 'neutral' : 'warn'} icon={<Archive size={11} />} title="Bản export nghiên cứu (artifacts/research-map/<stamp>)">
@@ -93,9 +90,10 @@ export function ResearchGate<T extends ResearchEnvelope>({ poll, title, children
 }
 
 /** Findings / limitations / next steps / research log for one direction (from overview.json). */
-export function DirectionPanel({ direction, poll }: { direction: Direction | null; poll: PollState<unknown> }) {
+export function DirectionPanel({ direction, poll, defaultOpen = false }: { direction: Direction | null; poll: PollState<unknown>; defaultOpen?: boolean }) {
+  const summary = direction ? `${direction.findings.length} phát hiện · ${direction.limitations.length} giới hạn · ${direction.next.length} bước tiếp` : undefined
   return (
-    <Panel title="Tóm tắt nghiên cứu" icon={<BookOpen size={15} />}>
+    <Panel title="Tóm tắt nghiên cứu" icon={<BookOpen size={15} />} collapsible defaultOpen={defaultOpen} summary={summary}>
       {!direction && poll.error && <Unavailable compact error={poll.error} />}
       {!direction && !poll.error && <div className="space-y-2"><Skeleton className="h-3 w-full" /><Skeleton className="h-3 w-5/6" /></div>}
       {direction && (
@@ -120,7 +118,7 @@ export function DirectionPanel({ direction, poll }: { direction: Direction | nul
 export function PageScroll({ children }: { children: ReactNode }) {
   return (
     <div className="scroll-thin h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-6 py-5">{children}</div>
+      <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-4 py-4 md:px-6 md:py-5">{children}</div>
     </div>
   )
 }

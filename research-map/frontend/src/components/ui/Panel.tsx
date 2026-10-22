@@ -10,42 +10,54 @@ type PanelProps = {
   variant?: 'glass' | 'solid'
   collapsible?: boolean
   defaultOpen?: boolean
+  /** One-line answer shown next to the title (stays visible when collapsed). */
+  summary?: ReactNode
   className?: string
   bodyClassName?: string
 }
 
-export function Panel({ title, icon, actions, children, variant = 'solid', collapsible, defaultOpen = true, className = '', bodyClassName = '' }: PanelProps) {
+export function Panel({ title, icon, actions, children, variant = 'solid', collapsible, defaultOpen = true, summary, className = '', bodyClassName = '' }: PanelProps) {
   const [open, setOpen] = useState(defaultOpen)
   const bodyId = useId()
   const surface = variant === 'glass' ? 'glass' : 'bg-surface border border-line shadow-[var(--shadow-sm)]'
   const header = title !== undefined && (
-    <div className="flex items-center gap-2 px-3.5 pt-3 pb-2">
-      {icon && <span className="text-accent flex-none" aria-hidden>{icon}</span>}
-      <h2 className="m-0 min-w-0 flex-1 truncate text-[12.5px] font-semibold tracking-[.01em] text-fg">{title}</h2>
-      {actions}
-      {collapsible && (
-        <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls={bodyId}
-          className="-mr-1 grid size-6 place-items-center rounded-md text-fg-subtle transition-colors hover:bg-surface-3 hover:text-fg"
-          aria-label={open ? 'Thu gọn' : 'Mở rộng'}>
-          <ChevronDown size={15} className={`transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
-        </button>
+    <div className={`flex items-start gap-2 px-3.5 pt-3 ${collapsible && !open ? 'pb-3' : 'pb-2'}`}>
+      {icon && <span className="mt-px flex-none text-accent" aria-hidden>{icon}</span>}
+      {collapsible ? (
+        // Heading wraps the toggle (not the reverse) so it stays a heading for assistive tech.
+        <h2 className="m-0 min-w-0 flex-1 text-[13px] font-semibold text-fg">
+          <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls={bodyId}
+            className="-my-1 flex w-full items-start gap-2 rounded-md py-1 text-left">
+            <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="min-w-0">{title}</span>
+              {summary && <span className="min-w-0 max-w-full truncate text-[12px] font-normal text-fg-muted">{summary}</span>}
+            </span>
+            <ChevronDown size={15} aria-hidden className={`mt-0.5 flex-none text-fg-subtle transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
+          </button>
+        </h2>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="m-0 min-w-0 text-[13px] font-semibold text-fg">{title}</h2>
+          {summary && <span className="min-w-0 max-w-full truncate text-[12px] text-fg-muted">{summary}</span>}
+        </div>
       )}
+      {actions && <div className="flex flex-none items-center gap-1.5">{actions}</div>}
     </div>
   )
   return (
-    <section className={`rounded-[var(--radius-lg)] ${surface} ${className}`}>
+    <section className={`min-w-0 rounded-[var(--radius-lg)] ${surface} ${className}`}>
       {header}
       {(!collapsible || open) && <div id={bodyId} className={`px-3.5 pb-3.5 ${title === undefined ? 'pt-3.5' : ''} ${bodyClassName}`}>{children}</div>}
     </section>
   )
 }
 
-/** Small uppercase group heading inside a panel. */
+/** Small sentence-case group heading inside a panel. */
 export function SectionLabel({ children, icon, trailing }: { children: ReactNode; icon?: ReactNode; trailing?: ReactNode }) {
   return (
     <div className="mb-1.5 mt-3 flex items-center gap-1.5 first:mt-0">
       {icon && <span className="text-fg-subtle" aria-hidden>{icon}</span>}
-      <h3 className="m-0 flex-1 text-[10.5px] font-bold uppercase tracking-[.08em] text-fg-subtle">{children}</h3>
+      <h3 className="m-0 flex-1 text-[12px] font-semibold text-fg-muted">{children}</h3>
       {trailing}
     </div>
   )

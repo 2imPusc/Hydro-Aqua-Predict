@@ -7,7 +7,7 @@
 /* ------------------------------------------------------------------ tokens */
 :root {
   color-scheme: light;
-  --font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Be Vietnam Pro", "Segoe UI Variable Text", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* surfaces */
@@ -170,6 +170,18 @@ body {
   font-feature-settings: "cv11", "ss01";
 }
 .tabular { font-variant-numeric: tabular-nums; }
+/* One hero figure per view: same sans, proportional figures, tight tracking. */
+.hero-figure { font-size: 48px; line-height: 1; font-weight: 600; letter-spacing: -0.03em; }
+@media (max-width: 767px) { .hero-figure { font-size: 40px; } }
+
+/* Progressive disclosure ("Chi tiết"): native <details>, one style everywhere. */
+.disclosure > summary { list-style: none; }
+.disclosure > summary::-webkit-details-marker { display: none; }
+.disclosure > summary .disclosure-chevron { transition: transform var(--dur) var(--ease); }
+.disclosure[open] > summary .disclosure-chevron { transform: rotate(90deg); }
+
+/* Bottom sheet for map panels on narrow screens. */
+.sheet-handle { width: 36px; height: 4px; border-radius: 99px; background: var(--line-strong); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 ::selection { background: var(--accent-soft); }
 
@@ -240,6 +252,9 @@ body {
 .wind-arrow { animation: wind-drift 1.8s ease-in-out infinite; }
 @keyframes wind-drift { 0%, 100% { transform: translateX(0); opacity: .7; } 50% { transform: translateX(3px); opacity: 1; } }
 .monitor-map .leaflet-right { right: var(--inspector-offset, 0px); transition: right var(--dur) var(--ease); }
+/* Research maps with a floating panel: keep zoom/attribution clear of it. */
+.map-with-panel .leaflet-right { right: var(--panel-offset, 0px); }
+.map-with-panel .leaflet-bottom { bottom: var(--panel-bottom, 0px); }
 .flow-particle-canvas { position: absolute; inset: 0; z-index: 650; pointer-events: none; }
 
 .station-marker { background: transparent; border: 0; }

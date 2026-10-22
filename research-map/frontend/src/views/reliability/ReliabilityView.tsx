@@ -23,14 +23,14 @@ export default function ReliabilityView({ tab = 'vn', datasetId, theme }: { tab?
             const active = item.value === tab
             return (
               <a key={item.value} href={RELIABILITY_HASH[item.value]} aria-current={active ? 'page' : undefined}
-                className={`-mb-px border-b-2 px-3 py-2.5 text-[13px] font-semibold no-underline transition-colors ${active ? 'border-accent text-fg' : 'border-transparent text-fg-subtle hover:text-fg'}`}>
+                className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-[13px] font-semibold no-underline transition-colors ${active ? 'border-accent text-fg' : 'border-transparent text-fg-subtle hover:text-fg'}`}>
                 {item.label}
               </a>
             )
           })}
         </nav>
-        <p className="m-0 hidden min-w-0 flex-1 truncate text-[12px] text-fg-muted lg:block" title={direction?.headline}>{direction?.headline}</p>
-        <Chip size="xs" tone="info" icon={<FlaskConical size={11} />}>Chỉ nghiên cứu</Chip>
+        <span className="flex-1" />
+        <Chip size="xs" tone="info" icon={<FlaskConical size={11} />} title="Kết quả nghiên cứu, không dùng cho cảnh báo hay người nuôi">Chỉ nghiên cứu</Chip>
       </div>
       <div className="relative min-h-0 flex-1">
         {tab === 'vn' && <VnTab theme={theme} />}
