@@ -207,6 +207,13 @@ def reliability_vn() -> dict:
     return payload or missing
 
 
+@router.get("/hazards")
+def hazards() -> dict:
+    """Storm / heat / disease / stocking theory-track summaries (H2). Not field-validated, never an alert input."""
+    payload, missing = _export_artifact("hazards.json")
+    return payload or missing
+
+
 SUMMARY_GATE = "gate80"
 SUMMARY_TRANSFER = "raw"
 
