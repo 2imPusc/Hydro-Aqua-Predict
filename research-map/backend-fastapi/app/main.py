@@ -20,6 +20,7 @@ from app.network import building_station_network, ensure_station_network_cache, 
 from app.hsi_cache import load_hsi_cache
 from app.flow_artifacts import load_flow_artifact
 from app.bathymetry_artifacts import LODS, load_geojson as load_bathymetry_geojson, load_manifest as load_bathymetry_manifest, sample as sample_bathymetry
+from app import bathymetry_etopo
 from app.aquaculture_artifacts import MODES as AQUACULTURE_MODES, SCENARIOS as AQUACULTURE_SCENARIOS, load_aquaculture_artifact
 from app.research import latest_export_version, router as research_router
 
@@ -293,7 +294,37 @@ def bathymetry_contours(lod: str = "low") -> dict:
 
 @app.get("/api/v1/bathymetry/sample")
 def bathymetry_sample(lon: float, lat: float) -> dict:
-    return sample_bathymetry(settings.cache_dir, _bathymetry_manifest(), lon, lat)
+    result = sample_bathymetry(settings.cache_dir, _bathymetry_manifest(), lon, lat)
+    # Separate source, separate key: ETOPO never fills a Copernicus gap in place.
+    result["etopo"] = bathymetry_etopo.sample(settings.cache_dir, bathymetry_etopo.load_manifest(settings.cache_dir), lon, lat)
+    return result
+
+
+def _etopo_manifest() -> dict:
+    return bathymetry_etopo.load_manifest(settings.cache_dir) or {
+        "status": "building", "reason_code": "etopo_artifact_not_ready", "artifact_version": bathymetry_etopo.ETOPO_ARTIFACT_VERSION,
+    }
+
+
+@app.get("/api/v1/bathymetry/etopo/manifest")
+def bathymetry_etopo_manifest() -> dict:
+    return _etopo_manifest()
+
+
+@app.get("/api/v1/bathymetry/etopo/{kind}")
+def bathymetry_etopo_layer(kind: str, lod: str = "low") -> dict:
+    """ETOPO 2022 isobands / isobaths / confidence flags (worker-built, read-only here)."""
+    if kind not in ("isobands", "isobaths", "flags"):
+        raise HTTPException(status_code=404, detail={"reason_code": "unknown_layer", "allowed": ["isobands", "isobaths", "flags"]})
+    if lod not in bathymetry_etopo.LOD_TOLERANCE:
+        raise HTTPException(status_code=422, detail={"reason_code": "invalid_lod", "allowed": list(bathymetry_etopo.LOD_TOLERANCE)})
+    manifest = _etopo_manifest()
+    if manifest.get("status") != "ready":
+        return manifest
+    geojson = bathymetry_etopo.load_geojson(settings.cache_dir, manifest, kind, lod)
+    if geojson is None:
+        return {"status": "building", "reason_code": "etopo_lod_not_ready", "lod": lod}
+    return {**geojson, "status": "ready", "lod": lod, "artifact_version": manifest["artifact_version"], "depth_source": manifest["depth_source"]}
 
 
 def _static_network() -> dict:

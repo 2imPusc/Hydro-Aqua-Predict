@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { getAquacultureMap, getBathymetryContours, getBathymetryDepthBands, getBathymetryManifest, getContextDomain, getHsiZones, getStationNetwork, getStations } from '../../api/monitor'
+import { getAquacultureMap, getBathymetryContours, getBathymetryDepthBands, getBathymetryManifest, getContextDomain, getEtopoLayer, getEtopoManifest, getHsiZones, getStationNetwork, getStations } from '../../api/monitor'
 import { usePolling } from '../../hooks/usePolling'
 import type { DataMode } from '../../types/monitor'
 import type { Lod } from '../../components/map/mapConfig'
@@ -8,6 +8,7 @@ export type LayerKey =
   | 'hsi_zones' | 'context_buffer' | 'station_network'
   | 'flow_streamlines' | 'wind_particles'
   | 'rain' | 'wave' | 'sea_level' | 'mixed_layer_depth'
+  | 'depth_isobands' | 'depth_isobaths'
   | 'bathymetry_bands' | 'bathymetry_contours' | 'bathymetry_slope'
 export type EnabledLayers = Record<LayerKey, boolean>
 
@@ -17,6 +18,8 @@ export const DEFAULT_LAYERS: EnabledLayers = {
   hsi_zones: false, context_buffer: true, station_network: true,
   flow_streamlines: false, wind_particles: false,
   rain: false, wave: false, sea_level: false, mixed_layer_depth: false,
+  // ETOPO depth covers Cat Ba / Ha Long / Bai Tu Long; Copernicus SDB only the HP tidal flats.
+  depth_isobands: true, depth_isobaths: true,
   bathymetry_bands: false, bathymetry_contours: false, bathymetry_slope: false,
 }
 /** Scalar/vector environmental layers are mutually exclusive to keep the map legible. */
@@ -37,6 +40,13 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
   const bands = usePolling(signal => getBathymetryDepthBands(lod, signal), { enabled: bathymetryOn && bathymetryReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
   const contours = usePolling(signal => getBathymetryContours(lod, signal), { enabled: enabled.bathymetry_contours && bathymetryReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
 
+  const etopo = usePolling(getEtopoManifest, { ...ONE_SHOT, isBuilding: value => value.status === 'building', buildingIntervalMs: 15_000, maxBuildingRetries: 40 })
+  const etopoReady = etopo.data?.status === 'ready'
+  const depthOn = enabled.depth_isobands || enabled.depth_isobaths
+  const isobands = usePolling(signal => getEtopoLayer('isobands', lod, signal), { enabled: enabled.depth_isobands && etopoReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
+  const isobaths = usePolling(signal => getEtopoLayer('isobaths', lod, signal), { enabled: enabled.depth_isobaths && etopoReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
+  const depthFlags = usePolling(signal => getEtopoLayer('flags', lod, signal), { enabled: depthOn && etopoReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
+
   // Mode/scenario changes reset the map so a live advisory is never shown under a mock label (or vice versa).
   const aquaculture = usePolling(signal => getAquacultureMap(mode, scenario, signal), {
     deps: [mode, scenario], intervalMs: mode === 'live' ? 60_000 : 300_000,
@@ -45,8 +55,8 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
   })
 
   const refreshAll = useCallback(() => {
-    for (const feed of [stations, domain, network, zones, bathymetry, aquaculture]) feed.refresh()
-  }, [stations, domain, network, zones, bathymetry, aquaculture])
+    for (const feed of [stations, domain, network, zones, bathymetry, etopo, aquaculture]) feed.refresh()
+  }, [stations, domain, network, zones, bathymetry, etopo, aquaculture])
 
-  return { stations, domain, network, zones, bathymetry, bands, contours, aquaculture, refreshAll }
+  return { stations, domain, network, zones, bathymetry, bands, contours, etopo, isobands, isobaths, depthFlags, aquaculture, refreshAll }
 }

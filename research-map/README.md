@@ -98,6 +98,12 @@ Khi thiếu export hay file, endpoint trả `{"status":"unavailable","reason":..
   SECOORA ERDDAP): dữ liệu công khai; ghi công đầy đủ hiển thị trên từng thẻ bộ dữ liệu.
 - Context môi trường: Open-Meteo (lưới mẫu ~1 km, mô hình dòng chảy ~8 km — không tăng độ phân giải thật);
   Copernicus / GEBCO chỉ hiện khi đã cấu hình, không bao giờ lấy giá trị từ nguồn khác bù vào.
+- Độ sâu: **ETOPO 2022 15″** (~460 m, so với geoid EGM2008 ≈ mực nước TB, không phải số 0 hải đồ) cho cả
+  Cát Bà – Hạ Long – Bái Tử Long; tải một lần bằng `python scripts/download_etopo2022_bathymetry.py`
+  (`data/depth/etopo2022-20261023/`, write-once). Worker dựng isoband/isobath/cờ tin cậy vào
+  `cache/bathymetry-etopo/<key>/` (hoặc `python -m app.bathymetry_etopo`); API `/bathymetry/etopo/manifest|isobands|isobaths|flags`.
+  Copernicus SDB 100 m chỉ còn là lớp "bãi triều" (gần như không có pixel quanh Cát Bà / Hạ Long).
+  Đánh giá: [`docs/eval/2026-10-23-bathymetry-map.md`](../docs/eval/2026-10-23-bathymetry-map.md).
 - Dữ liệu cảm biến GreenLab là append-only; đơn vị NH4 vẫn chờ xác nhận nhà cung cấp.
 
 Credit/licence của từng bộ nằm trong `FOREIGN` của `scripts/export_research_map_artifacts.py` (lấy từ
