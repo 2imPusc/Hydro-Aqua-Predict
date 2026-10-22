@@ -6,7 +6,7 @@
 ## 1. Kết luận ngắn
 
 - Với khí hậu Cát Bà, **nhiệt độ nước một mình không phân biệt được ngày nguy cơ**: các cửa sổ nhiệt trong tài liệu phủ gần cả năm. Trên OISST 1982–2025, mức "thấp" không xuất hiện ngày nào (≥ trung bình: 365.2 ngày/năm); "cao" 216.6 ngày/năm, tuần ISO 16–48.
-- Kiểm tra với 5 sự kiện cá lồng chết hàng loạt có nguồn (QN/HP + Thái Bình): 3/5 có ngày "cao" trong cửa sổ, kỳ vọng theo khí hậu 0.659 (≈ 3.3/5) → `no_skill_over_climatology`; kết luận **không bền** khi dịch ngưỡng ±1 °C (−1 °C cho 4/5). Chỉ 2 sự kiện có tác nhân bệnh được nêu → `insufficient_evidence` cho phần bệnh. Nếu chỉ tính QN/HP thì n = 4 → cũng `insufficient_evidence`.
+- Kiểm tra với 5 sự kiện cá lồng chết hàng loạt có nguồn (QN/HP + Thái Bình): 3/5 có ngày "cao" trong cửa sổ, kỳ vọng theo khí hậu 0.659 (≈ 3.3/5) → `no_skill_over_climatology`; kết luận **không bền** khi dịch ngưỡng ±1 °C (−1 °C cho 4/5). Chỉ 2 sự kiện có tác nhân bệnh được nêu → `insufficient_evidence` cho phần bệnh. Nếu chỉ tính QN/HP thì n = 3 (4 nếu kèm rét 2008 miền Bắc) → cũng `insufficient_evidence`.
 - Cơ chế duy nhất riêng cho cá giò và riêng cho miền Bắc (lạnh kéo dài, Nhu et al. 2011) **bị OISST bỏ sót**: rét 2008 OISST thấp nhất 17.44 °C (nguồn báo 15 °C > 5 tuần); rét 2016 OISST 20.2 °C (nguồn báo < 10 °C). Ca nhạy cảm dùng nhiệt độ không khí ERA5 bắt được 2008 (cold_risk 1.0) và một phần 2016 (0.6, chuỗi < 14 ngày).
 
 ## 2. Nguồn tài liệu (chỉ số đã đọc trực tiếp)
