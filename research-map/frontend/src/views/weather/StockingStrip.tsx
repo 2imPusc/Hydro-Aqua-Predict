@@ -28,8 +28,8 @@ export function StockingStrip({ stocking }: { stocking: HazardStocking }) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <CalendarRange size={15} className="text-accent" aria-hidden />
         <h3 id="stocking-title" className="m-0 min-w-0 flex-1 text-[12.5px] font-medium text-fg-muted">Tháng nào nên thả giống cá giò?</h3>
-        <TheoryChip />
       </div>
+      <div className="mt-1"><TheoryChip /></div>
       {base && goodMonths.length > 0 && (
         <p className="m-0 mt-1 text-[12.5px] text-fg">
           Chu kỳ {base.growout_weeks} tuần: tốt nhất <span className="font-semibold">T{goodMonths[0]}–T{goodMonths[goodMonths.length - 1]}</span>
@@ -37,9 +37,9 @@ export function StockingStrip({ stocking }: { stocking: HazardStocking }) {
         </p>
       )}
       <div className="scroll-thin mt-2 overflow-x-auto">
-        <div className="grid min-w-[520px] grid-cols-[64px_repeat(12,minmax(0,1fr))] gap-[3px] text-[11px]" role="table" aria-label="Lịch thả giống theo tháng">
+        <div className="grid min-w-[300px] grid-cols-[52px_repeat(12,minmax(0,1fr))] gap-[3px] text-[11px]" role="table" aria-label="Lịch thả giống theo tháng">
           <div role="row" className="contents">
-            <span role="columnheader" className="sr-only">Chu kỳ nuôi</span>
+            <span role="columnheader" className="text-fg-subtle">Chu kỳ</span>
             {Array.from({ length: 12 }, (_, i) => <span key={i} role="columnheader" className="text-center text-fg-subtle tabular">T{i + 1}</span>)}
           </div>
           {stocking.calendars.map(calendar => (
