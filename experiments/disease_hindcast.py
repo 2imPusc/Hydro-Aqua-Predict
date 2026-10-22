@@ -19,6 +19,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import hazard_data as hd  # noqa: E402
 import heat_hindcast as hh  # noqa: E402
 from core import disease_risk as dr  # noqa: E402
 from core import heat_stress as hs  # noqa: E402
@@ -39,6 +40,12 @@ def oisst_daily(path: Path) -> pd.Series:
     s = pd.read_csv(path, parse_dates=["time"]).set_index("time")["sst"]
     s.index = s.index.tz_convert("UTC").normalize().tz_localize(None)  # OISST day = its UTC date
     return s
+
+
+def resolve_sources(rain_model: str = "era5", air_model: str = "era5") -> dict:
+    """Model-explicit hourly inputs; legacy unlabelled files only ever resolve as best_match."""
+    return {"rain_model": rain_model, "air_model": air_model,
+            "rain_file": hd.latest_precip(rain_model), "air_file": hd.latest_era5(air_model)}
 
 
 def rain_daily(path: Path) -> pd.Series:
@@ -176,16 +183,20 @@ def _thresholds() -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stamp", required=True)
+    parser.add_argument("--rain-model", choices=hd.ARCHIVE_MODELS, default="era5")
+    parser.add_argument("--air-model", choices=hd.ARCHIVE_MODELS, default="era5")
     args = parser.parse_args(argv)
     run_dir = paths.EXPERIMENT_OUTPUT_DIR / f"disease-hindcast-{args.stamp}"
     run_dir.mkdir(parents=True, exist_ok=False)
     oisst_file = hh._longest_oisst()
-    rain_file, era5_file = hh._latest("era5/era5_precip_nb1_*.csv"), hh._latest("era5/era5_nb1_*.csv")
+    src = resolve_sources(args.rain_model, args.air_model)
+    rain_file, era5_file = src["rain_file"], src["air_file"]
     oisst, rain = oisst_daily(oisst_file), rain_daily(rain_file)
     air = hs.daily_from_hourly(pd.read_csv(era5_file, parse_dates=["time"]).set_index("time")["temperature_2m"])
     events = pd.read_csv(EVENTS_CSV, dtype=str)
 
     days = dr.daily_disease_risk(oisst, rain_mm=rain)
+    days["rain_source"] = src["rain_model"]
     days.to_csv(run_dir / "daily_oisst.csv", index_label="date")
     years = yearly(days)
     years.to_csv(run_dir / "climatology_year.csv", index_label="year")
@@ -195,11 +206,13 @@ def main(argv: list[str] | None = None) -> int:
     week_calendar(complete).to_csv(run_dir / "risk_calendar.csv")
 
     air_cold = dr.daily_disease_risk(air)[["temp_c", "mu_cold", "cold_run_days", "cold_risk"]]
+    air_cold = air_cold.assign(cold_air_source=src["air_model"])
     air_cold.to_csv(run_dir / "daily_air_cold_sensitivity.csv", index_label="date")
     air_years = air_cold.groupby(air_cold.index.year)["cold_risk"].apply(lambda s: int((s >= dr.HIGH).sum()))
 
     sensor = hh.sensor_daily()
     sensor_days = dr.daily_disease_risk(sensor, rain_mm=rain)
+    sensor_days["rain_source"] = src["rain_model"]
     sensor_days.to_csv(run_dir / "daily_sensor.csv", index_label="date")
     overlap = days["level"].reindex(sensor_days["level"].dropna().index).dropna()
     sensor_summary = {"n_days": int(sensor_days["level"].notna().sum()),
@@ -215,7 +228,8 @@ def main(argv: list[str] | None = None) -> int:
     table.to_csv(run_dir / "event_scores.csv", index=False)
     sens = sensitivity(oisst, rain, events)
     summary["robust_to_shift_1c"] = len({s["event_verdict"] for s in sens}) == 1
-    results = {"years": [int(years.index.min()), int(years.index.max())], "n_years": int(len(years)),
+    results = {"rain_source": src["rain_model"], "cold_air_source": src["air_model"],
+               "years": [int(years.index.min()), int(years.index.max())], "n_years": int(len(years)),
                "mean_days_level2": round(float(years["days_level2"].mean()), 1),
                "mean_days_level_ge1": round(float(years["days_level_ge1"].mean()), 1),
                "mean_days_cold_high_oisst": round(float(years["days_cold_high"].mean()), 2),
@@ -227,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
     (run_dir / "results.json").write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
     manifest = {"run": run_dir.name, "source": {"daily_oisst": "reanalysis", "daily_sensor": "sensor",
                                                 "rain": "reanalysis", "air_cold": "reanalysis"},
+                "rain_source": src["rain_model"], "cold_air_source": src["air_model"],
                 **dr.FLAGS, "note_vi": dr.NOTE_VI, "thresholds": _thresholds(),
                 "inputs": {p.name: hh._sha(p) for p in (oisst_file, rain_file, era5_file, EVENTS_CSV)},
                 "sensor_days": int(len(sensor))}
