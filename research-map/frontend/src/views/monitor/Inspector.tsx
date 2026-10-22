@@ -188,7 +188,7 @@ function ProvenanceCard({ snapshot, contextError, layers, enabled, flow, bathyme
         {bathyOn && bathymetry && (
           <div>
             <div className="mb-1 flex items-center justify-between"><span className="text-[11.5px] font-semibold text-fg">Độ sâu</span><StateChip size="xs" state={bathymetry.status} /></div>
-            <KeyValue items={[['Nguồn', bathymetry.source], ['Độ phân giải', bathymetry.source_resolution], bathymetry.coverage_fraction != null ? ['Độ phủ', `${Math.round(bathymetry.coverage_fraction * 100)}%`] : null, ['Quy tắc chất lượng', bathymetry.quality_rule]]} />
+            <KeyValue items={[['Nguồn', bathymetry.source], ['Độ phân giải', bathymetry.source_resolution], ['Quy tắc chất lượng', bathymetry.quality_rule]]} />
             {bathymetry.disclaimer && <p className="m-0 mt-1 text-[10.5px] text-fg-subtle">{bathymetry.disclaimer}</p>}
           </div>
         )}

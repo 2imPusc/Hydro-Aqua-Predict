@@ -101,7 +101,10 @@ export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ theme, lod, i
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
       }} />}
     {showBands && flagged && <GeoJSON key={`etopo-flags-${flagged.lod}`} data={flagged} style={flagStyle}
-      onEachFeature={(feature, layer) => layer.bindTooltip(FLAG_STYLE[feature.properties?.flag === 'suspect' ? 'suspect' : 'coarse'].label, { sticky: true })} />}
+      onEachFeature={(feature, layer) => {
+        layer.bindTooltip(FLAG_STYLE[feature.properties?.flag === 'suspect' ? 'suspect' : 'coarse'].label, { sticky: true })
+        layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
+      }} />}
     {showIsobaths && lines && <GeoJSON key={`etopo-lines-${lines.lod}-${theme}`} data={lines} style={lineStyle} interactive={false} />}
     {labels.length > 0 && <LayerGroup>
       {labels.map(label => <Marker key={label.key} position={label.at} interactive={false} keyboard={false}
