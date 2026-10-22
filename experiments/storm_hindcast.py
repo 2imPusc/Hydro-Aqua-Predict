@@ -17,6 +17,7 @@ from core import paths  # noqa: E402
 from core.config import weather_location_for_station  # noqa: E402
 from core.greenlab_api import load_cached_history  # noqa: E402
 from core.storm_advisory import beaufort, load_ibtracs, storm_passages  # noqa: E402
+from experiments.hazard_data import latest_era5  # noqa: E402
 
 STATION = "06M26042804"
 BANDS = [(6, 7, "cap6_7"), (8, 9, "cap8_9"), (10, 11, "cap10_11"), (12, 17, "cap12_plus")]
@@ -78,7 +79,12 @@ def month_calendar(passages: pd.DataFrame, first: int, last: int) -> pd.DataFram
     return (per_month / (last - first + 1)).rename("storms_per_year_site_cap8_plus").to_frame()
 
 
-def yagi_check(passages: pd.DataFrame, era5: pd.DataFrame) -> dict:
+REANALYSIS_MODEL = "era5"  # Open-Meteo archive models=era5 (true ERA5, 0.25 deg)
+
+
+def yagi_check(passages: pd.DataFrame, era5: pd.DataFrame, model: str = REANALYSIS_MODEL,
+               source_file: str | None = None) -> dict:
+    """Best-track exposure of Yagi 2024 vs the archive wind max 06-08 Sep; fields keyed by archive model."""
     yagi = passages[(passages["NAME"] == "YAGI") & (passages["SEASON"] == 2024)]
     if yagi.empty:
         return {"status": "unavailable", "reason": "yagi_not_in_tracks"}
@@ -86,15 +92,18 @@ def yagi_check(passages: pd.DataFrame, era5: pd.DataFrame) -> dict:
     start = pd.Timestamp("2024-09-06", tz="UTC")
     window = era5[(era5["time"] >= start) & (era5["time"] < start + pd.Timedelta(days=3))]
     wmax = float(window["wind_speed_10m"].max())
+    note = ("ERA5 (0.25 deg reanalysis) under-reads typhoon cores; treat as lower bound." if model == "era5" else
+            f"archive model {model} is not ERA5 (best_match = ECMWF IFS 9 km short-range from 2017).")
     return {"peak_time": row["peak_time"].isoformat(), "min_dist_km": round(row["min_dist_km"], 1),
             "exposure_method": row["exposure_method"], "site_wind_lower_bound": bool(row["site_wind_lower_bound"]),
             "site_beaufort_093": row["site_beaufort"],
             "site_beaufort_088": row["site_beaufort_088"], "storm_beaufort_max": row["storm_beaufort_max"],
             "qd18_level": row["qd18_level"],
-            "era5_max_wind_ms": round(wmax, 2),
-            "era5_max_wind_beaufort": beaufort(wmax),
-            "era5_max_gust_ms": round(float(window["wind_gusts_10m"].max()), 2),
-            "note": "ERA5 under-reads typhoon cores; treat as lower bound."}
+            "reanalysis_model": model, "reanalysis_file": source_file,
+            f"{model}_max_wind_ms": round(wmax, 2),
+            f"{model}_max_wind_beaufort": beaufort(wmax),
+            f"{model}_max_gust_ms": round(float(window["wind_gusts_10m"].max()), 2),
+            "note": note}
 
 
 def events_check(passages: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
@@ -151,7 +160,7 @@ def main(argv: list[str] | None = None) -> int:
     passages = storm_passages(tracks, lat, lon, args.radius_km, factor=0.93, **kw)
     alt = storm_passages(tracks, lat, lon, args.radius_km, factor=0.88, **kw)[["SID", "site_beaufort"]]
     passages = passages.merge(alt.rename(columns={"site_beaufort": "site_beaufort_088"}), on="SID", how="left")
-    era5_file = _latest("era5/era5_nb1_*.csv")
+    era5_file = latest_era5(REANALYSIS_MODEL)
     era5 = pd.read_csv(era5_file, parse_dates=["time"])
     events_file = Path(__file__).with_name("hazard_events.csv")
     first, last = int(passages["SEASON"].min()), int(passages["SEASON"].max())
@@ -159,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     band_counts(passages).to_csv(run_dir / "climatology_year.csv")
     month_calendar(passages, first, last).to_csv(run_dir / "climatology_month.csv")
     (run_dir / "yagi_check.json").write_text(
-        json.dumps(yagi_check(passages, era5), indent=2, default=_json_default), encoding="utf-8")
+        json.dumps(yagi_check(passages, era5, REANALYSIS_MODEL, era5_file.name), indent=2, default=_json_default), encoding="utf-8")
     events_check(passages, pd.read_csv(events_file)).to_csv(run_dir / "events_check.csv", index=False)
     sensor_response(passages).to_csv(run_dir / "sensor_response_2026.csv", index=False)
     inputs = [*track_files, era5_file, events_file]
@@ -167,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
                 "params": {"radius_km": args.radius_km, "coastal_radius_km": args.coastal_radius_km,
                            "interp_step": INTERP_STEP,
                            "factor": 0.93, "factor_sensitivity": 0.88},
+                "reanalysis": {"model": REANALYSIS_MODEL, "file": era5_file.name, "used_for": "yagi_check only"},
                 "seasons": [first, last], "passages": int(len(passages)),
                 "exposure_method_counts": passages["exposure_method"].value_counts(dropna=False).to_dict(),
                 "storm_wind_source_counts": passages["storm_wind_source"].value_counts(dropna=False).to_dict(),

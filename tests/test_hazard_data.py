@@ -36,3 +36,58 @@ def test_parse_psl_ncss_csv_handles_header_and_missing():
     assert len(s) == 3
     assert s.iloc[0] == pytest.approx(27.72)
     assert s.isna().sum() == 2
+
+
+def test_fetch_era5_pins_model_in_params_name_and_manifest(tmp_path, monkeypatch):
+    import json
+    from datetime import date
+
+    import pandas as pd
+
+    from experiments import hazard_data as hd
+
+    seen = {}
+
+    def fake(url, params, chunks):
+        seen.update(params)
+        return pd.DataFrame({"time": pd.to_datetime(["2024-01-01T00:00"]).tz_localize("UTC"), "wind_speed_10m": [1.0]})
+
+    monkeypatch.setattr(hd, "_open_meteo_hourly", fake)
+    monkeypatch.setattr(hd.paths, "HAZARD_DATA_DIR", tmp_path)
+    meta = hd.fetch_era5(2024, date(2024, 1, 2))
+    assert seen["models"] == "era5"
+    assert meta["file"] == "openmeteo_era5_nb1_2024_20240102.csv" and meta["model"] == "era5"
+    manifest = json.loads((tmp_path / "era5" / "openmeteo_era5_nb1_2024_20240102.csv.manifest.json").read_text())
+    assert manifest["model"] == "era5"
+    hd.fetch_era5(2024, date(2024, 1, 2), model="best_match")
+    assert seen["models"] == "best_match"
+    with pytest.raises(ValueError):
+        hd.fetch_era5(2024, date(2024, 1, 2), model="ifs")
+
+
+def test_latest_era5_by_model_with_legacy_best_match(tmp_path, monkeypatch):
+    from experiments import hazard_data as hd
+
+    monkeypatch.setattr(hd.paths, "HAZARD_DATA_DIR", tmp_path)
+    (tmp_path / "era5").mkdir()
+    legacy = tmp_path / "era5" / "era5_nb1_1982_20261020.csv"
+    legacy.write_text("x")
+    (tmp_path / "era5" / "era5_precip_nb1_1982_20261020.csv").write_text("x")
+    assert hd.latest_era5("best_match") == legacy  # legacy file was fetched without models= (best_match)
+    with pytest.raises(FileNotFoundError):
+        hd.latest_era5("era5")  # the legacy file must never pass as true ERA5
+    true = tmp_path / "era5" / "openmeteo_era5_nb1_1982_20261016.csv"
+    true.write_text("x")
+    assert hd.latest_era5("era5") == true
+    assert hd.latest_era5("best_match") == legacy
+
+
+def test_main_era5_model_choice(monkeypatch):
+    from experiments import hazard_data as hd
+
+    got = {}
+    monkeypatch.setattr(hd, "fetch_era5", lambda start_year, end, model="era5": got.update(model=model) or {"ok": 1})
+    hd.main(["era5", "--model", "era5_seamless", "--start-year", "2020", "--end", "2020-01-02"])
+    assert got["model"] == "era5_seamless"
+    with pytest.raises(SystemExit):
+        hd.main(["era5", "--model", "gfs"])
