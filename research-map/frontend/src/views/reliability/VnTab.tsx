@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import L from 'leaflet'
-import { Anchor, ShieldAlert, TableProperties, TriangleAlert } from 'lucide-react'
+import { Anchor, TriangleAlert } from 'lucide-react'
 import { getReliabilityVn } from '../../api/research'
 import { CanvasLayer, ResearchMap, boxOfPoints, metresToDeg, type LonLatBox } from '../../components/map/ResearchMap'
 import { escapeHtml } from '../../components/map/mapConfig'
-import { Chip, Note, SectionLabel, Segmented, Skeleton, StateChip } from '../../components/ui'
+import { Chip, Disclosure, Note, SectionLabel, Segmented, Skeleton, StateChip, type VerdictStatus } from '../../components/ui'
+import { MapPanel, MapVerdict, mapInset, mapPanelStyle, useNarrow } from '../shared/MapPanel'
 import type { Theme } from '../../hooks/useTheme'
 import { num, variableLabel } from '../../lib/format'
 import { regimeColor, regimeLabel, REGIME_SHORT } from '../../lib/palette'
@@ -12,7 +13,7 @@ import type { ReliabilityVn, VnPassCount } from '../../types/research'
 import { FindingList, RefChips, Unavailable, useResearch } from '../shared/research'
 import { RegimeLegend, regimeLine, regimeTooltip, stationMarker } from './common'
 
-const INSET = { top: 20, right: 400, bottom: 20, left: 20 }
+const PANEL_W = 380
 const REGION_LABEL: Record<string, string> = { haiphong: 'Hải Phòng', quangninh: 'Quảng Ninh' }
 const PROTOCOL_LABEL: Record<string, string> = { tolerance_dayblock_bootstrap: 'Dung sai (bootstrap theo ngày)', p1_conformal_pair_gate: 'P1 · gate cặp conformal' }
 const RELATION_LABEL: Record<string, string> = { same_regime: 'Cùng chế độ', different_regime: 'Khác chế độ', all: 'Tất cả' }
@@ -116,6 +117,7 @@ function Nb1Card({ data, theme }: { data: ReliabilityVn; theme: Theme }) {
 
 export function VnTab({ theme }: { theme: Theme }) {
   const poll = useResearch(getReliabilityVn)
+  const narrow = useNarrow()
   const data = poll.data?.status === 'ready' ? poll.data : null
   // Fit to the regime layer + stations with trusted coordinates (a few QN points are flagged coordinate_suspect).
   const box = useMemo<LonLatBox | null>(() => boxOfPoints([
@@ -124,50 +126,57 @@ export function VnTab({ theme }: { theme: Theme }) {
   ]), [data?.layer, data?.stations])
   const classes = useMemo(() => [...new Set([...(data?.layer?.features ?? []), ...(data?.stations?.features ?? [])].map(f => f.properties.regime_class))], [data])
 
+  const nb1 = data?.nb1_regime
+  const nearest = nb1?.nearest_observed_stations ?? []
+  const closest = nearest.length ? Math.min(...nearest.map(st => st.distance_km ?? Infinity)) : null
+  const status: VerdictStatus = !data ? { tone: 'neutral', label: poll.error || poll.data ? 'Không có dữ liệu' : 'Đang tải' }
+    : !nb1 ? { tone: 'warn', label: 'Thiếu thông tin NB1' }
+    : nb1.nb1_model_derived_class === nb1.nb1_observed_regime_class_by_nearest ? { tone: 'ok', label: 'Mô hình và quan trắc khớp' }
+    : { tone: 'warn', label: 'Mô hình và quan trắc lệch' }
+  const header = (
+    <MapVerdict code="H4" question="NB1 được mượn giá trị từ trạm nào?"
+      value={nb1 ? REGIME_SHORT[nb1.nb1_observed_regime_class_by_nearest] : '—'} unit={nb1 ? 'chế độ mặn' : undefined} status={status}
+      answer={nb1 ? `${nb1.qn_observed_same_regime_as_nb1_nearest} trạm QN quan sát cùng chế độ${closest != null && Number.isFinite(closest) ? `, gần nhất ${num(closest, 1)} km` : ''}.` : undefined}
+      chips={<>
+        <StateChip size="xs" state="research_only" />
+        <Chip size="xs" tone="warn" icon={<TriangleAlert size={11} />} title="Độ mặn Hải Phòng là giá trị mô hình dạng lưới, không phải quan trắc (RL-25)">Độ mặn HP là mô hình</Chip>
+      </>} />
+  )
   return (
-    <div className="absolute inset-0 overflow-hidden">
-      <ResearchMap theme={theme} box={box} inset={INSET} ariaLabel="Bản đồ chế độ mặn Hải Phòng – Quảng Ninh (nghiên cứu)">
+    <div className="map-with-panel absolute inset-0 overflow-hidden" style={mapPanelStyle(narrow, PANEL_W)}>
+      <ResearchMap theme={theme} box={box} inset={mapInset(narrow, PANEL_W)} ariaLabel="Bản đồ chế độ mặn Hải Phòng – Quảng Ninh (nghiên cứu)">
         {data && <VnLayers data={data} theme={theme} />}
       </ResearchMap>
-      <aside aria-label="Độ tin cậy không gian ở Việt Nam" className="glass panel-enter scroll-thin absolute bottom-3 right-3 top-3 z-[800] flex w-[380px] flex-col gap-3 overflow-y-auto rounded-[var(--radius-lg)] p-3.5">
-        <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-bold uppercase tracking-[.12em] text-accent">H4.1 · Lớp chế độ mặn HP / QN</div>
-            <div className="text-[13px] font-semibold text-fg">Vùng nào được phép “mượn” giá trị trạm?</div>
-          </div>
-          <StateChip size="xs" state="research_only" />
-        </div>
-        <Note tone="warn" icon={<TriangleAlert size={14} />}>
-          <b>Độ mặn Hải Phòng là giá trị mô hình dạng lưới</b>, không phải quan trắc. Lớp chế độ chỉ dựa trên trạm Quảng Ninh quan sát; trạm HP (viền đứt) chỉ để tham khảo. <span className="inline-flex gap-1 align-middle"><RefChips refs={['RL-25']} /></span>
-        </Note>
+      <MapPanel label="Độ tin cậy không gian ở Việt Nam" header={header} width={PANEL_W}>
         {!poll.data && !poll.error && <Skeleton className="h-40" />}
         {!data && (poll.data || poll.error) && <Unavailable compact envelope={poll.data} error={poll.error} onRetry={poll.refresh} title="Lớp chế độ mặn VN chưa có" />}
         {data && (
           <>
-            <Nb1Card data={data} theme={theme} />
             <div className="rounded-[var(--radius-md)] border border-line bg-surface p-3">
-              <RegimeLegend theme={theme} classes={classes} note={`Ô ${Math.round((data.layer?.grid_step_m ?? 1000) / 1000)} km có trạm quan sát trong 10 km: ${data.layer?.features.length ?? 0}; bỏ ${data.layer?.n_unassigned_omitted ?? 0} ô không có trạm (không gán).`} />
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-fg-muted">
-                <span className="inline-flex items-center gap-1.5"><svg width="12" height="12" aria-hidden><circle cx="6" cy="6" r="4.5" fill="var(--fg-muted)" stroke="var(--surface)" strokeWidth="1.5" /></svg>Trạm QN (độ mặn quan sát)</span>
-                <span className="inline-flex items-center gap-1.5"><svg width="12" height="12" aria-hidden><circle cx="6" cy="6" r="4.5" fill="var(--surface)" stroke="var(--fg-muted)" strokeWidth="1.5" strokeDasharray="2 2" /></svg>Trạm HP (độ mặn mô hình)</span>
+              <RegimeLegend theme={theme} classes={classes} title="Chế độ mặn (mùa mưa)" />
+              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-fg-muted">
+                <span className="inline-flex items-center gap-1.5"><svg width="12" height="12" aria-hidden><circle cx="6" cy="6" r="4.5" fill="var(--fg-muted)" stroke="var(--surface)" strokeWidth="1.5" /></svg>Trạm QN (quan sát)</span>
+                <span className="inline-flex items-center gap-1.5"><svg width="12" height="12" aria-hidden><circle cx="6" cy="6" r="4.5" fill="var(--surface)" stroke="var(--fg-muted)" strokeWidth="1.5" strokeDasharray="2 2" /></svg>Trạm HP (mô hình)</span>
               </div>
             </div>
-            <div>
-              <SectionLabel icon={<TableProperties size={12} />}>Số ô đạt theo biến (A6)</SectionLabel>
+            <Disclosure summary="Vì sao độ mặn HP chỉ để tham khảo?">
+              <p className="m-0">Độ mặn Hải Phòng là giá trị mô hình dạng lưới, không phải quan trắc. Lớp chế độ chỉ dựa trên trạm Quảng Ninh quan sát; trạm HP (viền đứt) chỉ để tham khảo. <RefChips refs={['RL-25']} /></p>
+              <p className="m-0">Ô {Math.round((data.layer?.grid_step_m ?? 1000) / 1000)} km có trạm quan sát trong 10 km: {data.layer?.features.length ?? 0}; bỏ {data.layer?.n_unassigned_omitted ?? 0} ô không có trạm (không gán).</p>
+            </Disclosure>
+            <Disclosure summary="NB1 và các trạm cùng chế độ" hint={nb1 ? `(${nearest.length})` : undefined}>
+              <Nb1Card data={data} theme={theme} />
+            </Disclosure>
+            <Disclosure summary="Số ô đạt theo biến (A6)">
               <PassCounts rows={data.pass_counts ?? []} />
-            </div>
-            <Note tone="neutral" icon={<ShieldAlert size={14} />}>
-              <b>Vùng HSI lịch sử (bản đồ giám sát) chưa được kiểm chứng</b>: là chỉ số legacy dựa trên độ mặn mô hình ở HP, không phải lớp tin cậy.
-              <span className="ml-1"><Chip size="xs" tone="neutral">chưa kiểm chứng</Chip></span>
-            </Note>
-            <div>
-              <SectionLabel>Ghi chú export</SectionLabel>
+            </Disclosure>
+            <Disclosure summary="Ghi chú" hint={`(${(data.notes?.length ?? 0) + 1})`}>
+              <p className="m-0"><b>Vùng HSI lịch sử</b> (bản đồ giám sát) <Chip size="xs" tone="neutral">chưa kiểm chứng</Chip>: chỉ số legacy dựa trên độ mặn mô hình ở HP, không phải lớp tin cậy.</p>
               <FindingList items={data.notes} />
-              <p className="m-0 mt-2 text-[10.5px] text-fg-subtle">Run nguồn <span className="font-mono">{data.source_run}</span> · export {data.export_version}</p>
-            </div>
+              <p className="m-0 text-[11.5px] text-fg-subtle">Run nguồn <span className="font-mono">{data.source_run}</span> · export {data.export_version}</p>
+            </Disclosure>
           </>
         )}
-      </aside>
+      </MapPanel>
     </div>
   )
 }

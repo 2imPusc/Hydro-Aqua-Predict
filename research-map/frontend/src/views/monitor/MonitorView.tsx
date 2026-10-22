@@ -95,7 +95,7 @@ export default function MonitorView({ theme }: { theme: Theme }) {
           {inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
         </IconButton>
         {inspectorOpen && (
-          <div className="panel-enter min-h-0 flex-1" style={{ width: INSPECTOR_W }}>
+          <div className="panel-enter min-h-0 flex-1" style={{ width: `min(${INSPECTOR_W}px, calc(100vw - 24px))` }}>
             <Inspector
               sensor={sensor} station={pilotStation} aquaculture={data.aquaculture} stations={data.stations.data}
               mode={mode} onMode={setMode} scenario={scenario} onScenario={setScenario}
