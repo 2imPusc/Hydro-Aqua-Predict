@@ -40,5 +40,15 @@ def test_events_check_match_and_unmatched():
     assert not bool(out.loc[1, "matched"]) and out.loc[1, "SID"] is None
 
 
+def test_events_check_name_match():
+    p = _passages()
+    name = "A"
+    ev = pd.DataFrame({"event_id": [f"{name.lower()}-2000", "other-2000", "none-1990"], "hazard": ["storm"] * 3,
+                       "start_date": ["2000-08-09", "2000-08-09", "1990-01-01"],
+                       "end_date": ["2000-08-11", "2000-08-11", "1990-01-02"], "verified": ["yes"] * 3})
+    out = sh.events_check(p, ev)
+    assert bool(out.loc[0, "name_match"]) and not bool(out.loc[1, "name_match"]) and not bool(out.loc[2, "name_match"])
+
+
 def test_json_default_maps_na_to_none():
     assert json.loads(json.dumps({"x": pd.NA}, default=sh._json_default)) == {"x": None}
