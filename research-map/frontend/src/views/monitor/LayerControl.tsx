@@ -5,6 +5,7 @@ import { LABEL, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { Chip, SectionLabel, Segmented, StateChip, Toggle } from '../../components/ui'
 import { HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
 import { ENVIRONMENT_LAYERS, type EnabledLayers, type LayerKey } from './useMonitorData'
+import { isNarrowScreen } from '../shared/MapPanel'
 
 type Props = {
   enabled: EnabledLayers
@@ -29,7 +30,8 @@ const LOD_LABEL: Record<Lod, string> = { low: 'LOD thấp', medium: 'LOD vừa',
 /** Floating, grouped layer control (Bối cảnh · Dòng chảy & gió · Độ sâu · Mạng trạm · Bản đồ nền). */
 export const LayerControl = memo(function LayerControl(props: Props) {
   const { enabled, onToggle, environmentLayers, snapshotLoaded, flow, currentLayer, windLayer, network, zones, bathymetry, bathymetryError, etopo, lod, basemap, onBasemap } = props
-  const [open, setOpen] = useState(true)
+  // Phones: start collapsed so the map stays usable; the header still names the area and layer count.
+  const [open, setOpen] = useState(() => !isNarrowScreen())
   const bathyReady = bathymetry?.status === 'ready'
   const bathyHint = bathyReady
     ? `${bathymetry?.source_resolution ?? 'Copernicus SDB'} · ${LOD_LABEL[lod]}`
@@ -39,12 +41,12 @@ export const LayerControl = memo(function LayerControl(props: Props) {
   const activeCount = Object.values(enabled).filter(Boolean).length
 
   return (
-    <section aria-label="Lớp bản đồ" className="glass panel-enter pointer-events-auto flex min-h-0 w-[296px] flex-col overflow-hidden rounded-[var(--radius-lg)]">
+    <section aria-label="Lớp bản đồ" className="glass panel-enter pointer-events-auto flex min-h-0 w-[min(296px,calc(100vw-72px))] flex-col overflow-hidden rounded-[var(--radius-lg)]">
       <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open}
         className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left">
         <span className="grid size-8 flex-none place-items-center rounded-[var(--radius-sm)] bg-accent-soft text-accent"><Layers size={16} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-[.12em] text-accent">Khu vực giám sát</span>
+          <span className="block text-[11px] font-semibold text-accent">Khu vực giám sát</span>
           <span className="block text-[13px] font-semibold leading-snug text-fg">Hải Phòng · Cát Bà · Lạch Huyện</span>
         </span>
         <Chip size="xs" tone="neutral" title="Số lớp đang bật">{activeCount}</Chip>

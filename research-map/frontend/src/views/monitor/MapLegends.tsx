@@ -8,6 +8,7 @@ import { GradientLegend, SwatchLegend } from '../../components/ui'
 import { HSI_CLASSES, HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
 import { SEVERITY_STYLE } from '../../components/map/overlays/StationMarkers'
 import type { EnabledLayers } from './useMonitorData'
+import { isNarrowScreen } from '../shared/MapPanel'
 
 const SCALAR_TITLE: Record<string, string> = { rain: 'Mưa', sea_level: 'Mực nước', mixed_layer_depth: 'Mixed-layer depth' }
 
@@ -42,11 +43,11 @@ function DepthLegend({ theme, etopo }: { theme: Theme; etopo: EtopoManifest | nu
 
 /** Bottom-left legends for whatever is switched on. */
 export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, etopo }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; etopo: EtopoManifest | null }) {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(() => !isNarrowScreen())
   const scalar = environmentLayers.find(layer => layer.kind === 'scalar_grid' && enabled[layer.layer as keyof EnabledLayers])
   const bathyBands = enabled.bathymetry_bands && !enabled.bathymetry_slope
   return (
-    <section aria-label="Chú giải" className="glass pointer-events-auto w-[296px] flex-none overflow-hidden rounded-[var(--radius-lg)]">
+    <section aria-label="Chú giải" className="glass pointer-events-auto w-[min(296px,calc(100vw-72px))] flex-none overflow-hidden rounded-[var(--radius-lg)]">
       <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} className="flex w-full items-center gap-2 px-3.5 py-2 text-left">
         <Palette size={14} className="text-fg-subtle" />
         <span className="flex-1 text-[12px] font-semibold text-fg">Chú giải</span>

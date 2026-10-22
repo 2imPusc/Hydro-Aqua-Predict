@@ -291,3 +291,45 @@ def test_reliability_vn_exported_when_a6_run_present(tmp_path):
 
 def test_clean_replaces_nan_and_inf():
     assert ex.clean({"a": float("nan"), "b": [math.inf, 1.23456789], "c": None}) == {"a": None, "b": [None, 1.23456789], "c": None}
+
+
+def _hazard_runs(exp):
+    storm = exp / ex.STORM_RUN
+    storm.mkdir(parents=True)
+    (storm / "manifest.json").write_text(json.dumps({"source": "best_track_oracle", "seasons": [1980, 2026],
+                                                     "passages": 265, "params": {"radius_km": 500.0}}), encoding="utf-8")
+    _csv(storm / "climatology_month.csv", ["month", "storms_per_year_site_cap8_plus"],
+         [[m, 0.1 if m == 9 else 0.0] for m in range(1, 13)])
+    (storm / "yagi_check.json").write_text(json.dumps({"peak_time": "2024-09-07T06:00:00+00:00", "min_dist_km": 21.0,
+                                                       "site_beaufort_093": 11, "era5_max_wind_ms": 18.86}), encoding="utf-8")
+    lead = exp / ex.STORM_LEAD_RUN
+    lead.mkdir(parents=True)
+    (lead / "manifest.json").write_text(json.dumps({
+        "period": {"start": "2024-02-10T00:00", "end": "2026-10-16T23:00"},
+        "pairs": {ex.STORM_LEAD_PAIR: {"forecast_model": "ecmwf_ifs025", "truth_independent": True}}}), encoding="utf-8")
+    _csv(lead / f"day_contingency_{ex.STORM_LEAD_PAIR}.csv",
+         ["level", "lead_day", "n", "hits", "misses", "false_alarms", "correct_negatives", "POD", "FAR", "CSI", "freq_bias"],
+         [[6, 1, 980, 14, 9, 1, 956, 0.61, 0.07, 0.58, 0.65], [8, 1, 980, 1, 0, 0, 979, 1.0, 0.0, 1.0, 1.0]])
+    _csv(lead / f"events_{ex.STORM_LEAD_PAIR}.csv",
+         ["NAME", "peak_time", "min_dist_km", "threshold_bf", "is_event_truth", "consistent_N_truth", "consistent_lead_hours_truth"],
+         [["WIPHA", "2025-07-21", 17, 6, True, 7, 134], ["NARRA", "2026-08-23", 74, 6, True, 1, -8],
+          ["YAGI", "2024-09-07", 21, 8, True, 4, 92], ["SOULIK", "2024-09-19", 405, 6, False, None, None]])
+
+
+def test_hazards_partial_sections_and_reasons(tmp_path):
+    _hazard_runs(tmp_path / "experiments")
+    out = _export(tmp_path)
+    hz = _strict(out / "hazards.json")
+    assert hz["basis"] == "theory_only_unvalidated" and hz["used_by_alerts"] is False
+    assert hz["storm"]["passages"] == 265 and hz["storm"]["yagi"]["site_beaufort"] == 11
+    assert [row["lead_day"] for row in hz["storm_lead"]["by_lead"]] == [1]  # Bf6 only
+    assert hz["storm_lead"]["by_lead"][0]["n_event_days"] == 23
+    assert [(s["name"], s["consistent_lead_hours"]) for s in hz["storm_lead"]["storms"]] == [("WIPHA", 134), ("NARRA", -8)]
+    for key in ("heat", "heat_skill", "disease", "stocking"):
+        assert key not in hz and hz["sections_omitted"][key] == "run_dir_missing"
+
+
+def test_hazards_omitted_when_no_runs(tmp_path):
+    out = _export(tmp_path)
+    assert _strict(out / "manifest.json")["omitted"]["hazards.json"] == "no_hazard_runs"
+    assert not (out / "hazards.json").exists()

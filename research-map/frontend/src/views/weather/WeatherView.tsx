@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { CalendarClock, CloudSun, Eye } from 'lucide-react'
-import { getWeatherStatus, researchReason } from '../../api/research'
+import { getHazards, getWeatherStatus, researchReason } from '../../api/research'
 import { useLiveData } from '../../app/LiveDataContext'
 import { HeatStrip, type HeatRow } from '../../components/charts'
 import { Chip, Disclosure, KeyValue, Panel, Skeleton, Stat, Verdict, type VerdictStatus } from '../../components/ui'
@@ -106,30 +106,28 @@ export default function WeatherView() {
   const gains = parseGains(direction?.findings)
   const gainSource = direction?.findings.find(item => item.includes('B5'))
   const ready = status.data?.status === 'ready' ? status.data : null
+  const hazards = useResearch(signal => getHazards(signal), [])
 
   return (
     <PageScroll>
       <ResearchHeader code="H2" title="Thời tiết & khuyến cáo" direction={direction} exportVersion={overview.data?.export_version ?? undefined} />
       <WeatherVerdict status={status} />
       {ready && <CoveragePanel data={ready} />}
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Thời tiết giúp dự báo nhiệt độ nước bao nhiêu?" icon={<CloudSun size={15} />}>
-          {gains.length ? (
-            <>
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-1.5">
-                {gains.map(gain => (
-                  <Stat key={gain.hours} label={`Trước ${gain.hours} giờ`} value={`+${gain.gain.toFixed(1)}`} unit="% sai số giảm" hint={`DM p = ${pValue(gain.p)}`} />
-                ))}
-              </div>
-              <Disclosure summary="Số này từ đâu?" className="mt-2">
-                <p className="m-0">So sánh bộ có thời tiết (B5) với bộ chỉ dùng chất lượng nước (B4). Giá trị lấy nguyên văn từ overview.json; thời tiết dựng lại (reconstructed_run), một trạm, lockbox 14 ngày.</p>
-              </Disclosure>
-            </>
-          ) : gainSource ? <FindingList items={[gainSource]} /> : <p className="m-0 text-[12px] text-fg-subtle">Bản export chưa có số đo lợi ích B5.</p>}
-        </Panel>
-        {/* Storm/heat hindcast: no research-map export yet (expected key: hazards.json); pass the summary here once served. */}
-        <HazardCard data={null} />
-      </div>
+      <HazardCard poll={hazards} />
+      <Panel title="Thời tiết giúp dự báo nhiệt độ nước bao nhiêu?" icon={<CloudSun size={15} />}>
+        {gains.length ? (
+          <>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-1.5">
+              {gains.map(gain => (
+                <Stat key={gain.hours} label={`Trước ${gain.hours} giờ`} value={`+${gain.gain.toFixed(1)}`} unit="% sai số giảm" hint={`DM p = ${pValue(gain.p)}`} />
+              ))}
+            </div>
+            <Disclosure summary="Số này từ đâu?" className="mt-2">
+              <p className="m-0">So sánh bộ có thời tiết (B5) với bộ chỉ dùng chất lượng nước (B4). Giá trị lấy nguyên văn từ overview.json; thời tiết dựng lại (reconstructed_run), một trạm, lockbox 14 ngày.</p>
+            </Disclosure>
+          </>
+        ) : gainSource ? <FindingList items={[gainSource]} /> : <p className="m-0 text-[12px] text-fg-subtle">Bản export chưa có số đo lợi ích B5.</p>}
+      </Panel>
       <DirectionPanel direction={direction} poll={overview} />
     </PageScroll>
   )

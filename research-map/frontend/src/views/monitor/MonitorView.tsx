@@ -80,7 +80,7 @@ export default function MonitorView({ theme }: { theme: Theme }) {
       </div>
 
       {backendDown && (
-        <div role="alert" className="glass panel-enter absolute left-1/2 top-3 z-[850] flex max-w-[min(520px,calc(100%-700px))] min-w-[300px] -translate-x-1/2 items-start gap-2.5 rounded-[var(--radius-md)] px-3.5 py-2.5">
+        <div role="alert" className="glass panel-enter absolute left-3 right-3 top-[76px] z-[850] flex items-start gap-2.5 rounded-[var(--radius-md)] px-3.5 py-2.5 md:left-1/2 md:right-auto md:top-3 md:min-w-[300px] md:max-w-[min(520px,calc(100%-700px))] md:-translate-x-1/2">
           <WifiOff size={16} className="mt-0.5 flex-none text-danger" />
           <div className="min-w-0 flex-1 text-[12px] leading-snug">
             <div className="font-semibold text-fg">{describeApiError(context.error)}</div>

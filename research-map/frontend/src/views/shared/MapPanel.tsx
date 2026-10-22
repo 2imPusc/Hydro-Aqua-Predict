@@ -4,6 +4,9 @@ import { StatusWord, type VerdictStatus } from '../../components/ui'
 
 const NARROW = '(max-width: 767px)'
 
+/** One-off check (initial state): below the md breakpoint, i.e. phones. */
+export const isNarrowScreen = () => typeof window !== 'undefined' && window.matchMedia(NARROW).matches
+
 /** True below the md breakpoint (phones): map panels become a bottom sheet. */
 export function useNarrow(): boolean {
   const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && window.matchMedia(NARROW).matches)

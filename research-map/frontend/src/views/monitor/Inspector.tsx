@@ -74,14 +74,19 @@ function ObservationStat({ item }: { item: SensorObservation }) {
 
 /* ---------------------------------------------------------------- advisory */
 
+const ADVISORY_STALE_SECONDS = 90 * 60
+
 type Driver = { metric: string; value: unknown; unit: string }
 
 function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenario }: { aquaculture: PollState<AquacultureMap>; stations: Stations | null; mode: DataMode; onMode: (mode: DataMode) => void; scenario: string; onScenario: (value: string) => void }) {
   const map = aquaculture.data
   const isMock = mode === 'mock'
+  // Live advisories are rebuilt by the worker; an old artifact (worker/DB down) must read as stale, not "ready".
+  const ageSeconds = map?.generated_at ? (Date.now() - Date.parse(map.generated_at)) / 1000 : null
+  const stale = !!map && map.mode !== 'mock' && map.status === 'ready' && ageSeconds != null && ageSeconds > ADVISORY_STALE_SECONDS
   return (
     <Panel variant="glass" icon={<ShieldAlert size={15} />} title="Khuyến nghị nuôi trồng" collapsible
-      actions={map ? <StateChip size="xs" state={map.mode === 'mock' ? 'mock' : map.status} /> : aquaculture.error ? <StateChip size="xs" state="unavailable" /> : <StateChip size="xs" state="loading" />}>
+      actions={map ? <StateChip size="xs" state={map.mode === 'mock' ? 'mock' : stale ? 'stale' : map.status} suffix={stale ? formatAge(ageSeconds) : undefined} /> : aquaculture.error ? <StateChip size="xs" state="unavailable" /> : <StateChip size="xs" state="loading" />}>
       <Segmented label="Chế độ dữ liệu" value={mode} onChange={onMode} options={[{ value: 'live', label: 'Live · cảm biến + API' }, { value: 'mock', label: 'Mô phỏng', tone: 'mock' }]} />
       {isMock && (
         <div className="mt-2 space-y-2">
@@ -94,6 +99,7 @@ function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenari
           </label>
         </div>
       )}
+      {stale && <div className="mt-2"><Note tone="warn">Khuyến nghị dựng lúc {formatTime(map!.generated_at!, true)} ({formatAge(ageSeconds)} trước): dữ liệu cũ, không phải hiện tại.</Note></div>}
       {map?.disclaimer && <div className="mt-2"><Disclosure summary="Lưu ý về khuyến nghị"><p className="m-0">{map.disclaimer}</p></Disclosure></div>}
 
       <div className="mt-2">

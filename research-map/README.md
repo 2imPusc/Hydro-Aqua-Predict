@@ -80,6 +80,7 @@ Nghiên cứu (`/api/v1/research`, chỉ đọc file):
 | `/forecast/benchmark` | bảng gate #16 + conformal coverage |
 | `/forecast/long?station=` | ledger shadow `runtime/forecast-shadow/long_*.jsonl` (`used_by_alerts: false`) |
 | `/weather/status?station=` | `weather-snapshots.jsonl`, độ phủ 24 h / 7 ngày |
+| `/hazards` | `hazards.json`: khí hậu + kỹ năng báo trước bão, nắng nóng, dịch bệnh, lịch thả giống (lý thuyết, chưa kiểm chứng hiện trường) |
 | `/suitability?region=vn\|hk&variant=N1_W_SUM\|A_W_SUM` | ô phù hợp + trại + AUC |
 | `/reliability/vn` | lớp chế độ mặn VN (A6) |
 | `/reliability/foreign` | thẻ bộ dữ liệu nước ngoài |

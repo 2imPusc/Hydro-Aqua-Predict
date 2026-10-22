@@ -1,5 +1,5 @@
 import { ApiError, getJson } from './client'
-import type { ApiStatus, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
+import type { ApiStatus, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, Hazards, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
 
 type Signal = AbortSignal | undefined
 const q = encodeURIComponent
@@ -29,6 +29,7 @@ export const getLongForecast = (station: string, signal?: Signal) => research<Lo
 export const getForecastBenchmark = (signal?: Signal) => research<ForecastBenchmark>('/forecast/benchmark', signal)
 export const getWeatherStatus = (station: string, signal?: Signal) => research<WeatherStatus>(`/weather/status${query({ station })}`, signal)
 export const getSuitability = (variant: SuitabilityVariant, region: SuitabilityRegion, signal?: Signal) => research<Suitability>(`/suitability${query({ variant, region })}`, signal)
+export const getHazards = (signal?: Signal) => research<Hazards>('/hazards', signal)
 export const getForeignIndex = (signal?: Signal) => research<ForeignIndex>('/reliability/foreign', signal)
 export const getForeignDetail = (id: string, params: ForeignQuery = {}, signal?: Signal) => research<ForeignDetail>(`/reliability/foreign/${q(id)}${query({ var: params.var, scale: params.scale, transfer: params.transfer })}`, signal)
 export const getReliabilityVn = (signal?: Signal) => research<ReliabilityVn>('/reliability/vn', signal)
@@ -43,6 +44,7 @@ export const RESEARCH_REASON: Record<string, string> = {
   research_export_missing: 'Chưa có bản export nghiên cứu (artifacts/research-map/).',
   artifact_not_in_export: 'Bản export mới nhất không chứa mục này.',
   run_dir_missing: 'Thư mục run nghiên cứu chưa có: chưa chạy hoặc chưa export.',
+  no_hazard_runs: 'Chưa có run bão / nắng nóng / dịch bệnh / lịch thả nào để export.',
   a6_not_exported: 'Lớp chế độ mặn VN (A6) chưa được export.',
   ledger_missing: 'Sổ ghi shadow dài hạn (runtime/forecast-shadow/long_*.jsonl) chưa tồn tại: runner chưa phát hành bản dự báo dài hạn nào.',
   snapshot_file_missing: 'Chưa có file snapshot thời tiết.',
