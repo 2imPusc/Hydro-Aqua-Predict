@@ -462,7 +462,7 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - `exposure_method`: rankine 194, rankine_capped_by_r34 42, wind_radii 25, no_intensity 4.
   - Cấp Beaufort tại lồng: cấp 6–7: 92; 8–9: 21; 10–11: 8; ≥ 12: 0; không xác định: 4. Từ cấp 8 trở lên: 29 lượt = 0.62 lượt/năm.
   - Theo tháng (lượt/năm, ≥ cấp 8): T6 0.106, T7 0.128, T8 0.128, T9 0.149, T10 0.085, T11 0.021, T12–T5 là 0.
-  - YAGI 2024: gần nhất 21 km lúc 2024-09-07 06Z; gió tại lồng ≥ cấp 11 (cận dưới theo bán kính gió, cả hai hệ số 0.93 và 0.88); bão cấp 15, cấp độ QĐ 18 tham khảo = 4. ERA5 tại NB1: tối đa 29.56 m/s (cấp 11), giật 52.9 m/s. Khớp một dòng trong danh mục sự kiện. Ảnh SAR (VAST, sơ bộ): khoảng 80 % lồng bè phía nam Cẩm Phả bị phá hủy.
+  - YAGI 2024: gần nhất 21 km lúc 2024-09-07 06Z; gió tại lồng ≥ cấp 11 (cận dưới theo bán kính gió, cả hai hệ số 0.93 và 0.88); bão cấp 15, cấp độ QĐ 18 tham khảo = 4. ~~ERA5 tại NB1: tối đa 29.56 m/s (cấp 11), giật 52.9 m/s.~~ **Đính chính (RL-31):** số này là archive best_match = ECMWF IFS 9 km, không phải ERA5; ERA5 thật: 18.86 m/s (cấp 8), giật 35.3 m/s. Khớp một dòng trong danh mục sự kiện. Ảnh SAR (VAST, sơ bộ): khoảng 80 % lồng bè phía nam Cẩm Phả bị phá hủy.
   - WIPHA 2025: 17 km, lồng cấp 7. MAYSAK 2026 (đỉnh 07-04 giờ địa phương, 74 km): lồng cấp 7, bão cấp 9. NARRA 2026 (đỉnh 08-23, 74 km): lồng cấp 7, bão cấp 8.
   - Cảm biến (mô tả, n = 2): NARRA, nhiệt độ giảm khoảng 3.3 °C từ ngày −3 (30.34) xuống ngày 0 (27.01) rồi hồi phục; TSS không có tín hiệu rõ. MAYSAK ngày −2 (2026-07-02) thiếu dữ liệu (1058 dòng).
 - **Kết luận:** phương pháp tái hiện được mức gió cao ở Yagi (≥ cấp 11, phù hợp ERA5 và thiệt hại thực tế) và cho tần suất bão ảnh hưởng theo tháng: mùa nguy cơ là T6–T10, đỉnh T9. Đây là số liệu hồi cứu theo best track, không phải năng lực dự báo.
@@ -487,3 +487,51 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Ghi chú quy trình:** thư mục `heat-hindcast-20261022` (lần chạy đầu, mới vài phút tuổi) đã bị agent triển khai xóa và tạo lại để thêm một file đầu ra. Đây là ngoại lệ so với quy tắc run dir ghi một lần; không mất dữ liệu nguồn nào. Manifest của lần chạy này có trước trường `offset_status` (code thêm sau; run dir không chạy lại).
 - **Artifact:** `heat-hindcast-20261022/` (bias, trend, daily_oisst, climatology_year, heat_calendar, heat_calendar_watch, manifest).
 - **Tiếp theo:** lịch thả giống (kết hợp `heat_calendar_watch.csv`); chỉ số bệnh (Vibrio/Streptococcus); thêm mùa sensor để ước độ lệch tốt hơn.
+
+## RL-31 · 2026-10-23 · Đính chính nguồn "ERA5" và đánh giá thời gian báo trước của dự báo gió
+
+- **Phát hiện (review độc lập):** file `data/hazards/era5/era5_nb1_1982_20261020.csv` tải từ archive Open-Meteo **không có `models=`**, tức `best_match` = ERA5 trước 2017, ECMWF IFS 9 km (ghép các lần chạy nghiệp vụ) từ 2017. Previous Runs lead 0 trùng 100 % với file này, nên lần đánh giá đầu (`storm-leadtime-20261023`, `-b`) dùng "giá trị thật" không độc lập. Con số Yagi 29.56 m/s cũng là IFS.
+- **Sửa:** `hazard_data.py era5 --model era5` (tên file có model, manifest ghi model); `latest_era5(model)`; file cũ giữ nguyên, chỉ được coi là best_match. Chặn trong `storm_leadtime.py`: dừng nếu lead 0 trùng giá trị thật > 50 % số giờ. Mô hình dự báo cố định `ecmwf_ifs025` (lead 1–7 từ 2024-02-04); `gfs_seamless` và best_match làm đối chứng. Thêm "lead nhất quán" (mọi lead 1..N đều đạt).
+- **Kết quả** (`storm-leadtime-20261023d`, 2024-02-10 → 2026-10-16, 980 ngày, 19 lượt bão; ERA5 thật: 23 ngày ≥ cấp 6, 1 ngày ≥ cấp 8, 0 ngày ≥ cấp 10):
+  - Cấp 6, POD/FAR/CSI theo lead 1→7: 0.61/0.07/0.58 · 0.48/0.08/0.46 · 0.52/0.14/0.48 · 0.48/0.15/0.44 · 0.35/0.20/0.32 · 0.17/0.43/0.15 · 0.04/0.50/0.04.
+  - CSI lead 1 theo mô hình: ifs025 0.58, gfs 0.45, best_match 0.22. MAE gió 0.90 → 1.47 m/s (lead 1→7), r 0.82 → 0.44; lệch ifs025 ổn định −0.13…−0.48 m/s các năm.
+  - Lead nhất quán cấp 6 theo cơn: Wipha 7 ngày (134 h), Yagi 6 (115 h), Bualoi 6 (111 h), Kajiki 5 (100 h), Maysak 2 (49 h), Matmo 1, Nongfa 1, Narra không kịp; bỏ sót Prapiroon, Trami; Ragasa báo nhầm. Yagi cấp 8: 4 ngày (92 h); cấp 10 (so best track): 3 ngày (73 h).
+- **Kết luận:** chỉ đọc gió tại lồng, mô hình ifs025 cảnh báo cấp 6 tốt tới khoảng 4 ngày (CSI ≥ 0.44), giảm mạnh sau 5 ngày. Cấp ≥ 8 chỉ có 1 cơn, chưa có cơ sở thống kê.
+- **Hạn chế:** ERA5 0.25° đọc thấp lõi bão; giờ phát hành danh nghĩa ±12 h; ngày UTC; mẫu nhỏ, không có KTC.
+- **Artifact:** `storm-leadtime-20261023d/`; dữ liệu `forecast_runs/previous_runs_{ecmwf_ifs025,gfs_seamless}_nb1_*`, `era5/openmeteo_era5_nb1_1982_20261016.csv`. Thay thế: `storm-leadtime-20261023`, `-b`; `yagi_check` trong `storm-hindcast-20261022d`, `-20261023c` (thay bằng `-20261023e`); cờ nóng + lặng gió trong `heat-hindcast-20261022` (thay bằng `-20261023b`: 0 ngày, vì nhiệt độ không khí tối đa ERA5 thật tại NB1 chưa từng đạt 35 °C).
+- **Tài liệu:** `docs/eval/2026-10-23-storm-leadtime.md`.
+
+## RL-32 · 2026-10-23 · Khả năng phát hiện ngày nóng ≥ 31 °C so với sensor lồng
+
+- **Thiết lập:** `experiments/heat_skill.py`, chạy `heat-skill-20261023b`. Giá trị thật: trung bình ngày sensor (≥ 1296 dòng, 10–40 °C), 130 ngày, 31 ngày ≥ 31 °C. Hiệu chỉnh ngoài mẫu: split (train 05-29…07-31, test 08-01…10-21) và leave-one-month-out (LOMO). Nhiệt độ không khí = ERA5 thật.
+- **Kết quả (LOMO, CSI):** OISST thô 0 (POD 0, OISST chưa bao giờ ≥ 31 °C mùa này); chỉ nhiệt độ không khí 0.44; marine + không khí 0.46; sensor hôm qua (persistence) 0.66. Lead 1–3 chỉ là persistence của sản phẩm (không có lưu trữ dự báo SST).
+- **Kết luận:** OISST chỉ dùng cho khí hậu/lịch, không dùng để cảnh báo ngày. Kỹ năng chủ yếu đến từ nhiệt độ không khí; có sensor thì dùng giá trị hôm qua.
+- **Hạn chế:** một mùa, ít ngày nóng, không KTC; không đánh giá được mức 33 °C.
+- **Thay thế:** `heat-skill-20261023`. **Tài liệu:** `docs/eval/2026-10-23-heat-skill.md`. **Ghi chú quy trình:** agent xóa và tạo lại thư mục chạy đầu `heat-skill-20261023` (vài phút tuổi), ngoại lệ thứ hai với quy tắc ghi một lần.
+
+## RL-33 · 2026-10-23 · Danh mục sự kiện và đối chiếu nguồn (QĐ 18, Harper 2010)
+
+- **Kết quả:** `experiments/hazard_events.csv` 12 dòng (8 bão, 1 dịch bệnh, 2 cá/ngao chết, 1 nắng nóng thiếu oxy); 6 dòng xác thực đủ số liệu thiệt hại. Điều 42 QĐ 18 đối chiếu toàn văn .doc: hàm `qd18_risk_level` đúng cho vùng biển ven bờ / Đông Bắc Bộ (chỗ mơ hồ: ATNĐ cấp 6–7). Điều 50 (gió mạnh trên biển) và Điều 47 (nắng nóng, nhiệt độ không khí) ghi lại, chưa đưa vào code. Hệ số 0.93 xác nhận theo WMO/TD-1555 Bảng 1.2 (at-sea).
+- **Kiểm tra nhất quán** (`storm-hindcast-20261023f`): 8/8 bão khớp tên, 8/8 gió lồng ≥ cấp 6, 1/8 ≥ cấp 8 (Yagi). Đây là kiểm tra nhất quán, không phải năng lực phát hiện (danh mục chọn từ bão đã biết). Kajiki: không có điểm quỹ đạo trong 200 km nên thiếu cường độ.
+- **Tài liệu:** `docs/eval/2026-10-23-events-and-sources.md`.
+
+## RL-34 · 2026-10-23 · Chỉ số nguy cơ dịch bệnh theo điều kiện môi trường (lý thuyết)
+
+- **Thiết lập:** `core/disease_risk.py`, `experiments/disease_hindcast.py`, chạy `disease-hindcast-20261023b` (ERA5 thật cho mưa và nhiệt độ không khí). Nhóm: Vibrio, Photobacterium, Streptococcus, Amyloodinium, Cryptocaryon, rét (Nhu et al. 2011: ngừng ăn < 18 °C, ngừng lớn < 22 °C, ~15 °C > 5 tuần gây chết hàng loạt 2008).
+- **Kết quả:** trên OISST mức "cao" 216.6 ngày/năm, không bao giờ "thấp", nên nhiệt độ nước một mình không tách được ngày rủi ro. 5 sự kiện chấm điểm: 3/5 có ngày "cao" trong 14 ngày trước so với kỳ vọng khí hậu 0.659 → `no_skill_over_climatology`, chưa vững với ±1 °C; chỉ 2 sự kiện có tên mầm bệnh → `insufficient_evidence`. OISST bỏ sót cả hai đợt rét 2008 và 2016; nhiệt độ không khí ERA5 bắt được (rủi ro rét 1.0 và 0.6).
+- **Kết luận:** giá trị dùng được hiện tại là cảnh báo rét kéo dài; chỉ số nhiệt cho mầm bệnh cần DO / độ mặn / mật độ nuôi mới có ý nghĩa.
+- **Thay thế:** `disease-hindcast-20261023`. **Tài liệu:** `docs/eval/2026-10-23-disease-risk.md`.
+
+## RL-35 · 2026-10-23 · Lịch thả giống theo rủi ro (lý thuyết)
+
+- **Thiết lập:** `experiments/stocking_calendar.py`, chạy `stocking-calendar-20261023c`. Chu kỳ 26 và 39 tuần, 1991–2025. Điều kiện cứng: 8 tuần đầu OISST(+0.30) ≥ 22 °C ở ≥ 80 % số năm (Nhu et al. 2011); cờ chết rét (≥ 14 ngày < 18 °C hoặc ngày ≤ 15 °C); điểm tổng hợp tương đối trên các tuần khả thi; lớp tháng theo ngưỡng điểm tuyệt đối.
+- **Kết quả:** T12–T2 "tránh (lạnh lúc thả)"; T3, T11 biên. Cửa sổ tốt nhất: chu kỳ 26 tuần thả tuần 28–33 (cuối T7–giữa T8); 39 tuần thả tuần 35–40 (giữa T9). Không tuần nào ổn định với mọi bộ trọng số; kịch bản mùa đông lạnh hơn 1.5 °C đổi kết quả 39 tuần sang mùa xuân (tuần 13–15).
+- **Hạn chế:** không có số liệu thật; độ dài chu kỳ, trọng số, phạt 0.5 là quy ước; OISST đọc thấp rét trong vịnh.
+- **Thay thế:** `stocking-calendar-20261023`, `-b`. **Tài liệu:** `docs/eval/2026-10-23-stocking-calendar.md`.
+
+## RL-36 · 2026-10-23 · Bản đồ độ sâu và hiển thị lớp lưới trên research-map
+
+- **Chẩn đoán:** lớp độ sâu cũ chỉ dùng Copernicus SDB 100 m: 0 ô hợp lệ ở Cát Bà/Lan Hạ, Hạ Long, quanh NB1; 3.829/1.115.136 ô toàn tile, chủ yếu bãi triều cửa sông Hải Phòng; "phủ 83 %" là do mẫu số đã loại ô thiếu. Lớp mưa / mực nước vẽ mỗi điểm lưới truy vấn ~1.2 km thành một ô vuông dù lưới mô hình thô hơn (~8 km).
+- **Sửa:** NOAA ETOPO 2022 15″ (~460 m, `data/depth/etopo2022-20261023/`), vẽ dải độ sâu + đường đẳng sâu 2/5/10/20/30 m cắt theo mặt nước OSM, cờ "thô" và "nghi ngờ" (hố > 30 m tách khỏi biển mở); lớp vô hướng thành bề mặt nội suy, chú giải ghi độ phân giải nguồn. Độ sâu trung vị: NB1 6 m, Lan Hạ 11.5, Hạ Long 5, Bái Tử Long 6.
+- **Hạn chế:** sai nguồn ở Cửa Lục, Vân Đồn/Cửa Ông (60–149 m, đã đánh dấu); không thấy luồng hẹp; cần GEBCO 2024 (TID) hoặc hải đồ / đo sâu tại lồng.
+- **Tài liệu:** `docs/eval/2026-10-23-bathymetry-map.md`; giao diện: `docs/eval/2026-10-23-ui-ux.md`.
