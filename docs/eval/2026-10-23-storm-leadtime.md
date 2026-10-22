@@ -1,174 +1,185 @@
 # Đánh giá thời gian báo trước gió mạnh tại NB1 (Cát Bà)
 
-Ngày: 2026-10-23. Trạng thái: shadow, chỉ để nghiên cứu. Không đẩy cho người nuôi.
+Ngày: 2026-10-23 (sửa nguồn dữ liệu cùng ngày). Trạng thái: shadow, chỉ để nghiên cứu. Không đẩy cho người nuôi.
 
 Câu hỏi: đường dự báo vận hành (đọc gió dự báo tại điểm lồng bè, không biết tâm bão) báo trước gió mạnh được bao nhiêu ngày?
 
 Mã: `experiments/storm_leadtime.py`. Test: `tests/test_storm_leadtime.py`.
-Kết quả: `artifacts/experiments/storm-leadtime-20261023b/` (`events.csv`, `day_contingency.csv`, `error_wind_by_lead.csv`, `error_gust_by_lead.csv`, `error_wind_by_year.csv`, `manifest.json`).
-Thư mục `storm-leadtime-20261023/` là lần chạy đầu, thiếu bảng theo năm. Để nguyên, không dùng.
+Kết quả hiện hành: `artifacts/experiments/storm-leadtime-20261023d/`. Mỗi cặp (mô hình dự báo, truth) có bộ file riêng, tên `<loại>_<mô hình>_vs_<truth>.csv`: `events_`, `day_contingency_`, `error_wind_by_lead_`, `error_gust_by_lead_`, `error_wind_by_year_`. Cặp chính: `ecmwf_ifs025_vs_era5`. `manifest.json` ghi cặp nào là chính và tỉ lệ lead 0 trùng truth của mọi cặp.
+
+**Đã thay thế (superseded), để nguyên, không dùng:** `storm-leadtime-20261023/` (lần chạy đầu) và `storm-leadtime-20261023b/`. Cả hai dùng "ERA5" là file `era5_nb1_1982_20261020.csv`. File đó tải không có `models=`, nên thực ra là `best_match` của Open-Meteo: ERA5 trước 2017, từ 2017 là ECMWF IFS 9 km (các lần chạy vận hành ghép lại). Lead 0 của Previous Runs `best_match` trùng nó 100 % số giờ. Vậy truth cũ là chính mô hình dự báo ở tầm ngắn (truth vòng tròn), và mọi POD/FAR/CSI của bản cũ là "IFS tầm 1–7 ngày so với IFS tầm 0", không phải so với tái phân tích.
 
 ## 1. Dữ liệu và phương pháp
 
-- Dự báo quá khứ: Open-Meteo Previous Runs API, `wind_speed_10m_previous_dayN` (N = 1..7) và `wind_gusts_10m_previous_dayN`. Giá trị này là dự báo cho giờ hiệu lực, từ lần chạy phát hành N ngày trước.
-- Giờ phát hành là giờ danh định: giờ hiệu lực trừ 24 h x N. Không biết chu kỳ mô hình (00/06/12/18 UTC).
-- File: `data/hazards/forecast_runs/previous_runs_nb1_20240101_20261022_fetched20261023.csv` (ghi một lần, có manifest, sha256 `03fde38b...`).
-- Vị trí NB1: 20.7189 N, 107.0426 E. Mô hình: mặc định `best_match` của Open-Meteo. Không chọn mô hình cố định.
-- Lead 1 có từ 2024-01-19, lead 7 có từ 2024-01-25. Trước đó là null. Kỳ phân tích chung: 2024-01-25 12:00 UTC đến 2026-10-20 23:00 UTC (23 988 giờ, 999 ngày UTC đủ 24 h). Kết thúc ở 10-20 vì ERA5 dừng ở đó.
-- Sự thật (truth):
-  1. ERA5 theo giờ tại NB1 (`wind_speed_10m`). Là tái phân tích lưới thô, đọc thấp gió bão.
-  2. Gió tại điểm theo best-track (`site_beaufort` trong `passages.csv`, oracle, một giá trị cho mỗi cơn).
-- Ngưỡng: cấp Beaufort 6, 8, 10 (`core.storm_advisory.BEAUFORT_LOWER_MS`: 10.8, 17.2, 24.5 m/s). Gió theo giờ coi như gió duy trì 10 phút.
-- Sự kiện: 19 cơn có `peak_time` trong kỳ phân tích. Cửa sổ = peak_time +- 24 h.
-- Lead hours = 24 x N + (giờ truth vượt ngưỡng đầu tiên - giờ dự báo vượt ngưỡng đầu tiên). N là lead dài nhất có dự báo chạm ngưỡng trong cửa sổ.
-- Lead 0 (`wind_speed_10m` không hậu tố) trùng ERA5 tuyệt đối (MAE = 0, tương quan 1). Nó không phải dự báo, nên loại khỏi mọi kết luận. Bảng CSV vẫn giữ làm đối chứng.
+- Dự báo quá khứ: Open-Meteo Previous Runs API, `wind_speed_10m_previous_dayN` (N = 1..7). Giờ phát hành danh định = giờ hiệu lực − 24 h × N. Không biết chu kỳ thật (00/06/12/18 UTC).
+- **Mô hình dự báo được ghim** (`models=`), tải ghi một lần ngày 2026-10-23:
+  - Chính: `ecmwf_ifs025` → `data/hazards/forecast_runs/previous_runs_ecmwf_ifs025_nb1_20240101_20261022_fetched20261023.csv` (sha256 `29206e25...`).
+  - Phụ: `gfs_seamless` → `previous_runs_gfs_seamless_nb1_20240101_20261022_fetched20261023.csv` (`aea72582...`).
+  - Phụ: `best_match` (file cũ `previous_runs_nb1_20240101_20261022_fetched20261023.csv`, không có `models=`). Nguồn đổi theo thời gian, chỉ để đối chiếu.
+- Có `*_previous_dayN` hay không (thử tại NB1 ngày 2026-10-23):
 
-## 2. Phát hiện quan trọng về chất lượng dữ liệu dự báo
+| Mô hình | Gió d1..7 | Giật d1..7 | Ghi chú |
+| --- | --- | --- | --- |
+| `ecmwf_ifs025` | có (từ 2024-02-04) | **không** | Giật chỉ có lead 0 và không đủ giờ |
+| `gfs_seamless` | có (từ 2024-01-19) | có | |
+| `icon_seamless` | d1..6 | d1..6 | không có d7 |
+| `ecmwf_ifs` (9 km) | không | không | chỉ lead 0 |
+| `best_match` | có | có | ghép nhiều nguồn |
 
-Chuỗi dự báo không đồng nhất theo thời gian và theo lead. Bảng dưới là sai số trung bình (dự báo - ERA5), m/s, theo năm.
+- **Truth:**
+  1. **Chính: ERA5 thật** (Open-Meteo archive `models=era5`), `data/hazards/era5/openmeteo_era5_nb1_1982_20261016.csv` (sha256 `0cec3855...`, ô 20.75 N 107.0 E). Tái phân tích 0,25°, độc lập với các mô hình dự báo, đọc thấp lõi bão. ERA5 trễ khoảng 5 ngày: dữ liệu dừng ở 2026-10-16.
+  2. **Phụ: "IFS tầm ngắn (không độc lập)"** = archive `best_match` (file cũ `era5_nb1_1982_20261020.csv`). Chỉ để nối với bản cũ. **Không được đọc như kiểm định.**
+  3. Gió tại điểm theo best-track (`site_beaufort` trong `storm-hindcast-20261023e/passages.csv`, oracle, một giá trị mỗi cơn). File passages giống hệt bản 20261022d (cùng sha256 `3c21c365...`).
+- **Chốt chặn độc lập:** nếu lead 0 của bất kỳ mô hình nào trùng truth chính (sai khác ≤ 0,005 m/s) quá 50 % số giờ, mã dừng với lỗi. Kết quả: `ecmwf_ifs025` 0,5 %, `best_match` 0,5 %, `gfs_seamless` 0,3 %. Với truth phụ: `best_match` **100 %** (bằng chứng truth cũ là vòng tròn), `ecmwf_ifs025` 0,7 %.
+- **Kỳ phân tích chung:** 2024-02-10 00:00 đến 2026-10-16 23:00 UTC (23 520 giờ, 980 ngày UTC đủ 24 h). Đầu kỳ dời từ 01-25 sang 02-10 vì `ecmwf_ifs025` lead 7 bắt đầu 2024-02-10. Cuối kỳ dời từ 10-20 về 10-16 vì ERA5 thật dừng ở đó. Vẫn 19 cơn có `peak_time` trong kỳ.
+- Ngưỡng: Beaufort 6, 8, 10 (10,8 / 17,2 / 24,5 m/s). Gió theo giờ coi như gió duy trì 10 phút.
+- Sự kiện: cửa sổ = `peak_time` ± 24 h.
+- **Lead báo trước (đã sửa):**
+  - `consistent_N` = N dài nhất mà **mọi** lead 1..N đều chạm ngưỡng trong cửa sổ (cảnh báo liền mạch từ N ngày trước).
+  - `any_N` = lead dài nhất có chạm, cho phép lỗ hổng (định nghĩa cũ, lạc quan).
+  - Lead hours = 24 × N + (giờ truth vượt ngưỡng đầu tiên − giờ dự báo vượt ngưỡng đầu tiên). **Giá trị âm** = dự báo chạm ngưỡng sau truth: trúng trong cửa sổ nhưng không báo trước. Không tính là cảnh báo.
+  - `consistent_N`/`any_N` cũng được ghi cho cơn mà truth không chạm ngưỡng. Khi đó chúng là **báo động giả mức sự kiện**.
+- Lead 0 là phân tích/tầm 0 của mô hình, không phải dự báo. Bảng giữ làm đối chứng.
 
-| Năm | ERA5 trung bình | Lead 1 | Lead 3 | Lead 6 | Lead 7 |
-| --- | --- | --- | --- | --- | --- |
-| 2024 | 3.98 | -1.98 | -1.94 | -1.89 | -0.13 |
-| 2025 | 3.74 | -1.26 | -1.25 | -1.35 | -0.12 |
-| 2026 | 3.73 | +0.11 | 0.00 | -0.18 | -0.07 |
+## 2. Số ngày vượt ngưỡng theo truth (980 ngày)
 
-- Lead 1 đến 6 đọc thấp khoảng 2 m/s năm 2024, 1.3 m/s năm 2025. Năm 2026 hết lệch. Có thể do mô hình `best_match` đổi nguồn. Chưa xác minh.
-- Lead 7 có trung bình gần ERA5 cả ba năm, khác hẳn lead 1..6. Nhiều khả năng lead 7 lấy từ nguồn khác. Lead 7 có nhiều báo động giả (xem mục 4). Coi lead 7 là không so sánh được. Kết luận chính dùng lead 1..6, lead 7 ghi riêng.
-- Hệ quả: POD thấp ở 2024-2025 một phần do lệch thấp có hệ thống, không chỉ do khó dự báo.
-
-## 3. Theo từng cơn bão (cấp 6)
-
-Cột `ERA5` là cấp lớn nhất của ERA5 trong cửa sổ. Cột d1..d7 là cấp lớn nhất của dự báo lead N trong cửa sổ. `Track` là cấp gió tại điểm theo best-track (oracle).
-
-| Tên | Ngày (UTC) | Cách NB1 (km) | Track | ERA5 | d1 | d2 | d3 | d4 | d5 | d6 | d7 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| MALIKSI | 2024-05-31 | 453 | 4 | 3 | 2 | 3 | 2 | 3 | 2 | 2 | 3 |
-| (không tên) | 2024-07-15 | 328 | 4 | 5 | 3 | 3 | 3 | 3 | 3 | 3 | 6 |
-| PRAPIROON | 2024-07-22 | 56 | 7 | 6 | 4 | 5 | 5 | 4 | 3 | 3 | 4 |
-| YAGI | 2024-09-07 | 21 | 11 | 11 | 9 | 9 | 10 | 9 | 8 | 8 | 8 |
-| SOULIK | 2024-09-19 | 405 | 5 | 4 | 2 | 3 | 3 | 3 | 2 | 2 | 3 |
-| TRAMI | 2024-10-27 | 482 | 5 | 4 | 4 | 4 | 5 | 4 | 4 | 4 | 6 |
-| WUTIP | 2025-06-13 | 209 | 7 | 5 | 4 | 4 | 4 | 3 | 2 | 3 | 3 |
-| (không tên) | 2025-06-26 | 276 | 4 | 3 | 3 | 3 | 3 | 2 | 2 | 2 | 3 |
-| WIPHA | 2025-07-21 | 17 | 7 | 7 | 6 | 6 | 8 | 6 | 5 | 6 | 4 |
-| (không tên) | 2025-08-18 | 41 | 6 | 4 | 3 | 3 | 2 | 3 | 3 | 2 | 6 |
-| KAJIKI | 2025-08-25 | 260 | 6 | 7 | 5 | 4 | 5 | 4 | 3 | 2 | 4 |
-| NONGFA | 2025-08-30 | 303 | 5 | 6 | 4 | 4 | 3 | 2 | 2 | 2 | 5 |
-| RAGASA | 2025-09-24 | 128 | 7 | 5 | 4 | 4 | 4 | 4 | 4 | 4 | 6 |
-| BUALOI | 2025-09-28 | 292 | 6 | 7 | 4 | 4 | 6 | 4 | 4 | 5 | 10 |
-| MATMO | 2025-10-05 | 134 | 7 | 5 | 6 | 5 | 8 | 5 | 6 | 4 | 6 |
-| FENGSHEN | 2025-10-22 | 493 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 |
-| MAYSAK | 2026-07-04 | 74 | 7 | 6 | 5 | 6 | 5 | 5 | 5 | 4 | 4 |
-| NARRA | 2026-08-23 | 74 | 7 | 6 | 6 | 5 | 6 | 7 | 5 | 2 | 2 |
-| SAUDEL | 2026-08-31 | 356 | 3 | 4 | 4 | 4 | 4 | 4 | 4 | 4 | 4 |
-
-Chú ý:
-- Lead 0 không in vì trùng ERA5.
-- Hàng Bualoi lead 7 cấp 10 (25.5 m/s) là báo động giả theo ERA5 (ERA5 cấp 7).
-- Yagi: ERA5 29.6 m/s, dự báo lead 1 chỉ 22.9 m/s (cấp 9). Dự báo đọc thấp 1 đến 3 cấp so với ERA5 ở bão trực tiếp.
-
-### 3.1. Lead báo trước theo ngưỡng (chỉ cơn mà truth chạm ngưỡng)
-
-Lead hours tính tới lần vượt ngưỡng đầu tiên của truth. "N tối đa" là lead dài nhất có dự báo chạm ngưỡng. Cột "N<=6" bỏ lead 7 vì lead 7 không đáng tin (mục 2).
-
-Cấp 6, truth = ERA5:
-
-| Cơn | N tối đa (1..7) | Lead hours | N tối đa (1..6) | Lead hours | Các N có chạm |
-| --- | --- | --- | --- | --- | --- |
-| YAGI | 7 | 140 | 6 | 136 | 1-7 |
-| WIPHA | 6 | 120 | 6 | 120 | 1,2,3,4,6 |
-| BUALOI | 7 | 160 | 3 | 57 | 3,7 |
-| MAYSAK | 2 | 48 | 2 | 48 | 2 |
-| NARRA | 4 | 89 | 4 | 89 | 1,3,4 |
-| PRAPIROON | bỏ lỡ | - | bỏ lỡ | - | - |
-| KAJIKI | bỏ lỡ | - | bỏ lỡ | - | - |
-| NONGFA | bỏ lỡ | - | bỏ lỡ | - | - |
-
-Cấp 6, truth = best-track (oracle): 11 cơn có gió điểm >= cấp 6.
-
-| Cơn | N tối đa (1..7) | Lead hours | N tối đa (1..6) | Lead hours |
+| Truth | Ngày ≥ cấp 6 | Ngày ≥ cấp 8 | Ngày ≥ cấp 10 | Gió TB (m/s) |
 | --- | --- | --- | --- | --- |
-| YAGI | 7 | 150 | 6 | 146 |
-| WIPHA | 6 | 131 | 6 | 131 |
-| (không tên) 2025-08 | 7 | 164 | bỏ lỡ | - |
-| RAGASA | 7 | 163 | bỏ lỡ | - |
-| BUALOI | 7 | 168 | 3 | 65 |
-| MATMO | 7 | 146 | 5 | 99 |
-| MAYSAK | 2 | 38 | 2 | 38 |
-| NARRA | 4 | 83 | 4 | 83 |
-| PRAPIROON, WUTIP, KAJIKI | bỏ lỡ | - | bỏ lỡ | - |
+| ERA5 thật | **23** | 1 (Yagi) | **0** | 4,4–4,6 |
+| IFS tầm ngắn (best_match) | 15 | 1 | 1 | 3,7–4,0 |
 
-Cấp 8: chỉ có một cơn có truth >= cấp 8 trong kỳ (Yagi), cả ERA5 và best-track. Dự báo chạm cấp 8 ở mọi lead 1..7. Lead hours: 144 h (ERA5, N=7) hoặc 140 h (N<=6); 148 h / 144 h theo best-track. WIPHA, BUALOI, MATMO có dự báo chạm cấp 8 ở một lead (3 hoặc 7) nhưng truth không chạm: coi là báo động giả.
+ERA5 thật nhiều gió hơn ở mức trung bình (ô lưới khác, 20.75/107.0 so với 20.77/107.02), nhưng thấp hơn nhiều ở lõi bão: **Yagi ERA5 tối đa 18,86 m/s (cấp 8), giật 35,3 m/s**, so với 29,56 m/s của best_match. ERA5 không có ngày cấp 10 nào, nên **cấp 10 chỉ chấm được bằng best-track**.
 
-Cấp 10: chỉ Yagi. Dự báo chạm cấp 10 chỉ ở lead 3 (lead hours 75). Lead 1, 2, 4, 5, 6 đều chỉ đến cấp 9 trở xuống. Lead 7 của BUALOI chạm cấp 10 nhưng là báo động giả.
+## 3. Bảng chéo theo ngày (UTC), mô hình ghim `ecmwf_ifs025`, truth = ERA5 thật
 
-Với n = 1 cơn cấp 8 và cấp 10, không có thống kê. Chỉ là một ví dụ.
-
-## 4. Bảng chéo theo ngày (UTC), truth = ERA5
-
-Ngày "có sự kiện" = giá trị lớn nhất trong ngày của ERA5 >= ngưỡng. 999 ngày. Số ngày ERA5 vượt: cấp 6 = 15 ngày, cấp 8 = 1 ngày, cấp 10 = 1 ngày.
-
-Cấp 6 (10.8 m/s):
+Cấp 6 (23 ngày sự kiện):
 
 | Lead N | Hit | Miss | FA | POD | FAR | CSI | Bias tần suất |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 4 | 11 | 1 | 0.27 | 0.20 | 0.25 | 0.33 |
-| 2 | 4 | 11 | 0 | 0.27 | 0.00 | 0.27 | 0.27 |
-| 3 | 5 | 10 | 3 | 0.33 | 0.38 | 0.28 | 0.53 |
-| 4 | 4 | 11 | 0 | 0.27 | 0.00 | 0.27 | 0.27 |
-| 5 | 3 | 12 | 2 | 0.20 | 0.40 | 0.18 | 0.33 |
-| 6 | 2 | 13 | 1 | 0.13 | 0.33 | 0.13 | 0.20 |
-| 7 | 2 | 13 | 13 | 0.13 | 0.87 | 0.07 | 1.00 |
+| 0 (đối chứng) | 17 | 6 | 0 | 0,74 | 0,00 | 0,74 | 0,74 |
+| 1 | 14 | 9 | 1 | 0,61 | 0,07 | 0,58 | 0,65 |
+| 2 | 11 | 12 | 1 | 0,48 | 0,08 | 0,46 | 0,52 |
+| 3 | 12 | 11 | 2 | 0,52 | 0,14 | 0,48 | 0,61 |
+| 4 | 11 | 12 | 2 | 0,48 | 0,15 | 0,44 | 0,57 |
+| 5 | 8 | 15 | 2 | 0,35 | 0,20 | 0,32 | 0,43 |
+| 6 | 4 | 19 | 3 | 0,17 | 0,43 | 0,15 | 0,30 |
+| 7 | 1 | 22 | 1 | 0,04 | 0,50 | 0,04 | 0,09 |
 
-Cấp 8 (17.2 m/s), chỉ 1 ngày có sự kiện (Yagi):
+Cấp 8 (1 ngày, Yagi): trúng ở lead 0–4 và 6, trượt ở lead 5 và 7. Báo động giả: lead 3 có 4, lead 4 có 3, lead 5 có 2, lead 6 có 1. Với n = 1 không có thống kê.
 
-| Lead N | Hit | Miss | FA | POD | FAR | CSI |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | 1 | 0 | 0 | 1.00 | 0.00 | 1.00 |
-| 2 | 1 | 0 | 0 | 1.00 | 0.00 | 1.00 |
-| 3 | 1 | 0 | 3 | 1.00 | 0.75 | 0.25 |
-| 4 | 1 | 0 | 0 | 1.00 | 0.00 | 1.00 |
-| 5 | 1 | 0 | 0 | 1.00 | 0.00 | 1.00 |
-| 6 | 1 | 0 | 0 | 1.00 | 0.00 | 1.00 |
-| 7 | 0 | 1 | 4 | 0.00 | 1.00 | 0.00 |
+Cấp 10: ERA5 không có ngày nào; mọi lần dự báo chạm cấp 10 đều là "báo động giả" theo ERA5. Không có nghĩa.
 
-Cấp 10 (24.5 m/s), chỉ 1 ngày: chỉ lead 3 bắt được (hit 1). Lead 1, 2, 4, 5, 6 bỏ lỡ. Lead 7 bỏ lỡ và 2 báo động giả. Các số này không có ý nghĩa thống kê.
+### 3.1. So sánh mô hình, cấp 6, truth = ERA5 thật (CSI)
 
-### 4.1. Sai số gió theo lead (dự báo - ERA5, toàn kỳ, m/s)
+| Lead | `ecmwf_ifs025` (ghim) | `gfs_seamless` | `best_match` |
+| --- | --- | --- | --- |
+| 1 | **0,58** (POD 0,61, FAR 0,07) | 0,45 (POD 0,61, FAR 0,36) | 0,22 (POD 0,22, FAR 0,00) |
+| 2 | 0,46 | 0,33 | 0,17 |
+| 3 | 0,48 | 0,31 | 0,29 |
+| 4 | 0,44 | 0,24 | 0,17 |
+| 5 | 0,32 | 0,12 | 0,17 |
+| 6 | 0,15 | 0,16 | 0,08 |
+| 7 | 0,04 | 0,14 (FAR 0,72) | 0,15 (FAR 0,67) |
 
-| Lead | Bias gió | MAE gió | RMSE gió | Tương quan | Bias giật | MAE giật |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | -1.10 | 1.54 | 2.05 | 0.54 | -4.33 | 4.40 |
-| 2 | -1.13 | 1.58 | 2.08 | 0.51 | -4.32 | 4.39 |
-| 3 | -1.12 | 1.62 | 2.15 | 0.47 | -4.29 | 4.40 |
-| 4 | -1.17 | 1.68 | 2.22 | 0.43 | -4.32 | 4.42 |
-| 5 | -1.14 | 1.69 | 2.24 | 0.40 | -4.34 | 4.44 |
-| 6 | -1.19 | 1.75 | 2.32 | 0.35 | -4.31 | 4.46 |
-| 7 | -0.11 | 1.52 | 2.12 | 0.35 | -2.77 | 3.60 |
+`ecmwf_ifs025` tốt nhất ở lead 1–5. GFS bắt được tương tự ở lead 1 nhưng báo thừa nhiều. `best_match` kém nhất vì lead 1–6 của nó đọc thấp có hệ thống ở 2024–2025 (mục 4).
 
-MAE tăng chậm theo lead (1.54 đến 1.75 m/s). Tương quan giảm từ 0.54 xuống 0.35. Lead 7 có MAE thấp nhất vì nguồn khác, không vì tốt hơn.
+### 3.2. Sai số gió theo lead (`ecmwf_ifs025` − ERA5, toàn kỳ, m/s)
 
-## 5. Ý nghĩa cho câu "báo trước được mấy ngày?"
+| Lead | Bias | MAE | RMSE | Tương quan |
+| --- | --- | --- | --- | --- |
+| 0 | −0,32 | 0,82 | 1,11 | 0,85 |
+| 1 | −0,22 | 0,90 | 1,23 | 0,82 |
+| 2 | −0,23 | 1,01 | 1,35 | 0,77 |
+| 3 | −0,24 | 1,09 | 1,48 | 0,73 |
+| 4 | −0,27 | 1,17 | 1,59 | 0,68 |
+| 5 | −0,32 | 1,26 | 1,72 | 0,62 |
+| 6 | −0,37 | 1,38 | 1,91 | 0,53 |
+| 7 | −0,42 | 1,47 | 2,04 | 0,44 |
 
-Đọc kỹ giới hạn mẫu trước khi dùng.
+MAE tăng đều theo lead, tương quan giảm đều. Không có bước nhảy ở lead 7. Gió giật theo lead: **không có** cho `ecmwf_ifs025` (API không trả `wind_gusts_10m_previous_dayN`). GFS giật lead 1: bias −1,27, MAE 2,13 m/s.
 
-- Bão đổ bộ gần, mạnh (Yagi, cách 21 km): dự báo gió tại điểm chạm cấp 8 và cấp 6 ở mọi lead 1..7. Lead dài nhất tin được (N=6) báo trước khoảng 136 đến 144 h (hơn 5 ngày). Nhưng cấp 10 chỉ thấy ở một lead (3 ngày, 75 h), còn lại dừng cấp 9 hoặc thấp hơn. Cường độ bị đọc thấp.
-- Bão vừa (cấp 6-7): bắt được 5/8 cơn theo ERA5 và 6/11 theo best-track (với N<=6). Lead hữu ích thường 2 đến 4 ngày (48 đến 89 h), tối đa khoảng 5 ngày (Wipha 120 h, Yagi 136 h). Các lead dài còn thất thường: có cơn chỉ chạm ở một lead (Bualoi lead 3 và 7, Maysak lead 2).
-- Bỏ lỡ: Prapiroon (56 km, cấp 7 theo best-track), Kajiki, Nongfa, Wutip. Dự báo gió điểm không thấy chúng ở bất kỳ lead nào.
-- Ngày cấp 6 theo ERA5: POD chỉ 0.27 ở lead 1-4, giảm còn 0.13 ở lead 6. FAR thấp (0-0.4) với lead 1-6. Vậy khi đã có báo động thì phần lớn đúng, nhưng bỏ lỡ nhiều hơn 2/3 số ngày.
-- Lead 7: FAR 0.87, không dùng.
-- Kết luận thận trọng: với đường vận hành chỉ đọc gió điểm, mức "theo dõi" (cấp 6) có thể cảnh báo sớm khoảng 2 đến 3 ngày, nhưng mới bắt được khoảng một phần ba số ngày. Mức "chuẩn bị" (cấp 8) và cao hơn chưa đủ mẫu (1 cơn), chưa nên khẳng định số ngày. Không dùng kết quả này để nói "báo trước 5-7 ngày".
-- Để báo sớm hơn và ổn định hơn cần thông tin tâm bão (vị trí, cường độ dự báo từ JTWC/JMA), tức là theo hướng của `core/storm_advisory.py` kết hợp track dự báo. Đường gió điểm một mình không đủ.
+## 4. Sai số theo năm (dự báo − ERA5 thật, m/s)
 
-## 6. Hạn chế
+| Năm | ERA5 TB | ifs025 d1 | d3 | d6 | d7 | best_match d1 | d3 | d6 | d7 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2024 | 4,61 | −0,23 | −0,29 | −0,35 | −0,45 | −2,60 | −2,56 | −2,52 | −0,73 |
+| 2025 | 4,40 | −0,30 | −0,26 | −0,40 | −0,48 | −1,92 | −1,91 | −2,02 | −0,78 |
+| 2026 | 4,37 | −0,13 | −0,16 | −0,34 | −0,31 | −0,52 | −0,63 | −0,82 | −0,71 |
 
-1. Truth ERA5 đọc thấp gió bão (lưới thô). Yagi ERA5 29.6 m/s, best-track điểm cấp 11 (28.5-32.6 m/s). Độ "hit" theo ERA5 là cận dưới của cường độ thực.
-2. Best-track là oracle sau sự kiện, một giá trị tại giờ cực gần (`peak_time`), không có chuỗi giờ. Lead hours theo best-track tính tới `peak_time` (lúc bão gần nhất), không phải lần vượt ngưỡng đầu, nên không so trực tiếp với cột ERA5.
-3. Giờ phát hành là danh định (-24 h x N). Chu kỳ thật 00/06/12/18 UTC nên sai số tới +-12 h.
-4. Chuỗi Previous Runs là `best_match`, nguồn mô hình có thể đổi theo thời gian. Bias thay đổi từ -2 m/s (2024) sang 0 (2026). Lead 7 khác nguồn. Chưa xác minh nguồn mô hình thật.
-5. Mẫu nhỏ: 19 cơn, 15 ngày cấp 6, 1 ngày cấp 8, 1 ngày cấp 10 trong 2.7 năm. Không có khoảng tin cậy. Mọi tỉ lệ chỉ để mô tả.
-6. Ngày tính theo UTC, đủ 24 giờ. Ngày địa phương (UTC+7) sẽ đổi vài số liệu nhỏ.
-7. Chỉ dùng gió trung bình theo giờ. Chưa dùng gió giật để đặt ngưỡng; giật dự báo đọc thấp 4 m/s so với ERA5.
-8. Chưa hiệu chỉnh bias (ví dụ ánh xạ phân vị) và chưa thử mô hình cố định (ECMWF IFS, GFS). Đó là bước tiếp theo.
-9. Cơn có bão cách xa (> 300 km) nhưng gió mùa Đông Bắc mạnh có thể tạo ngày cấp 6 mà không có cơn nào. 15 ngày cấp 6 gồm cả các ngày này. Chưa tách.
+- Mô hình ghim **đồng nhất theo thời gian** (bias −0,1 đến −0,5 m/s mọi năm, mọi lead).
+- `best_match` lead 1–6 đọc thấp 2–2,6 m/s năm 2024, 1,9 m/s năm 2025, rồi gần hết năm 2026; lead 7 khác hẳn. "Lead 7 khác nguồn" trong bản cũ là đặc điểm của `best_match`, không phải của dự báo nói chung. Không dùng `best_match` cho đánh giá theo lead.
+- GFS: bias −0,5 đến −0,8 m/s, cũng đồng nhất.
+
+## 5. Theo từng cơn bão, `ecmwf_ifs025`
+
+Cột ERA5 là cấp lớn nhất của ERA5 thật trong cửa sổ. d1..d7 là cấp lớn nhất của dự báo lead N. Track là cấp tại điểm theo best-track.
+
+| Tên | Ngày (UTC) | Cách NB1 (km) | Track | ERA5 | d1 | d2 | d3 | d4 | d5 | d6 | d7 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| MALIKSI | 2024-05-31 | 453 | 4 | 4 | 3 | 3 | 3 | 3 | 3 | 3 | 3 |
+| (không tên) | 2024-07-15 | 328 | 4 | 5 | 5 | 5 | 5 | 5 | 5 | 5 | 4 |
+| PRAPIROON | 2024-07-22 | 56 | 7 | 6 | 5 | 5 | 5 | 5 | 4 | 4 | 4 |
+| YAGI | 2024-09-07 | 21 | 11 | 8 | 12 | 10 | 10 | 9 | 7 | 12 | 4 |
+| SOULIK | 2024-09-19 | 405 | 5 | 4 | 4 | 4 | 5 | 4 | 3 | 3 | 3 |
+| TRAMI | 2024-10-27 | 482 | 5 | 6 | 5 | 5 | 5 | 5 | 5 | 5 | 5 |
+| WUTIP | 2025-06-13 | 209 | 7 | 5 | 4 | 5 | 4 | 4 | 3 | 3 | 3 |
+| (không tên) | 2025-06-26 | 276 | 4 | 3 | 3 | 3 | 4 | 4 | 4 | 4 | 4 |
+| WIPHA | 2025-07-21 | 17 | 7 | 7 | 7 | 7 | 9 | 6 | 8 | 6 | 7 |
+| (không tên) | 2025-08-18 | 41 | 6 | 5 | 4 | 4 | 4 | 4 | 3 | 3 | 3 |
+| KAJIKI | 2025-08-25 | 260 | 6 | 7 | 7 | 6 | 6 | 6 | 7 | 5 | 3 |
+| NONGFA | 2025-08-30 | 303 | 5 | 6 | 6 | 5 | 5 | 5 | 4 | 4 | 5 |
+| RAGASA | 2025-09-24 | 128 | 7 | 4 | 5 | 6 | 5 | 9 | 9 | 6 | 4 |
+| BUALOI | 2025-09-28 | 292 | 6 | 7 | 7 | 7 | 7 | 8 | 7 | 6 | 4 |
+| MATMO | 2025-10-05 | 134 | 7 | 6 | 6 | 5 | 8 | 6 | 6 | 5 | 5 |
+| FENGSHEN | 2025-10-22 | 493 | 4 | 5 | 4 | 4 | 4 | 4 | 4 | 4 | 4 |
+| MAYSAK | 2026-07-04 | 74 | 7 | 6 | 6 | 6 | 5 | 5 | 5 | 4 | 4 |
+| NARRA | 2026-08-23 | 74 | 7 | 6 | 6 | 5 | 6 | 7 | 5 | 2 | 2 |
+| SAUDEL | 2026-08-31 | 356 | 3 | 4 | 4 | 4 | 4 | 5 | 4 | 4 | 4 |
+
+Yagi: ERA5 thật chỉ cấp 8 (18,9 m/s), trong khi dự báo lead 1 và 6 lên cấp 12. Ở bão đổ bộ gần, mô hình 0,25° có thể cao hơn ERA5; ERA5 là cận dưới.
+
+### 5.1. Lead báo trước, cấp 6, truth = ERA5 thật (10 cơn chạm cấp 6)
+
+| Cơn | Consistent N | Lead hours | Any-lead N | Lead hours | Lead có chạm |
+| --- | --- | --- | --- | --- | --- |
+| WIPHA | 7 | 134 | 7 | 134 | 1–7 |
+| YAGI | 6 | 115 | 6 | 115 | 1–6 |
+| BUALOI | 6 | 111 | 6 | 111 | 1–6 |
+| KAJIKI | 5 | 100 | 5 | 100 | 1–5 |
+| MAYSAK | 2 | 49 | 2 | 49 | 1, 2 |
+| MATMO | 1 | 30 | 5 | 119 | 1, 3, 4, 5 |
+| NONGFA | 1 | 21 | 1 | 21 | 1 |
+| NARRA | 1 | −8 (trễ, không báo trước) | 4 | 69 | 1, 3, 4 |
+| PRAPIROON | bỏ lỡ | – | bỏ lỡ | – | – |
+| TRAMI (482 km) | bỏ lỡ | – | bỏ lỡ | – | – |
+
+Báo động giả mức sự kiện, cấp 6: RAGASA (ERA5 cấp 4; dự báo chạm ở lead 2, 4, 5, 6).
+
+Truth = best-track (11 cơn có gió điểm ≥ cấp 6): consistent N / lead hours: WIPHA 7 / 151, YAGI 6 / 127, BUALOI 6 / 120, KAJIKI 5 / 117, MAYSAK 2 / 41, MATMO 1 / 11 (any 5 / 100), NARRA 1 / 6 (any 4 / 83), RAGASA không liền mạch (any 6 / 130). Bỏ lỡ: PRAPIROON, WUTIP, (không tên) 2025-08-18.
+
+So sánh nhanh (cấp 6, ERA5, consistent N): `best_match` chỉ có YAGI 7, WIPHA 4, MATMO 1, NARRA 1 (trễ); bỏ lỡ PRAPIROON, KAJIKI, NONGFA. `gfs_seamless`: YAGI 7, BUALOI 7, WIPHA 4, KAJIKI 4, TRAMI 3, NONGFA 3, PRAPIROON 2, NARRA 1; bỏ lỡ MAYSAK; MATMO không liền mạch.
+
+### 5.2. Cấp 8 và cấp 10
+
+- Cấp 8, ERA5: chỉ YAGI là sự kiện. **Consistent 4 ngày (92 h)**, any-lead 6 (123 h); lead 5 trượt (chỉ cấp 7). Báo động giả mức sự kiện: WIPHA (lead 3, 5), RAGASA (4, 5), BUALOI (4), MATMO (3).
+- Cấp 10: ERA5 không có. Theo best-track chỉ YAGI: **consistent 3 ngày (73 h)**, any-lead 6 (126 h).
+- n = 1 cơn. Chỉ là ví dụ, không có thống kê.
+
+## 6. Ý nghĩa cho câu "báo trước được mấy ngày?"
+
+- Truth cũ (best_match) làm kết quả trông tệ hơn thực tế: CSI cấp 6 lead 1 là 0,25 trong bản cũ, nay 0,58 với mô hình ghim và ERA5 thật. Phần lớn chênh lệch đến từ việc `best_match` lead 1–6 đọc thấp 2 m/s năm 2024–2025, không phải từ độ khó dự báo.
+- Với `ecmwf_ifs025`, mức "theo dõi" (cấp 6, theo ERA5): lead 1 bắt 61 % số ngày với FAR 0,07; lead 2–4 khoảng 50 % với FAR ≤ 0,15; lead 5 còn 35 %; lead 6–7 gần như mất.
+- Theo cơn: các cơn đổ bộ gần hoặc rộng (Wipha, Yagi, Bualoi, Kajiki) được cảnh báo liền mạch 5–7 ngày (100–134 h). Cơn yếu/xa hơn thường chỉ 1–2 ngày (Maysak, Nongfa, Matmo), Narra chỉ chạm sau khi gió đã lên. Bỏ lỡ 2/10 cơn (Prapiroon, Trami).
+- Mức "chuẩn bị" (cấp 8) và cao hơn: 1 cơn. Yagi liền mạch 4 ngày ở cấp 8 và 3 ngày ở cấp 10 (best-track). Chưa được nói "báo trước 5–7 ngày" cho bão mạnh.
+- Kết luận thận trọng: đọc gió điểm từ một mô hình ghim (`ecmwf_ifs025`) đủ cho mức "theo dõi" 2–4 ngày trước. Mức cao hơn vẫn cần thông tin tâm bão (track/cường độ dự báo), theo hướng `core/storm_advisory.py`.
+
+## 7. Hạn chế
+
+1. ERA5 0,25° đọc thấp lõi bão (Yagi 18,9 m/s so với best-track cấp 11). "Hit" theo ERA5 là cận dưới của cường độ thật; cấp 10 không chấm được bằng ERA5.
+2. ERA5 và mô hình dự báo dùng ô lưới khác nhau; ERA5 nhiều gió hơn ở mức nền (TB 4,4–4,6 so với 3,7–4,0 m/s của best_match), nên số ngày cấp 6 (23) cao hơn bản cũ (15). Một phần "bỏ lỡ" có thể là gió mùa nền mà mô hình 0,25° đọc thấp, không phải bão.
+3. Best-track là oracle, một giá trị tại `peak_time`. Lead hours theo best-track tính tới `peak_time`, không so trực tiếp với cột ERA5.
+4. Giờ phát hành là danh định (−24 h × N); sai số tới ±12 h.
+5. Mẫu nhỏ: 19 cơn, 23 ngày cấp 6, 1 ngày cấp 8 trong 2,7 năm. Không có khoảng tin cậy.
+6. Ngày tính theo UTC, đủ 24 giờ.
+7. Gió giật theo lead không có cho mô hình ghim. Chưa hiệu chỉnh bias (ví dụ ánh xạ phân vị).
+8. Chưa tách ngày cấp 6 do gió mùa Đông Bắc khỏi ngày có bão.
