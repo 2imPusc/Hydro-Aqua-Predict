@@ -132,7 +132,7 @@ export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
     : { tone: 'warn', label: 'Không cặp nào đạt' }
   const header = (
     <MapVerdict code="H4" question={detail ? `${(detail.name ?? id).split(' — ')[0]}: chuyển giá trị được bao xa?` : 'Bộ dữ liệu nước ngoài'}
-      value={detail ? `${passing}/${pairs.length}` : '—'} unit={detail ? 'cặp ≥ 80 % thời gian' : undefined} status={status}
+      value={detail && pairs.length ? `${passing}/${pairs.length}` : '—'} unit={detail && pairs.length ? 'cặp ≥ 80 % thời gian' : undefined} status={status}
       answer={detail?.headline ? splitRefs(detail.headline).text : undefined}
       chips={detail ? <><RedistributableBadge value={!!detail.redistributable} /><Chip size="xs" tone="neutral">{detail.cadence}</Chip><Chip size="xs" tone="neutral">{detail.stations?.features.length ?? 0} trạm</Chip></> : undefined} />
   )

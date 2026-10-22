@@ -21,22 +21,27 @@ export function Panel({ title, icon, actions, children, variant = 'solid', colla
   const bodyId = useId()
   const surface = variant === 'glass' ? 'glass' : 'bg-surface border border-line shadow-[var(--shadow-sm)]'
   const header = title !== undefined && (
-    <div className={`flex items-center gap-2 px-3.5 pt-3 ${collapsible && !open ? 'pb-3' : 'pb-2'}`}>
-      {icon && <span className="text-accent flex-none" aria-hidden>{icon}</span>}
+    <div className={`flex items-start gap-2 px-3.5 pt-3 ${collapsible && !open ? 'pb-3' : 'pb-2'}`}>
+      {icon && <span className="mt-px flex-none text-accent" aria-hidden>{icon}</span>}
       {collapsible ? (
-        <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls={bodyId}
-          className="-my-1 flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 text-left">
-          <h2 className="m-0 min-w-0 flex-none truncate text-[13px] font-semibold text-fg">{title}</h2>
-          {summary && <span className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">{summary}</span>}
-          <ChevronDown size={15} aria-hidden className={`ml-auto flex-none text-fg-subtle transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
-        </button>
+        // Heading wraps the toggle (not the reverse) so it stays a heading for assistive tech.
+        <h2 className="m-0 min-w-0 flex-1 text-[13px] font-semibold text-fg">
+          <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} aria-controls={bodyId}
+            className="-my-1 flex w-full items-start gap-2 rounded-md py-1 text-left">
+            <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+              <span className="min-w-0">{title}</span>
+              {summary && <span className="min-w-0 max-w-full truncate text-[12px] font-normal text-fg-muted">{summary}</span>}
+            </span>
+            <ChevronDown size={15} aria-hidden className={`mt-0.5 flex-none text-fg-subtle transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
+          </button>
+        </h2>
       ) : (
-        <>
-          <h2 className="m-0 min-w-0 flex-none truncate text-[13px] font-semibold text-fg">{title}</h2>
-          {summary ? <span className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">{summary}</span> : <span className="flex-1" />}
-        </>
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 className="m-0 min-w-0 text-[13px] font-semibold text-fg">{title}</h2>
+          {summary && <span className="min-w-0 max-w-full truncate text-[12px] text-fg-muted">{summary}</span>}
+        </div>
       )}
-      {actions}
+      {actions && <div className="flex flex-none items-center gap-1.5">{actions}</div>}
     </div>
   )
   return (

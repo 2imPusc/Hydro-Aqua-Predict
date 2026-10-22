@@ -19,7 +19,7 @@ export function useNarrow(): boolean {
 
 /** Map padding for fitBounds: desktop keeps the right panel free, phones keep the collapsed sheet free. */
 export function mapInset(narrow: boolean, panelWidth: number) {
-  return narrow ? { top: 16, right: 16, bottom: 130, left: 16 } : { top: 20, right: panelWidth + 30, bottom: 20, left: 20 }
+  return narrow ? { top: 56, right: 16, bottom: 240, left: 16 } : { top: 20, right: panelWidth + 30, bottom: 20, left: 20 }
 }
 
 /** Wrapper style that moves Leaflet's right/bottom controls clear of the panel (see `.map-with-panel`). */

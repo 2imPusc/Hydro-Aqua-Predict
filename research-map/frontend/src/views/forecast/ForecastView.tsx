@@ -28,7 +28,9 @@ function ForecastVerdict({ benchmark, ledger, headline }: { benchmark: PollState
       answer={headline}
       facts={[
         { label: 'Cấu hình nhiệt độ đạt gate', value: `${s.tempPassed}/${s.tempTotal}`, hint: 'H1.2 · lockbox' },
-        { label: 'pH 3–12 h', value: `${s.phPassed}/${s.phTotal}`, status: { tone: s.phPassed === 0 || s.phPassed < s.phTotal / 2 ? 'danger' : 'ok', label: s.phPassed < s.phTotal / 2 ? 'Không đạt' : 'Đạt' }, hint: 'đã rút khỏi shadow' },
+        s.phTotal === 0
+          ? { label: 'pH 3–12 h', value: '—', status: { tone: 'neutral', label: 'Không có dòng' } }
+          : { label: 'pH 3–12 h', value: `${s.phPassed}/${s.phTotal}`, status: s.phPassed * 2 < s.phTotal ? { tone: 'danger', label: 'Không đạt' } : { tone: 'ok', label: 'Đạt' }, hint: 'A3 · dữ liệu sạch' },
         { label: 'Sổ ghi shadow', value: ledger.data?.items?.length ?? 0, status: { tone: ledgerTone, label: ledger.data ? meta.label : stateMeta(ledgerState).label }, hint: 'bản dự báo đang đọc' },
       ]}
     >

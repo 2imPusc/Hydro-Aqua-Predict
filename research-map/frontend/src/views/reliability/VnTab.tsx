@@ -163,7 +163,7 @@ export function VnTab({ theme }: { theme: Theme }) {
               <p className="m-0">Độ mặn Hải Phòng là giá trị mô hình dạng lưới, không phải quan trắc. Lớp chế độ chỉ dựa trên trạm Quảng Ninh quan sát; trạm HP (viền đứt) chỉ để tham khảo. <RefChips refs={['RL-25']} /></p>
               <p className="m-0">Ô {Math.round((data.layer?.grid_step_m ?? 1000) / 1000)} km có trạm quan sát trong 10 km: {data.layer?.features.length ?? 0}; bỏ {data.layer?.n_unassigned_omitted ?? 0} ô không có trạm (không gán).</p>
             </Disclosure>
-            <Disclosure summary="NB1 và các trạm cùng chế độ" hint={nb1 ? `(${nearest.length})` : undefined}>
+            <Disclosure summary="NB1 và các trạm cùng chế độ" hint={nb1 ? `(${nearest.length} gần nhất)` : undefined}>
               <Nb1Card data={data} theme={theme} />
             </Disclosure>
             <Disclosure summary="Số ô đạt theo biến (A6)">
