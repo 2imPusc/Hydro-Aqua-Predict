@@ -1,13 +1,13 @@
 # Chỉ số nguy cơ môi trường gây bệnh cho cá giò nuôi lồng (Cát Bà) — đánh giá 2026-10-23
 
 **Trạng thái:** lý thuyết, shadow. `used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"`. Nhãn: *nguy cơ điều kiện môi trường, không phải chẩn đoán*. Không nối vào `core/alerts.py`.
-**Mã:** `core/disease_risk.py`, `experiments/disease_hindcast.py`, `experiments/disease_events.csv`. **Run:** `artifacts/experiments/disease-hindcast-20261023/`. Dữ liệu mưa mới: `data/hazards/era5/era5_precip_nb1_1982_20261020.csv` (`hazard_data.py era5-precip`, ghi một lần).
+**Mã:** `core/disease_risk.py`, `experiments/disease_hindcast.py`, `experiments/disease_events.csv`. **Run chính thức:** `artifacts/experiments/disease-hindcast-20261023b/` (mưa và nhiệt độ không khí = **ERA5 thật**, `models=era5`). Run `disease-hindcast-20261023` **bị thay thế**: mưa lấy từ `era5_precip_nb1_1982_20261020.csv` và nhiệt độ không khí từ `era5_nb1_1982_20261020.csv`, cả hai tải không có `models=` nên là `best_match` (ERA5 trước 2017, ECMWF IFS 9 km từ 2017), không phải ERA5; hai file đó giữ nguyên, dùng như nhãn `best_match`. Dữ liệu mưa ERA5 thật: `data/hazards/era5/openmeteo_era5_precip_nb1_1982_20261016.csv` (`hazard_data.py era5-precip --model era5 --end 2026-10-16`, ghi một lần, manifest ghi `model`); nhiệt độ không khí: `openmeteo_era5_nb1_1982_20261016.csv`. Cột `rain_source` / `cold_air_source` trong output ghi nguồn.
 
 ## 1. Kết luận ngắn
 
 - Với khí hậu Cát Bà, **nhiệt độ nước một mình không phân biệt được ngày nguy cơ**: các cửa sổ nhiệt trong tài liệu phủ gần cả năm. Trên OISST 1982–2025, mức "thấp" không xuất hiện ngày nào (≥ trung bình: 365.2 ngày/năm); "cao" 216.6 ngày/năm, tuần ISO 16–48.
 - Kiểm tra với 5 sự kiện cá lồng chết hàng loạt có nguồn (QN/HP + Thái Bình): 3/5 có ngày "cao" trong cửa sổ, kỳ vọng theo khí hậu 0.659 (≈ 3.3/5) → `no_skill_over_climatology`; kết luận **không bền** khi dịch ngưỡng ±1 °C (−1 °C cho 4/5). Chỉ 2 sự kiện có tác nhân bệnh được nêu → `insufficient_evidence` cho phần bệnh. Nếu chỉ tính QN/HP thì n = 3 (4 nếu kèm rét 2008 miền Bắc) → cũng `insufficient_evidence`.
-- Cơ chế duy nhất riêng cho cá giò và riêng cho miền Bắc (lạnh kéo dài, Nhu et al. 2011) **bị OISST bỏ sót**: rét 2008 OISST thấp nhất 17.44 °C (nguồn báo 15 °C > 5 tuần); rét 2016 OISST 20.2 °C (nguồn báo < 10 °C). Ca nhạy cảm dùng nhiệt độ không khí ERA5 bắt được 2008 (cold_risk 1.0) và một phần 2016 (0.6, chuỗi < 14 ngày).
+- Cơ chế duy nhất riêng cho cá giò và riêng cho miền Bắc (lạnh kéo dài, Nhu et al. 2011) **bị OISST bỏ sót**: rét 2008 OISST thấp nhất 17.44 °C (nguồn báo 15 °C > 5 tuần); rét 2016 OISST 20.2 °C (nguồn báo < 10 °C). Ca nhạy cảm dùng nhiệt độ không khí ERA5 thật bắt được 2008 (cold_risk 1.0) và một phần 2016 (0.6, chuỗi < 14 ngày).
 
 ## 2. Nguồn tài liệu (chỉ số đã đọc trực tiếp)
 
@@ -36,21 +36,21 @@ Không trích dẫn (không mở được bản gốc): AFS Blue Book "Photobact
 - **Cờ stress vật chủ (giả thuyết):** mưa 3 ngày ≥ 100 mm (proxy giảm độ mặn) hoặc |ΔT 3 ngày| ≥ 3 °C → cộng 0.25. Mưa tác động lên **vật chủ**, không lên mầm bệnh: tài liệu ký sinh trùng và Vibrio chỉ theo hướng ngược lại.
 - **Tổng hợp:** chỉ số = max(chỉ số ấm, nguy cơ lạnh) + cờ, cắt [0, 1]. Mức: thấp < 0.4 ≤ trung bình < 0.75 ≤ cao.
 - **Tham số tự chọn:** 0.4/0.75, 0.25, 100 mm/3 ngày, 3 °C/3 ngày, vai ±2 °C của Streptococcus, chặn 0.6, phép trung bình.
-- **Dữ liệu:** OISST ô 20.625 N 107.125 E (1982–2026), ERA5 mưa và nhiệt độ không khí tại NB1 (`reanalysis`), sensor `Temperature` 2026-05-29 → 10-21 (`sensor`, ngày ≥ 1296 bản ghi).
+- **Dữ liệu:** OISST ô 20.625 N 107.125 E (1982–2026), ERA5 mưa và nhiệt độ không khí tại NB1 (`reanalysis`), sensor `Temperature` 2026-05-29 → 10-21; ERA5 thật chỉ tới 2026-10-16, ngày sau đó không có mưa (`sensor`, ngày ≥ 1296 bản ghi).
 - **Đánh giá:** cửa sổ = 14 ngày trước ngày bắt đầu đến ngày kết thúc sự kiện; "trúng" = có ngày ở mức ≥ 1 / = 2. So với xác suất khí hậu: cùng cửa sổ ngày-trong-năm ở 44 năm đủ (gồm cả năm sự kiện). Sự kiện nghi ô nhiễm (Phù Long 2026) liệt kê nhưng không chấm.
 
-## 4. Kết quả (`disease-hindcast-20261023`)
+## 4. Kết quả (`disease-hindcast-20261023b`, ERA5 thật; run `20261023` best_match bị thay thế)
 
 **Khí hậu (OISST, 44 năm đủ 1982–2025)**
 
-- Ngày/năm: cao 216.6; ≥ trung bình 365.2; nguy cơ lạnh cao 0.05 (ERA5 không khí: 3.68).
+- Ngày/năm: cao 216.6; ≥ trung bình 365.2; nguy cơ lạnh cao 0.05 (ERA5 không khí: 3.41; run best_match cũ: 3.68).
 - Ngày/năm thành viên = 1: vibrio 202.6, photobacterium 284.0, streptococcus 67.3, amyloodinium 325.0, cryptocaryon 287.5.
 - Lịch tuần ISO (tỷ lệ ngày "cao"): ≥ 0.5 từ tuần 16 đến 48; hai đỉnh tuần 19–21 và 41–45 (= 1.0), lõm tuần 28–31 (≈ 0.75) vì ngày > 30 °C rơi khỏi vai trên của Streptococcus và Photobacterium.
-- Xu hướng Theil–Sen (ngày/thập kỷ): cao −5.62 (KTC −10.0 … −0.57). Đây là **hệ quả của vai trên** (photobacterium −20.0, amyloodinium −16.25, streptococcus −7.26; vibrio +5.0, cryptocaryon +1.38), không phải nguồn nào nói ấm lên làm giảm bệnh.
-- Cờ mưa: 7.7 ngày/năm; cờ đổi nhiệt nhanh: 0.52 ngày/năm.
-- Độ nhạy ±1 °C: cao 191.2 / 216.6 / 218.0 ngày/năm (−1 / 0 / +1); tuần cao 15–50 / 16–48 / 17–47.
+- Xu hướng Theil–Sen (ngày/thập kỷ): cao −5.59 (KTC −10.0 … −0.57). Đây là **hệ quả của vai trên** (photobacterium −20.0, amyloodinium −16.25, streptococcus −7.26; vibrio +5.0, cryptocaryon +1.38), không phải nguồn nào nói ấm lên làm giảm bệnh.
+- Cờ mưa: 8.34 ngày/năm (best_match cũ: 7.7); cờ đổi nhiệt nhanh: 0.52 ngày/năm.
+- Độ nhạy ±1 °C: cao 191.5 / 216.6 / 218.0 ngày/năm (−1 / 0 / +1); tuần cao 15–50 / 16–48 / 17–47.
 
-**Giai đoạn sensor (130 ngày)**: cao 75, trung bình 55, thấp 0. Cùng ngày, OISST cho 98 ngày cao; khớp mức 0.674. Sensor ấm hơn OISST (+0.3 °C trung vị, RL-30) nên nhiều ngày hè vượt vai trên → xuống "trung bình". Cờ mưa 10 ngày, đổi nhiệt nhanh 5 ngày.
+**Giai đoạn sensor (130 ngày)**: cao 76, trung bình 54, thấp 0. Cùng ngày, OISST cho 99 ngày cao; khớp mức 0.690 (cũ: 75/55, 98, 0.674). Sensor ấm hơn OISST (+0.3 °C trung vị, RL-30) nên nhiều ngày hè vượt vai trên → xuống "trung bình". Cờ mưa 14 ngày (best_match cũ: 10), đổi nhiệt nhanh 5 ngày.
 
 **Sự kiện** (`event_scores.csv`)
 
@@ -64,7 +64,8 @@ Không trích dẫn (không mở được bản gốc): AFS Blue Book "Photobact
 | Phù Long 2026 (nghi nước thải, không chấm) | 2026-06-07 → 07-10 | 2 | 29.95–30.92 | 0 / 0 | có | 1.0 |
 
 - Trúng "cao" 3/5, kỳ vọng khí hậu 0.659 → `no_skill_over_climatology`; không bền với ±1 °C.
-- Cờ mưa có ở 2/5 sự kiện, đúng hai sự kiện mà nguồn quy cho mưa (khí hậu cùng cửa sổ 0.245). Đây chỉ là kiểm tra ERA5 tái hiện được mưa đã báo, **không** chứng minh chỉ số báo trước bệnh.
+- Cờ mưa có ở 2/5 sự kiện, đúng hai sự kiện mà nguồn quy cho mưa (khí hậu cùng cửa sổ 0.264; best_match cũ 0.245). Đây chỉ là kiểm tra ERA5 tái hiện được mưa đã báo, **không** chứng minh chỉ số báo trước bệnh.
+- Hai sự kiện rét (2008: 1.0, Thái Bình 2016: 0.6) vẫn được ERA5 không khí thật bắt, cùng giá trị với run cũ; ERA5 thật không đổi cờ mưa theo sự kiện (chỉ đổi xác suất khí hậu: Bến Do 0.386, Lan Hạ 0.341, Vân Đồn 0.591, Phù Long 0.295) và không đổi kết luận (`no_skill_over_climatology`, không bền ±1 °C). Vân Đồn: nguy cơ lạnh không khí 0.282 (cũ 0.271).
 - Ba sự kiện mùa ấm "trúng" chỉ vì cửa sổ nằm trong mùa luôn "cao" (P khí hậu 1.0).
 
 ## 5. Hạn chế

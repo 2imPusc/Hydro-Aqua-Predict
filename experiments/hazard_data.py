@@ -5,11 +5,11 @@
     python experiments/hazard_data.py oisst --start-year 1982   # NOAA PSL THREDDS NCSS, daily 0.25 deg
     python experiments/hazard_data.py marine-sst --start 2023-07-01
     python experiments/hazard_data.py era5 --start-year 1982 --model era5 --end 2026-10-16
-    python experiments/hazard_data.py era5-precip --start-year 1982 --end 2026-10-20   # hourly rain (disease index)
+    python experiments/hazard_data.py era5-precip --start-year 1982 --model era5 --end 2026-10-16   # hourly rain (disease index)
 
 ``era5`` pins the Open-Meteo archive model (``models=``). Without it the archive serves
 ``best_match`` = ERA5 only before 2017 and ECMWF IFS (9 km, operational) from 2017 on; the legacy
-file ``era5/era5_nb1_1982_20261020.csv`` was fetched that way and is best_match, NOT ERA5.
+files ``era5/era5_nb1_*.csv`` and ``era5/era5_precip_nb1_*.csv`` were fetched that way and are best_match, NOT ERA5.
 True ERA5 lags ~5 days, so pass ``--end`` = last available day.
 
 Every file gets a sidecar ``<name>.manifest.json`` (url, sha256, fetched_at). An existing file
@@ -161,17 +161,33 @@ def latest_era5(model: str = "era5") -> Path:
     return files[-1]
 
 
-def era5_precip_target(start_year: int, end: date) -> Path:
-    """Separate file: the existing era5_nb1_* temperature/wind file stays untouched."""
-    return paths.HAZARD_DATA_DIR / "era5" / f"era5_precip_nb1_{start_year}_{end:%Y%m%d}.csv"
+def era5_precip_target(start_year: int, end: date, model: str = "era5") -> Path:
+    """Model-named file; the legacy ``era5_precip_nb1_*`` (best_match) file stays untouched."""
+    return paths.HAZARD_DATA_DIR / "era5" / f"openmeteo_{model}_precip_nb1_{start_year}_{end:%Y%m%d}.csv"
 
 
-def fetch_era5_precip(start_year: int, end: date) -> dict:
+def fetch_era5_precip(start_year: int, end: date, model: str = "era5") -> dict:
+    if model not in ARCHIVE_MODELS:
+        raise ValueError(f"model must be one of {ARCHIVE_MODELS}: {model}")
     loc = weather_location_for_station(STATION)
-    params = {"latitude": loc["latitude"], "longitude": loc["longitude"], "hourly": "precipitation",
+    params = {"latitude": loc["latitude"], "longitude": loc["longitude"], "models": model, "hourly": "precipitation",
               "precipitation_unit": "mm", "timezone": "GMT"}
     df = _open_meteo_hourly(ARCHIVE_URL, params, _year_chunks(start_year, end))
-    return write_once(era5_precip_target(start_year, end), df.to_csv(index=False).encode(), ARCHIVE_URL)
+    return write_once(era5_precip_target(start_year, end, model), df.to_csv(index=False).encode(), ARCHIVE_URL,
+                      extra={"model": model})
+
+
+LEGACY_PRECIP_GLOB = "era5_precip_nb1_*.csv"  # fetched 2026-10-22 without models= -> best_match
+
+
+def latest_precip(model: str = "era5") -> Path:
+    """Newest hourly-precip file for ``model``; the legacy unlabelled file only ever counts as best_match."""
+    files = sorted((paths.HAZARD_DATA_DIR / "era5").glob(f"openmeteo_{model}_precip_nb1_*.csv"))
+    if not files and model == "best_match":
+        files = sorted((paths.HAZARD_DATA_DIR / "era5").glob(LEGACY_PRECIP_GLOB))
+    if not files:
+        raise FileNotFoundError(f"no precip file for model={model}: run experiments/hazard_data.py era5-precip --model {model}")
+    return files[-1]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -181,7 +197,8 @@ def main(argv: list[str] | None = None) -> int:
     for name in ("oisst", "era5", "era5-precip"):
         p = sub.add_parser(name)
         p.add_argument("--start-year", type=int, default=1982)
-    sub.choices["era5"].add_argument("--model", choices=ARCHIVE_MODELS, default="era5")
+    for _n in ("era5", "era5-precip"):
+        sub.choices[_n].add_argument("--model", choices=ARCHIVE_MODELS, default="era5")
     sub.add_parser("marine-sst").add_argument("--start", default="2023-07-01")
     for p in sub.choices.values():
         p.add_argument("--end", type=date.fromisoformat, default=date.today())
@@ -193,7 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "era5":
         meta = fetch_era5(args.start_year, args.end, model=args.model)
     elif args.cmd == "era5-precip":
-        meta = fetch_era5_precip(args.start_year, args.end)
+        meta = fetch_era5_precip(args.start_year, args.end, model=args.model)
     else:
         meta = fetch_marine_sst(args.start, args.end)
     print(json.dumps(meta, indent=2))

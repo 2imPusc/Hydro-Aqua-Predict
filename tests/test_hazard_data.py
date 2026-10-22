@@ -11,7 +11,8 @@ def test_year_chunks_and_precip_target_name():
     chunks = _year_chunks(2025, date(2026, 10, 20))
     assert chunks == [("2025-01-01", "2025-12-31"), ("2026-01-01", "2026-10-20")]
     target = era5_precip_target(1982, date(2026, 10, 20))
-    assert target.name == "era5_precip_nb1_1982_20261020.csv"
+    assert target.name == "openmeteo_era5_precip_nb1_1982_20261020.csv"
+    assert era5_precip_target(1982, date(2026, 10, 20), "best_match").name == "openmeteo_best_match_precip_nb1_1982_20261020.csv"
     assert target.parent.name == "era5"
 
 
@@ -91,3 +92,45 @@ def test_main_era5_model_choice(monkeypatch):
     assert got["model"] == "era5_seamless"
     with pytest.raises(SystemExit):
         hd.main(["era5", "--model", "gfs"])
+
+
+def test_fetch_era5_precip_pins_model_and_records_it(tmp_path, monkeypatch):
+    import json
+    import pandas as pd
+    from experiments import hazard_data as hd
+
+    seen = {}
+    monkeypatch.setattr(hd.paths, "HAZARD_DATA_DIR", tmp_path)
+    monkeypatch.setattr(hd, "_open_meteo_hourly", lambda url, params, chunks: seen.update(params) or pd.DataFrame({"time": ["t"], "precipitation": [0.1]}))
+    meta = hd.fetch_era5_precip(2024, date(2024, 1, 2))
+    assert seen["models"] == "era5" and seen["hourly"] == "precipitation"
+    assert meta["file"] == "openmeteo_era5_precip_nb1_2024_20240102.csv" and meta["model"] == "era5"
+    manifest = json.loads((tmp_path / "era5" / "openmeteo_era5_precip_nb1_2024_20240102.csv.manifest.json").read_text())
+    assert manifest["model"] == "era5"
+    with pytest.raises(ValueError):
+        hd.fetch_era5_precip(2024, date(2024, 1, 2), model="ifs")
+
+
+def test_latest_precip_by_model_with_legacy_best_match(tmp_path, monkeypatch):
+    from experiments import hazard_data as hd
+
+    monkeypatch.setattr(hd.paths, "HAZARD_DATA_DIR", tmp_path)
+    (tmp_path / "era5").mkdir()
+    legacy = tmp_path / "era5" / "era5_precip_nb1_1982_20261020.csv"
+    legacy.write_text("x")
+    assert hd.latest_precip("best_match") == legacy
+    with pytest.raises(FileNotFoundError):
+        hd.latest_precip("era5")
+    true = tmp_path / "era5" / "openmeteo_era5_precip_nb1_1982_20261016.csv"
+    true.write_text("x")
+    assert hd.latest_precip("era5") == true
+    assert hd.latest_era5.__name__  # temperature lookup is separate and unaffected
+
+
+def test_main_era5_precip_model_choice(monkeypatch):
+    from experiments import hazard_data as hd
+
+    got = {}
+    monkeypatch.setattr(hd, "fetch_era5_precip", lambda start_year, end, model="era5": got.update(model=model) or {"ok": 1})
+    hd.main(["era5-precip", "--model", "best_match", "--start-year", "2020", "--end", "2020-01-02"])
+    assert got["model"] == "best_match"
