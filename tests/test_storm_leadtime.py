@@ -47,11 +47,60 @@ def test_earliest_warning_longest_lead_and_hours():
     fc.loc[idx[34], sl.wind_col(5)] = 12.0  # lead 5 sees it at t=34 h
     truth = idx[36]
     w = sl.earliest_warning(fc, 6, truth)
-    assert w["earliest_N"] == 5
+    assert w["any_N"] == 5  # longest lead with a hit, ignoring gaps
+    assert w["consistent_N"] is None  # lead 1 missed, so no unbroken run from lead 1
     assert w["hits"][2] and w["hits"][5] and not w["hits"][3]
-    assert w["lead_hours"] == pytest.approx(24 * 5 + 2)  # forecast hit 2 h before truth
-    assert sl.earliest_warning(fc, 8, truth)["earliest_N"] is None
-    assert sl.earliest_warning(fc, 6, None)["lead_hours"] is None
+    assert w["any_lead_hours"] == pytest.approx(24 * 5 + 2)  # forecast hit 2 h before truth
+    assert w["consistent_lead_hours"] is None
+    assert sl.earliest_warning(fc, 8, truth)["any_N"] is None
+    assert sl.earliest_warning(fc, 6, None)["any_lead_hours"] is None
+
+
+def test_earliest_warning_consistent_lead_stops_at_first_gap():
+    idx = _hours(48)
+    fc = pd.DataFrame({sl.wind_col(n): 3.0 for n in range(8)}, index=idx)
+    for n in (1, 2, 3, 6):
+        fc.loc[idx[30 + n], sl.wind_col(n)] = 12.0
+    w = sl.earliest_warning(fc, 6, idx[36])
+    assert w["consistent_N"] == 3 and w["any_N"] == 6
+    assert w["consistent_lead_hours"] == pytest.approx(24 * 3 + 3)
+    assert w["any_lead_hours"] == pytest.approx(24 * 6 + 0)
+
+
+def test_equal_share_and_independence_guard():
+    idx = _hours(10)
+    truth = pd.Series(np.arange(10, dtype=float), index=idx)
+    same = truth.copy()
+    same.iloc[:3] += 1.0  # 7 of 10 identical
+    assert sl.equal_share(same, truth) == pytest.approx(0.7)
+    with pytest.raises(ValueError):
+        sl.check_independent(same, truth, "ifs")
+    other = truth + 0.5
+    assert sl.check_independent(other, truth, "era5") == pytest.approx(0.0)
+    assert sl.equal_share(truth + 0.004, truth) == pytest.approx(1.0)  # CSV rounding counts as equal
+
+
+def test_fetch_previous_runs_pins_model(tmp_path, monkeypatch):
+    seen = []
+    payload = {"hourly": {"time": ["2024-01-01T00:00"], "wind_speed_10m": [3.0]}}
+    monkeypatch.setattr(sl, "_get_json", lambda params: seen.append(params) or payload)
+    monkeypatch.setattr(sl.time, "sleep", lambda s: None)
+    monkeypatch.setattr(sl.paths, "HAZARD_DATA_DIR", tmp_path)
+    meta = sl.fetch_previous_runs(date(2024, 1, 1), date(2024, 1, 1), model="ecmwf_ifs025")
+    assert seen[0]["models"] == "ecmwf_ifs025"
+    assert meta["file"].startswith("previous_runs_ecmwf_ifs025_nb1_20240101_20240101_fetched")
+    assert meta["model"] == "ecmwf_ifs025"
+    assert sl.latest_forecasts("ecmwf_ifs025").name == meta["file"]
+
+
+def test_latest_forecasts_legacy_is_best_match(tmp_path, monkeypatch):
+    monkeypatch.setattr(sl.paths, "HAZARD_DATA_DIR", tmp_path)
+    (tmp_path / "forecast_runs").mkdir()
+    legacy = tmp_path / "forecast_runs" / "previous_runs_nb1_20240101_20261022_fetched20261023.csv"
+    legacy.write_text("x")
+    assert sl.latest_forecasts("best_match") == legacy
+    with pytest.raises(FileNotFoundError):
+        sl.latest_forecasts("ecmwf_ifs025")
 
 
 def test_contingency_scores():
