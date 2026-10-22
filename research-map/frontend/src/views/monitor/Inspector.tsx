@@ -210,18 +210,27 @@ function ProvenanceCard({ snapshot, contextError, layers, enabled, flow, bathyme
 /* -------------------------------------------------------------- bathymetry */
 
 function SampleCard({ sample, onClose }: { sample: BathymetrySample; onClose: () => void }) {
+  const etopo = sample.etopo?.status === 'available' ? sample.etopo : null
   return (
     <Panel variant="glass" icon={<MapPin size={15} />} title="Điểm đo độ sâu" actions={<IconButton label="Đóng" onClick={onClose} className="!size-6"><X size={14} /></IconButton>}>
-      {sample.status === 'available' ? (
+      {etopo && (
         <>
+          <Stat label="Độ sâu ETOPO (~460 m)" value={etopo.etopo_depth_m ?? '—'} unit="m" />
+          <p className="m-0 mt-1 text-[10.5px] text-fg-subtle">
+            {etopo.suspect ? 'Nghi lỗi nguồn (hố sâu kín). ' : ''}{etopo.nearest_cell_is_sea === false ? 'Ô lưới gần nhất là đất: giá trị nội suy về bờ. ' : ''}So với mực nước TB, không phải số 0 hải đồ.
+          </p>
+        </>
+      )}
+      {sample.status === 'available' ? (
+        <div className={etopo ? 'mt-2 border-t border-line pt-2' : ''}>
           <div className="grid grid-cols-2 gap-1.5">
-            <Stat label="Độ sâu" value={sample.copernicus_depth_m ?? '—'} unit="m" />
+            <Stat label="SDB vệ tinh (~100 m)" value={sample.copernicus_depth_m ?? '—'} unit="m" />
             <Stat label="Độ dốc" value={sample.slope_degrees ?? '—'} unit="°" />
           </div>
           <p className="m-0 mt-1.5 text-[11px] text-fg-subtle tabular">Q={sample.quality_indicator ?? '—'} · SDB={sample.sdb_type ?? '—'}{sample.depth_source ? ` · ${sample.depth_source}` : ''}</p>
-          <p className="m-0 mt-0.5 text-[10.5px] text-fg-subtle">{sample.disclaimer ?? 'Chỉ dùng nghiên cứu; không dùng cho hàng hải.'}</p>
-        </>
-      ) : <EmptyState compact title="Không có giá trị tại điểm này" description={sample.reason_code ?? 'unavailable'} />}
+        </div>
+      ) : !etopo && <EmptyState compact title="Không có giá trị tại điểm này" description={sample.reason_code ?? 'unavailable'} />}
+      <p className="m-0 mt-1 text-[10.5px] text-fg-subtle">Chỉ dùng nghiên cứu; không dùng cho hàng hải.</p>
     </Panel>
   )
 }

@@ -4,7 +4,8 @@ import type { LayerName } from '../../types/monitor'
 // Start from the Hai Phong–Cat Ba regional view. Users can zoom into the
 // sensor/cage area, but the initial map does not crop the surrounding bay.
 export const MAP_CENTER: [number, number] = [20.78, 107.03]
-export const MAP_BOUNDS: [[number, number], [number, number]] = [[20.58, 106.78], [20.98, 107.28]]
+// Pan limits include Ha Long / Bai Tu Long (Quang Ninh), where the ETOPO depth layer extends.
+export const MAP_BOUNDS: [[number, number], [number, number]] = [[20.40, 106.55], [21.45, 107.95]]
 export const MAP_ZOOM = 11
 
 export type Lod = 'low' | 'medium' | 'high'

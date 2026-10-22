@@ -67,6 +67,7 @@ export default function MonitorView({ theme }: { theme: Theme }) {
         environmentLayers={environmentLayers} currentLayer={currentLayer} windLayer={windLayer} flow={flow}
         stations={data.stations.data} aquacultureMap={data.aquaculture.data} domain={data.domain.data} network={data.network.data}
         zones={data.zones.data} bands={data.bands.data} contours={data.contours.data}
+        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data}
         lod={lod} onLod={setLod} onSample={onSample}
       />
 
@@ -74,8 +75,8 @@ export default function MonitorView({ theme }: { theme: Theme }) {
       <div className="pointer-events-none absolute bottom-3 left-3 top-3 z-[800] flex flex-col justify-between gap-3">
         <LayerControl enabled={enabled} onToggle={onToggle} environmentLayers={environmentLayers} snapshotLoaded={!!snapshot}
           flow={flow} currentLayer={currentLayer} windLayer={windLayer} network={data.network.data} zones={data.zones.data}
-          bathymetry={data.bathymetry.data} bathymetryError={data.bathymetry.error} lod={lod} basemap={basemap} onBasemap={onBasemap} />
-        <MapLegends enabled={enabled} environmentLayers={environmentLayers} mockMode={mode === 'mock'} />
+          bathymetry={data.bathymetry.data} bathymetryError={data.bathymetry.error} etopo={data.etopo.data} lod={lod} basemap={basemap} onBasemap={onBasemap} />
+        <MapLegends enabled={enabled} environmentLayers={environmentLayers} mockMode={mode === 'mock'} theme={theme} etopo={data.etopo.data} />
       </div>
 
       {backendDown && (
