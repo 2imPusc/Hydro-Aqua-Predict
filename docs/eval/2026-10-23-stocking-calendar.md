@@ -1,7 +1,7 @@
 # Lịch thả giống cá giò theo lý thuyết (Cát Bà, NB1)
 
 **Ngày:** 23/10/2026. **Trạm:** `06M26042804`. **Trạng thái:** thuần lý thuyết + dữ liệu công khai; shadow, không điều khiển cảnh báo.
-**Mã:** `experiments/stocking_calendar.py` (test: `tests/test_stocking_calendar.py`). **Lần chạy:** `artifacts/experiments/stocking-calendar-20261023/`.
+**Mã:** `experiments/stocking_calendar.py` (test: `tests/test_stocking_calendar.py`). **Lần chạy:** `artifacts/experiments/stocking-calendar-20261023b/` (thay thế `stocking-calendar-20261023`, xem mục 4).
 
 > **Không có ground truth.** Không có số liệu tăng trưởng hay tỷ lệ sống theo ngày thả. Đây là bảng rủi ro kỳ vọng từ khí hậu quá khứ. Nó không được đánh giá, không phải dự báo và không phải khuyến cáo cho người nuôi.
 
@@ -9,9 +9,9 @@
 
 - Mỗi tuần ISO thả (1–52) và mỗi chu kỳ nuôi, lấy trung bình trên 35 năm thả 1991–2025 (mọi cửa sổ đều đủ dữ liệu, `n_years = 35`). "10 năm cuối" = 2016–2025.
 - **Chu kỳ nuôi: 26 và 39 tuần là kịch bản, chưa có trích dẫn.** Chưa tra tài liệu về thời gian nuôi cá giò lồng ở Việt Nam. Cá giống nhỏ thường cần dài hơn 26 tuần để đạt cỡ thương phẩm. Cần người nuôi xác nhận.
-- **Giai đoạn đầu:** 8 tuần đầu sau thả (cá nhỏ, dễ tổn thương nhất).
+- **Giai đoạn đầu:** 8 tuần đầu sau thả (cá nhỏ, dễ tổn thương nhất). **Không chồng lấp:** các thành phần nóng, lạnh, bão, tăng trưởng tính trên tuần 9 đến hết chu kỳ; 8 tuần đầu chỉ vào thành phần "giai đoạn đầu" (trọng số hiệu dụng đúng bằng 0.20, không cộng đôi).
 - **Nhiệt độ:** NOAA OISST ô 20.625 N 107.125 E, cộng độ lệch cảm biến − OISST. Độ lệch gốc +0.30 °C (trung vị 129 ngày hè–thu 2026; p90 +1.18). Độ lệch này chỉ đo vào mùa nóng, nhưng được áp cho cả mùa lạnh. Đó là một giả định.
-- **Bão:** các lượt bão IBTrACS (`storm-hindcast-20261022d`), gió tại lồng `site_beaufort` ≥ cấp 8 và ≥ cấp 6. Dữ liệu là best-track (oracle), không phải dự báo. Ngày lấy theo UTC.
+- **Bão:** các lượt bão IBTrACS (`storm-hindcast-20261023f`), gió tại lồng `site_beaufort` ≥ cấp 8 và ≥ cấp 6. Dữ liệu là best-track (oracle), không phải dự báo. Ngày lấy theo UTC.
 - **Ngưỡng:**
 
 | Mục | Ngưỡng | Nguồn |
@@ -29,7 +29,7 @@ Mỗi rủi ro được đưa về 0–1 bằng min–max **qua 52 tuần** (v�
 
 | Thành phần | Định nghĩa | Trọng số gốc |
 | --- | --- | --- |
-| nóng | ngày ≥ 31 °C + ngày ≥ 33 °C (ngày ≥ 33 tính đôi) | 0.20 |
+| nóng (tuần 9→hết) | ngày ≥ 31 °C + ngày ≥ 33 °C (ngày ≥ 33 tính đôi) | 0.20 |
 | lạnh | ngày < 20 °C + ngày < 18 °C (tính đôi) | 0.20 |
 | bão | số lượt ≥ cấp 8 + 0.25 × số lượt cấp 6–7 | 0.25 |
 | giai đoạn đầu | trung bình của 3 rủi ro (nóng, lạnh, bão) trong 8 tuần đầu | 0.20 |
@@ -41,68 +41,86 @@ Trọng số do nhóm chọn, không có cơ sở thực nghiệm. Vì vậy ph�
 
 ## 3. Bảng 12 tháng (chữ)
 
-Lớp **tương đối**: mỗi chu kỳ chia cố định 4 tháng "tốt" / 4 "thận trọng" / 4 "tránh" theo điểm trung bình các tuần trong tháng (tháng theo ngày Thứ Năm của tuần ISO). Cột chung lấy lớp xấu hơn của hai chu kỳ. Không có tháng nào "an toàn" tuyệt đối.
+Lớp theo **điểm tuyệt đối** (trung bình các tuần ISO trong tháng; tháng theo ngày Thứ Năm của tuần): **tốt** ≥ 0.55, **thận trọng** 0.40–0.55, **tránh** < 0.40. Mốc 0.5 = tuần có rủi ro trung bình; các mốc là quy ước của nhóm, không có cơ sở thực nghiệm. Không ép 4/4/4. Mỗi chu kỳ có bảng riêng, **không gộp** hai chu kỳ thành một nhãn. Cột "nhóm" = nhóm không phân biệt được: các tháng được nối chuỗi khi điểm liền kề (đã sắp xếp) chênh ≤ 0.03; cùng số nhóm nghĩa là chưa tách được.
 
-| Tháng | Điểm 26 tuần | Lớp 26 tuần | Điểm 39 tuần | Lớp 39 tuần | Chung |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 0.55 | thận trọng | 0.25 | tránh | **tránh** |
-| 2 | 0.52 | tránh | 0.36 | thận trọng | **tránh** |
-| 3 | 0.54 | thận trọng | 0.51 | tốt | thận trọng |
-| 4 | 0.55 | thận trọng | 0.53 | tốt | thận trọng |
-| 5 | 0.52 | tránh | 0.41 | thận trọng | **tránh** |
-| 6 | 0.43 | tránh | 0.21 | tránh | **tránh** |
-| 7 | 0.47 | tránh | 0.23 | tránh | **tránh** |
-| 8 | 0.55 | thận trọng | 0.45 | thận trọng | thận trọng |
-| 9 | 0.61 | tốt | 0.64 | tốt | tốt* |
-| 10 | 0.64 | tốt | 0.62 | tốt | tốt* |
-| 11 | 0.64 | tốt | 0.45 | thận trọng | thận trọng |
-| 12 | 0.62 | tốt | 0.29 | tránh | **tránh** |
+| Tháng | Điểm 26 tuần | Lớp 26 | Nhóm 26 | Điểm 39 tuần | Lớp 39 | Nhóm 39 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0.74 | tốt | 1 | 0.41 | thận trọng | 4 |
+| 2 | 0.67 | tốt | 2 | 0.48 | thận trọng | 3 |
+| 3 | 0.60 | tốt | 3 | 0.52 | thận trọng | 2 |
+| 4 | 0.53 | thận trọng | 5 | 0.48 | thận trọng | 3 |
+| 5 | 0.56 | tốt | 4 | 0.42 | thận trọng | 4 |
+| 6 | 0.64 | tốt | 2 | 0.39 | tránh | 4 |
+| 7 | 0.72 | tốt | 1 | 0.45 | thận trọng | 4 |
+| 8 | 0.72 | tốt | 1 | 0.55 | thận trọng | 2 |
+| 9 | 0.66 | tốt | 2 | 0.60 | tốt | 1 |
+| 10 | 0.64 | tốt | 2 | 0.55 | thận trọng | 2 |
+| 11 | 0.68 | tốt | 2 | 0.44 | thận trọng | 4 |
+| 12 | 0.75 | tốt | 1 | 0.39 | tránh | 4 |
 
-\* **"Tốt" ở đây nghĩa là ít bão và ít nóng, không phải cá lớn tốt** (xem 4.1). Tháng 6–7 "tránh" vì bão (đỉnh T7–T9 rơi vào chu kỳ) cộng nóng giữa hè và bão trong 8 tuần đầu.
+Khoảng điểm theo lớp (`class_ranges.csv`):
+
+| Chu kỳ | Lớp | Số tháng | Điểm min–max | Tháng |
+| --- | --- | --- | --- | --- |
+| 26 tuần | tốt | 11 | 0.564–0.752 | 1–3, 5–12 |
+| 26 tuần | thận trọng | 1 | 0.532 | 4 |
+| 26 tuần | tránh | 0 | – | – |
+| 39 tuần | tốt | 1 | 0.599 | 9 |
+| 39 tuần | thận trọng | 9 | 0.409–0.547 | 1–5, 7, 8, 10, 11 |
+| 39 tuần | tránh | 2 | 0.385–0.394 | 6, 12 |
+
+Cách đọc:
+
+- **Chu kỳ 26 tuần gần như không phân biệt tháng:** toàn dải điểm 0.53–0.75, 11/12 tháng "tốt", chỉ tháng 4 hơi thấp. Tháng 7/8/12/1 (0.72–0.75) cùng nhóm 1, tức không tách được. Vì vậy không có lý do dùng bảng 26 tuần để loại tháng nào.
+- **Chu kỳ 39 tuần phân biệt hơn:** chỉ tháng 9 "tốt" (0.60); tháng 6 và 12 "tránh" (0.39, 0.385; chênh nhau < 0.01, không tách được); tháng 8 và 10 (0.547–0.55) nằm sát mốc 0.55 nên nhãn "thận trọng" mong manh.
+- Điểm vẫn là tương đối (min–max qua 52 tuần): "tốt" nghĩa là ít bão/nóng/lạnh hơn các tuần khác theo các trọng số này, không phải cá lớn tốt (xem 4.1).
+- **Lưu ý thiết kế (hạn chế mới):** rủi ro giai đoạn đầu là trung bình 3 rủi ro, nên 26 ngày lạnh trong 8 tuần đầu (thả tuần 1–3) chỉ đóng góp tối đa ≈ 0.07 vào điểm; điểm tháng 1 cao (0.74) một phần do vậy. Cá giống nhỏ lẽ ra nhạy với lạnh hơn cá lớn, nên điểm 26 tuần của mùa đông có thể bị đánh giá thừa.
 
 ## 4. Kết quả chính
 
-### 4.1 Cửa sổ "ít rủi ro bão/nóng" nhưng tăng trưởng kém
+Phiên bản này **tách cửa sổ không chồng lấp**: các chỉ số "cả chu kỳ" tính trên tuần 9 đến hết chu kỳ, 8 tuần đầu chỉ vào thành phần "giai đoạn đầu". Bản chạy trước (`stocking-calendar-20261023`) cho "giai đoạn đầu" tính hai lần (nằm trong cả cửa sổ đầy đủ), nên **bị thay thế** bởi `stocking-calendar-20261023b`. Top-3 cũ (26 tuần: 46, 47, 41; 39 tuần: 40, 39, 38) không còn dùng.
 
-- **26 tuần: tuần 40–49 là một bình nguyên, không phải bảng xếp hạng.** 10 tuần (40–49) đều có điểm 0.64 (cách nhau < 0.01; điểm tối đa 0.644). Thứ hạng trong nhóm này (tuần 46 đứng nhất) chỉ do cách phá hòa (`method="first"`), là nhiễu. Không nói "thả tuần 46".
-- Các tuần này có `risk_growth` ≈ 0.75–1.0. Cá nuôi qua đông: chỉ 28–52 ngày 25–30 °C trên 182 ngày, và khoảng 39 ngày < 20 °C (4.9 ngày < 18 °C). Chúng thắng vì tránh được bão và nóng, trong khi tăng trưởng chỉ nặng 0.15. Gọi đúng tên: **an toàn về bão/nóng, nghèo tăng trưởng**. Đây là đánh đổi mà điểm tổng hợp che đi.
-- **39 tuần: tuần 38–40 (cuối tháng 9) dẫn đầu** (điểm 0.66, bình nguyên 3 tuần). Chúng thả sau mùa bão chính (0.14 lượt ≥ cấp 8, 1.5 ngày nóng) và đi qua mùa đông ở tuổi ~3 tháng (38.8 ngày < 20 °C), với 107 ngày phù hợp tăng trưởng.
+### 4.1 Cửa sổ dẫn đầu
+
+Tuần cùng nhóm = điểm cách đỉnh ≤ 0.03; xếp hạng bên trong nhóm là nhiễu.
+
+- **39 tuần: nhóm tuần 35–39 (điểm 0.585–0.606; đỉnh tuần 38 0.606, kế tiếp 37: 0.604, 36: 0.598), thả cuối tháng 8 đến cuối tháng 9.** Sau mùa bão chính: 0.00–0.06 lượt ≥ cấp 8 trong phần sau, 0.1–0.2 lượt ≥ cấp 8 và 0.6–0.9 lượt ≥ cấp 6 trong 8 tuần đầu; 0.0–1.3 ngày ≥ 31 °C; đi qua mùa đông ở tuổi ~3 tháng (38.8 ngày < 20 °C); 56–62 ngày 25–30 °C ở phần sau cộng 40–51 ở 8 tuần đầu.
+- **26 tuần: nhóm tuần 50–2 (điểm 0.75–0.765; đỉnh tuần 51 và 52 ≈ 0.76, tuần 1 0.76), thả giữa tháng 12 đến đầu tháng 1.** Tuần 50, 51, 52, 1, 2 không tách được (chênh ≤ 0.015). Rủi ro bão/nóng thấp (≤ 0.14 lượt ≥ cấp 8, ≤ 2.3 ngày nóng), nhưng 8 tuần đầu gặp 15–28 ngày < 20 °C (xem lưu ý diluted ở mục 3) và `risk_growth` 0.33–0.53.
+- Cả hai bảng chỉ cho thấy cửa sổ "ít bão và nóng"; **tăng trưởng không phải điểm mạnh** (tuần 38 thả 39 tuần có 108 ngày 25–30 °C, so với 154 ở tuần 14–15).
 
 ### 4.2 Cửa sổ ưu tiên tăng trưởng (mùa xuân)
 
-| Tuần thả | Chu kỳ | Ngày 25–30 °C | Ngày ≥ 31 °C | Lượt ≥ cấp 8 / ≥ cấp 6 | Ngày < 20 °C | Điểm |
-| --- | --- | --- | --- | --- | --- | --- |
-| 13–15 | 39 tuần | 154 | 12.6 | 0.54 / 2.57 | 1–2 | 0.54 |
-| 16–19 | 26 tuần | 114–125 | 12.6 | 0.49–0.51 / 2.4–2.5 | ~0 | 0.53–0.55 |
+| Tuần thả | Chu kỳ | Ngày 25–30 °C (8 tuần đầu + phần sau) | Ngày ≥ 31 °C | Lượt ≥ cấp 8 / ≥ cấp 6 | Điểm |
+| --- | --- | --- | --- | --- | --- |
+| 14–15 | 39 tuần | 154 | 12.6 | 0.54 / 2.6 | 0.49–0.50 |
+| 17–19 | 26 tuần | 120–125 | 12.6 | 0.5 / 2.4–2.5 | 0.53–0.56 |
 
-- Thả từ cuối tháng 3 đến tháng 5 tránh gần hết mùa đông trong chu kỳ, và cá có 114–154 ngày tăng trưởng tốt. Trả giá: gần như mọi cửa sổ chứa đỉnh nóng (12.6 ngày ≥ 31 °C) và mùa bão (0.5 lượt ≥ cấp 8, 2.5 lượt ≥ cấp 6 mỗi chu kỳ).
-- Ở 26 tuần, tuần 16–19 có độ bền cao nhất theo trọng số (top-5 trong 32–44% bộ trọng số). Tuần 17: 44%.
-- **10 năm cuối nóng hơn rõ:** cửa sổ 39 tuần thả tuần 5–21 có trung bình 28.5 ngày ≥ 31 °C (cả kỳ 1991–2025: 12.6). Lượt bão ≥ cấp 8 mỗi chu kỳ là 0.2 so với 0.5 (khoảng 2 lượt trong 10 năm). Mẫu quá nhỏ để kết luận xu hướng bão.
-- **8 tuần đầu:** thả tuần 23–29 (đầu tháng 6 đến giữa tháng 7) có 0.23 lượt ≥ cấp 8 và 1.0–1.3 lượt ≥ cấp 6 ngay trong 8 tuần đầu, cao nhất năm. Thả tuần 1–10 thì cá nhỏ gặp 9–29 ngày < 20 °C trong 8 tuần đầu.
+- Thả cuối tháng 3 đến tháng 5 tránh gần hết mùa đông và có 120–154 ngày tăng trưởng tốt, đổi lại gần như mọi cửa sổ chứa đỉnh nóng (12.6 ngày ≥ 31 °C) và mùa bão.
+- **10 năm cuối nóng hơn rõ:** thả tuần 14–15 (39 tuần) có 28 ngày ≥ 31 °C trên phần sau (cả kỳ 1991–2025: 12.6); tuần 17–19 (26 tuần) 25–26 ngày so với 11–12 (cả kỳ). Lượt bão ≥ cấp 8 mỗi chu kỳ 0.2 so với 0.5; mẫu quá nhỏ để kết luận xu hướng bão.
+- **8 tuần đầu:** thả tuần 25–28 (cuối tháng 6 đến đầu tháng 7) có 0.20–0.23 lượt ≥ cấp 8 và 1.1–1.3 lượt ≥ cấp 6 ngay trong 8 tuần đầu, cùng 8–9 ngày ≥ 31 °C; thả tuần 1–10 thì 9–29 ngày < 20 °C.
 
 ## 5. Độ bền
 
 ### Theo trọng số (7 bộ trọng số gọi tên + 1,000 bộ Dirichlet(1), seed 20261023)
 
 - **Không có tuần nào đạt ngưỡng "bền" (top-5 trong ≥ 80% bộ trọng số).** `robust_weeks` rỗng cho cả 26 và 39 tuần.
-- Chia sẻ top-5 lớn nhất: 26 tuần: 0.44 (tuần 17), 0.37 (tuần 18), 0.34 (tuần 46). 39 tuần: 0.55 (tuần 40), 0.53 (tuần 39), 0.50 (tuần 14 và 38).
+- Chia sẻ top-5 lớn nhất: 26 tuần: 0.30 (tuần 51), 0.28 (tuần 50); 39 tuần: 0.52 (tuần 11), 0.41 (tuần 37, 38), 0.40 (tuần 36).
 - Kết luận: **thứ hạng từng tuần do trọng số quyết định.** Chỉ nên nói về nhóm tuần (mùa), không nói tuần cụ thể.
-- Hai họ cửa sổ cạnh tranh: "cuối hè–thu" (hazard-safe) và "xuân" (growth-first). Trọng số quyết định họ nào thắng.
 
 ### Theo độ nhạy (offset 0 / +0.30 / +1.18; ngưỡng ±0.5 °C; 10 năm cuối; gió bão hệ số 0.88)
 
 | Ca | Top-3 (26 tuần) | Top-3 (39 tuần) |
 | --- | --- | --- |
-| gốc (+0.30) | 46, 47, 41 | 40, 39, 38 |
-| offset 0 | 46, 48, 47 | 40, 38, 39 |
-| offset +1.18 | 41, 40, 42 | 40, 39, 38 |
-| ngưỡng −0.5 | 41, 40, 46 | 40, 39, 38 |
-| ngưỡng +0.5 | 46, 44, 48 | 40, 39, 38 |
-| 10 năm cuối | 43, 44, 41 | 40, 39, 41 |
-| gió bão 0.88 | 46, 47, 41 | 40, 39, 38 |
+| gốc (+0.30) | 51, 1, 52 | 38, 37, 36 |
+| offset 0 | 51, 1, 52 | 38, 37, 36 |
+| offset +1.18 | 51, 50, 52 | 37, 36, 38 |
+| ngưỡng −0.5 | 51, 1, 52 | 37, 36, 38 |
+| ngưỡng +0.5 | 1, 51, 52 | 38, 37, 39 |
+| 10 năm cuối | 52, 51, 50 | 37, 36, 35 |
+| gió bão 0.88 | 51, 1, 52 | 38, 37, 36 |
 
-- **39 tuần: top-3 (38–40) giữ nguyên ở 6/7 ca; ca 10 năm cuối thay tuần 38 bằng 41.** Ổn định.
-- **26 tuần: không ổn định.** Trùng top-3 với ca gốc chỉ 1–3 trên 3 (offset +1.18: 1; 10 năm cuối: 1; ngưỡng +0.5: 1). Nhưng cả 3 tuần gốc vẫn nằm trong top-5 ở 6/7 ca (10 năm cuối: 2/3). Dải đúng là "nửa sau tháng 10 đến giữa tháng 12" (tuần 40–49), không phải một tuần.
+- **39 tuần:** top-3 nằm trong tuần 35–39 ở mọi ca; trùng top-3 gốc 2–3/3, và cả 3 tuần gốc luôn trong ±2 tuần của top-3 ca khác.
+- **26 tuần:** top-3 nằm trong tuần 50–52 và 1 ở mọi ca (trùng 2–3/3). Ổn định theo tham số nhưng do cùng một cơ chế (mùa đông ít bão/nóng, lạnh bị pha loãng); không chứng minh đúng thực tế.
 - Độ ổn định này chỉ cho thấy kết luận ít đổi với tham số, **không** chứng minh đúng với thực tế.
 
 ## 6. Hạn chế
@@ -111,12 +129,13 @@ Lớp **tương đối**: mỗi chu kỳ chia cố định 4 tháng "tốt" / 4 
 2. Chu kỳ 26/39 tuần là kịch bản, chưa trích dẫn. Cỡ giống và thời gian ra thị trường chưa tra.
 3. Ngưỡng lạnh 20 °C là giả định. 18 °C từ `cobia_thresholds.json`. Ngưỡng chết do lạnh chưa đặt.
 4. Độ lệch +0.30 °C chỉ từ một mùa hè–thu 2026, áp cho mùa đông. Ô OISST 0.25° ngoài khơi có thể sai khác lồng nhiều hơn cả độ lệch.
-5. Bão: best-track oracle; chỉ 0.62 lượt ≥ cấp 8 mỗi năm nên trung bình theo tuần rất thưa (35 năm, phần lớn cửa sổ có 0–20 sự kiện). Gió tại lồng là cận dưới, không có cấp ≥ 12.
+5. Bão: best-track oracle; chỉ 0.62 lượt ≥ cấp 8 mỗi năm nên trung bình theo tuần rất thưa. Gió tại lồng là cận dưới, không có cấp ≥ 12.
 6. Min–max + trọng số tự chọn: điểm tương đối, nhạy với trọng số (phần 5). Không có hệ số tử vong hay chi phí.
 7. Chưa xét độ mặn, DO, bệnh (Vibrio, Streptococcus), sóng, mưa lớn, giá giống, giá bán, rủi ro thị trường.
-8. Lớp 4/4/4 tháng là tương đối, bị ép cân bằng. Không đọc "tốt" là an toàn.
-9. Không dùng cho khuyến cáo thật. Cần người nuôi và chuyên gia xem lại.
+8. Mốc lớp 0.55/0.40 và dung sai 0.03 là quy ước; bảng 26 tuần hầu như không phân lớp. Không đọc "tốt" là an toàn.
+9. Rủi ro giai đoạn đầu (trung bình 3 rủi ro, trọng số 0.20) làm loãng tác động của lạnh lên cá giống; xem mục 3.
+10. Không dùng cho khuyến cáo thật. Cần người nuôi và chuyên gia xem lại.
 
 ## 7. Tệp đầu ra
 
-`ranking_26w.csv`, `ranking_39w.csv` (chỉ số kỳ vọng, rủi ro, điểm, hạng, chia sẻ top-3/top-5, cột `last10_*`), `month_classes.csv`, `sensitivity_top3.csv`, `manifest.json` (tham số, hash đầu vào, trọng số, độ ổn định).
+`ranking_26w.csv`, `ranking_39w.csv` (chỉ số kỳ vọng, rủi ro, điểm, hạng, chia sẻ top-3/top-5, cột `last10_*`; cột `early_*` = 8 tuần đầu, cột không tiền tố = tuần 9 đến hết chu kỳ), `month_classes.csv`, `class_ranges.csv`, `sensitivity_top3.csv`, `manifest.json` (tham số, hash đầu vào, trọng số, độ ổn định).

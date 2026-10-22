@@ -96,7 +96,7 @@ def month_of_week(week: int) -> int:
 
 # ---- computation --------------------------------------------------------------
 def week_table(sst: pd.Series, storm_dates, storm_beau, years, n_weeks: int, thr: dict) -> pd.DataFrame:
-    """Expected per-week metrics (mean over complete years) for the whole grow-out and its first 8 weeks."""
+    """Expected per-week metrics (mean over complete years): weeks 9..N of the grow-out and, separately, its first 8 weeks."""
     rows = []
     for wk in range(1, 53):
         acc = []
@@ -106,10 +106,13 @@ def week_table(sst: pd.Series, storm_dates, storm_beau, years, n_weeks: int, thr
             early = window_sst_counts(sst, start, 7 * EARLY_WEEKS, thr["heat"], thr["cold"], thr["suit"])
             if full is None or early is None:
                 continue
-            rec = dict(full)
-            for tag, n in (("", 7 * n_weeks), ("early_", 7 * EARLY_WEEKS)):
-                for b in STORM_BEAU:
-                    rec[f"{tag}storm_ge{b}"] = window_storm_counts(storm_dates, storm_beau, start, n, b)
+            # non-overlapping: main-window metrics cover weeks 9..N only; weeks 1..8 feed the "early" risk
+            rec = {k: full[k] - early[k] for k in full}
+            for b in STORM_BEAU:
+                n_full = window_storm_counts(storm_dates, storm_beau, start, 7 * n_weeks, b)
+                n_early = window_storm_counts(storm_dates, storm_beau, start, 7 * EARLY_WEEKS, b)
+                rec[f"storm_ge{b}"] = n_full - n_early
+                rec[f"early_storm_ge{b}"] = n_early
             rec.update({f"early_{k}": v for k, v in early.items()})
             acc.append(rec)
         if not acc:
@@ -135,18 +138,33 @@ def risks_from(t: pd.DataFrame) -> pd.DataFrame:
     return r
 
 
-def classify_months(score_by_len: dict[int, pd.Series]) -> pd.DataFrame:
-    """Per month: mean score over its ISO weeks, per grow-out length; rank class (4 good / 4 caution / 4 avoid), worse of the lengths."""
+CLASS_CUTS = (0.55, 0.40)  # composite score: >= 0.55 good, [0.40, 0.55) caution, < 0.40 avoid (0.5 = average-risk week)
+INDIST_TOL = 0.03  # months whose scores are within this of a neighbour (sorted) are indistinguishable
+
+
+def classify_months(score_by_len: dict[int, pd.Series], cuts=CLASS_CUTS, tol: float = INDIST_TOL) -> pd.DataFrame:
+    """Per month and grow-out length: mean score over its ISO weeks, class by absolute cut-offs,
+    and an `indist_group` id (months chained by score gaps <= tol share a group; one per cycle length)."""
     cols = {}
     for n, s in score_by_len.items():
         m = s.groupby([month_of_week(w) for w in s.index]).mean()
-        rk = m.rank(ascending=False, method="first")
         cols[f"score_{n}w"] = m
-        cols[f"class_{n}w"] = rk.map(lambda r: "good" if r <= 4 else ("caution" if r <= 8 else "avoid"))
-    out = pd.DataFrame(cols).rename_axis("month")
-    order = ["good", "caution", "avoid"]
-    out["class"] = [order[max(order.index(out.loc[i, f"class_{n}w"]) for n in score_by_len)] for i in out.index]
-    return out
+        cols[f"class_{n}w"] = m.map(lambda v: "good" if v >= cuts[0] else ("caution" if v >= cuts[1] else "avoid"))
+        order = m.sort_values(ascending=False)
+        gid = (order.diff().abs() > tol + 1e-12).fillna(False).cumsum() + 1
+        cols[f"indist_group_{n}w"] = gid.reindex(m.index)
+    return pd.DataFrame(cols).rename_axis("month")
+
+
+def class_ranges(months: pd.DataFrame, lengths) -> pd.DataFrame:
+    rows = []
+    for n in lengths:
+        for c in ("good", "caution", "avoid"):
+            sel = months[months[f"class_{n}w"] == c][f"score_{n}w"]
+            rows.append({"growout_weeks": n, "class": c, "n_months": len(sel),
+                         "min": sel.min() if len(sel) else None, "max": sel.max() if len(sel) else None,
+                         "months": sorted(int(i) for i in sel.index)})
+    return pd.DataFrame(rows)
 
 
 def load_inputs(oisst_path: Path, passages_path: Path):
@@ -217,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
         rank_out[n] = rk
     months = classify_months({n: scores[("base", n)] for n in GROWOUT_WEEKS})
     months.to_csv(run_dir / "month_classes.csv")
+    ranges = class_ranges(months, GROWOUT_WEEKS)
+    ranges.to_csv(run_dir / "class_ranges.csv", index=False)
 
     stab = {}
     for n in GROWOUT_WEEKS:
@@ -234,6 +254,7 @@ def main(argv: list[str] | None = None) -> int:
                 "years_all": YEARS_ALL, "years_last10": YEARS_LAST10, "growout_weeks": GROWOUT_WEEKS, "early_weeks": EARLY_WEEKS,
                 "thresholds": {"heat": HEAT, "cold": COLD, "suit": SUIT, "storm_beaufort": STORM_BEAU},
                 "weights_base": WEIGHTS, "weight_sets": WEIGHT_SETS, "dirichlet": {"n": N_DIRICHLET, "seed": SEED},
+                "class_cuts": CLASS_CUTS, "indist_tol": INDIST_TOL, "windows": "main metrics = weeks 9..N, early = weeks 1..8 (non-overlapping)",
                 "robust_rule": f"top-5 share >= {ROBUST_SHARE}", "score_definition": "1 - sum(w*minmax risk)",
                 "inputs": {p.name: _sha(p) for p in (oisst_file, args.passages)},
                 "sst_last_day": str(sst.index.max().date()), "stability": stab,
@@ -243,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     (run_dir / "manifest.json").write_text(text, encoding="utf-8")
     print(text)
     print(months.round(3).to_string())
+    print(ranges.round(3).to_string())
     return 0
 
 
