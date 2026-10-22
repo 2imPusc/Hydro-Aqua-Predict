@@ -2,7 +2,7 @@ import { ArrowRight, Ban, Globe2, Lock, Sigma, Unlock } from 'lucide-react'
 import { getForeignDetail, getForeignIndex, getReliabilitySummary, researchReason } from '../../api/research'
 import { foreignDatasetHash } from '../../app/routes'
 import { Chip, Disclosure, Panel, Skeleton } from '../../components/ui'
-import { radiusText, stopLabel, variableLabel } from '../../lib/format'
+import { radiusText, splitRefs, stopLabel, variableLabel } from '../../lib/format'
 import type { Direction, ForeignDataset, ReliabilitySummary } from '../../types/research'
 import { FindingList, RefChips, ResearchGate, useResearch } from '../shared/research'
 
@@ -28,7 +28,7 @@ function DatasetCard({ dataset }: { dataset: ForeignDataset }) {
         </div>
         <ArrowRight size={16} className="mt-1 flex-none text-fg-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-accent" aria-hidden />
       </div>
-      <p className="m-0 line-clamp-2 text-[13px] leading-snug text-fg" title={dataset.headline}>{dataset.headline}</p>
+      <p className="m-0 line-clamp-2 text-[13px] leading-snug text-fg" title={dataset.headline}>{splitRefs(dataset.headline).text}</p>
       <div className="flex flex-wrap gap-1">
         <Chip size="xs" tone="neutral">{dataset.n_stations} trạm · {dataset.n_pairs} cặp</Chip>
         <Chip size="xs" tone="neutral">{dataset.cadence}</Chip>

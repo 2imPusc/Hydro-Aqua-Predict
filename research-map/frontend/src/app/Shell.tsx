@@ -22,7 +22,7 @@ function NavLink({ item, active, compact }: { item: (typeof NAV)[number]; active
         {ICON[item.view]}
         {item.code && <span className={`absolute -right-2.5 -top-1.5 rounded px-[3px] text-[9px] font-bold leading-[12px] ${active ? 'bg-sky-600 text-white dark:bg-sky-400 dark:text-slate-900' : 'bg-white/10 text-[var(--rail-fg)] group-hover:text-white'}`}>{item.code}</span>}
       </span>
-      <span className="max-w-full truncate text-[11px] font-semibold leading-tight">{item.short}</span>
+      <span className={`max-w-full font-semibold leading-tight ${compact ? 'truncate text-[11px]' : 'text-[10.5px]'}`}>{item.short}</span>
     </a>
   )
 }
