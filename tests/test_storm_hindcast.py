@@ -42,3 +42,18 @@ def test_events_check_match_and_unmatched():
 
 def test_json_default_maps_na_to_none():
     assert json.loads(json.dumps({"x": pd.NA}, default=sh._json_default)) == {"x": None}
+
+
+def test_yagi_check_labels_reanalysis_model():
+    passages = pd.DataFrame({
+        "SID": ["y"], "SEASON": [2024], "NAME": ["YAGI"], "peak_time": pd.to_datetime(["2024-09-07T06:00Z"]),
+        "min_dist_km": [21.0], "exposure_method": ["rankine"], "site_wind_lower_bound": [False],
+        "site_beaufort": [11], "site_beaufort_088": [10], "storm_beaufort_max": [16], "qd18_level": [4]})
+    hours = pd.date_range("2024-09-05", periods=96, freq="h", tz="UTC")
+    era5 = pd.DataFrame({"time": hours, "wind_speed_10m": 5.0, "wind_gusts_10m": 9.0})
+    era5.loc[60, ["wind_speed_10m", "wind_gusts_10m"]] = [18.86, 35.3]
+    out = sh.yagi_check(passages, era5, model="era5", source_file="openmeteo_era5_nb1_x.csv")
+    assert out["era5_max_wind_ms"] == 18.86 and out["era5_max_gust_ms"] == 35.3
+    assert out["reanalysis_model"] == "era5" and out["reanalysis_file"] == "openmeteo_era5_nb1_x.csv"
+    bm = sh.yagi_check(passages, era5, model="best_match", source_file="era5_nb1_x.csv")
+    assert "best_match_max_wind_ms" in bm and "era5_max_wind_ms" not in bm

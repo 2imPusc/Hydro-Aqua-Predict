@@ -60,6 +60,31 @@ def test_oof_never_uses_test_rows_for_fit():
     assert np.allclose(base["est"].dropna(), df.loc[df.index > k.TRAIN_END, "p"] + 1.0)
 
 
+def test_horizon_labels():
+    assert k.horizon("oisst") == "same-day hindcast"
+    assert k.horizon("air") == "same-day hindcast"
+    assert k.horizon("marine_lag2") == "lead 2 (persistence)"
+    assert k.horizon("air_lag3") == "lead 3 (persistence)"
+
+
+def test_air_only_baseline_rows_fit_on_air_only():
+    idx = pd.date_range("2026-05-29", "2026-10-20")
+    rng = np.random.default_rng(1)
+    air = pd.Series(28 + 3 * np.sin(np.arange(len(idx)) / 9) + rng.normal(0, 0.3, len(idx)), index=idx)
+    sensor = 5.0 + 0.85 * air
+    sst = pd.Series(29.0 + rng.normal(0, 0.5, len(idx)), index=idx)
+    df = k.build_frame(sensor, sst, sst + 0.2, air)
+    res = k.oof_predict(df, "air", "lin", "split", 31.0)
+    test = df.index > k.TRAIN_END
+    assert np.allclose(res.loc[test, "est"], sensor[test], atol=1e-6)  # recovers sensor ~ air exactly
+    metrics, _, _ = k.evaluate(df)
+    air_rows = metrics[metrics["product"].str.startswith("air")]
+    assert set(air_rows["product"]) == {"air", "air_lag1", "air_lag2", "air_lag3"}
+    assert "lin_air" not in set(air_rows["method"]) and "lin" in set(air_rows["method"])
+    assert set(metrics.loc[metrics["product"] == "air", "horizon"]) == {"same-day hindcast"}
+    assert set(metrics.loc[metrics["product"] == "oisst_lag1", "horizon"]) == {"lead 1 (persistence)"}
+
+
 def test_continuous_metrics():
     m = k.continuous(np.array([30.0, 31.0, 32.0]), np.array([31.0, 31.0, 31.0]))
     assert m["bias_c"] == 0.0 and m["MAE_c"] == round(2 / 3, 3)

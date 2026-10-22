@@ -1,11 +1,15 @@
 """How well do SST products detect hot days measured at the Cát Bà cage sensor?
 
 Truth: sensor daily mean >= 31 C (also >= 30 C sensitivity). Predictors: OISST, Open-Meteo marine,
-each raw / offset-corrected / linear-calibrated (+ ERA5 air temp), corrections fitted out-of-sample.
-Forecast leads: Open-Meteo has no SST *_previous_dayN history (probed 2026-10-23), so leads 1-3 are
-PERSISTENCE of the product (value known k days earlier), not model forecasts.
+each raw / offset-corrected / linear-calibrated (+ air temp), corrections fitted out-of-sample, and an
+AIR-ONLY baseline (product ``air``: sensor ~ air). Air temperature = true ERA5 (Open-Meteo archive
+``models=era5``, UTC daily mean of temperature_2m); ERA5 lags ~5 days, so days after its last
+date have no air value and drop out of air-dependent rows (``n`` is reported per row).
+Horizons: lag-0 rows use the target day's full-day air mean, so they are a SAME-DAY HINDCAST,
+not a nowcast. Open-Meteo has no SST *_previous_dayN history (probed 2026-10-23), so leads 1-3
+are PERSISTENCE of the product (value known k days earlier), not model forecasts.
 
-    python experiments/heat_skill.py --stamp 20261023
+    python experiments/heat_skill.py --stamp 20261023b
 """
 from __future__ import annotations
 
@@ -21,15 +25,28 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import heat_stress as hs  # noqa: E402
 from core import paths  # noqa: E402
+from experiments.hazard_data import latest_era5  # noqa: E402
 from experiments.heat_hindcast import _latest, _longest_oisst, sensor_daily  # noqa: E402
 
 TARGETS = {"ge31": 31.0, "ge30": 30.0}
 TRAIN_END = pd.Timestamp("2026-07-31")  # split A: train <= Jul 31, test Aug 1 onward
 LEADS = (1, 2, 3)
 MIN_TRAIN = 15
+AIR_MODEL = "era5"  # Open-Meteo archive model for air temperature
+METHODS = ("raw", "raw_tuned", "offset", "offset_tuned", "lin", "lin_tuned", "lin_air", "lin_air_tuned")
 
 
 # ---------- pure helpers ----------
+def horizon(product: str) -> str:
+    """Lag-0 rows see the target day's full-day mean (hindcast); lag-k rows are persistence."""
+    return f"lead {product.rsplit('_lag', 1)[1]} (persistence)" if "_lag" in product else "same-day hindcast"
+
+
+def methods_for(product: str) -> tuple[str, ...]:
+    """Air-only baseline: lin_air would regress on air twice, so it is skipped for air products."""
+    return tuple(m for m in METHODS if not m.startswith("lin_air")) if product.startswith("air") else METHODS
+
+
 def contingency(obs: np.ndarray, pred: np.ndarray) -> dict:
     obs, pred = np.asarray(obs, bool), np.asarray(pred, bool)
     h, m = int((obs & pred).sum()), int((obs & ~pred).sum())
@@ -125,7 +142,7 @@ def _sha(p: Path) -> str:
 
 
 def load_inputs():
-    oisst_file, marine_file, era5_file = _longest_oisst(), _latest("sst/openmeteo_marine_nb1_*.csv"), _latest("era5/era5_nb1_*.csv")
+    oisst_file, marine_file, era5_file = _longest_oisst(), _latest("sst/openmeteo_marine_nb1_*.csv"), latest_era5(AIR_MODEL)
     oisst = pd.read_csv(oisst_file, parse_dates=["time"]).set_index("time")["sst"]
     oisst.index = oisst.index.tz_convert("UTC").normalize().tz_localize(None)
     marine = hs.daily_from_hourly(pd.read_csv(marine_file, parse_dates=["time"]).set_index("time")["sea_surface_temperature"])
@@ -147,13 +164,12 @@ def build_frame(sensor: pd.Series, oisst: pd.Series, marine: pd.Series, air: pd.
 
 def evaluate(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     rows, daily, thr_rows = [], df.copy(), []
-    products = ["oisst", "marine"] + [f"{p}_lag{k}" for k in LEADS for p in ("oisst", "marine")]
-    methods = ["raw", "raw_tuned", "offset", "offset_tuned", "lin", "lin_tuned", "lin_air", "lin_air_tuned"]
+    products = ["oisst", "marine", "air"] + [f"{p}_lag{k}" for k in LEADS for p in ("oisst", "marine", "air")]
     for scheme in ("split", "lomo"):
         for tname, tc in TARGETS.items():
             obs_all = df["sensor"] >= tc
             for product in products:
-                for method in methods:
+                for method in methods_for(product):
                     res = oof_predict(df, product, method, scheme, tc)
                     thr_rows += [{"scheme": scheme, "target": tname, "product": product, "method": method, **t} for t in res.attrs["thresholds"]]
                     ok = df["sensor"].notna() & res["alarm"].notna()
@@ -161,7 +177,7 @@ def evaluate(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame
                         ok &= df.index > TRAIN_END
                     if ok.sum() == 0:
                         continue
-                    rows.append({"scheme": scheme, "target": tname, "product": product, "method": method,
+                    rows.append({"scheme": scheme, "target": tname, "product": product, "horizon": horizon(product), "method": method,
                                  "n_pos": int(obs_all[ok].sum()),
                                  **contingency(obs_all[ok].to_numpy(), res.loc[ok, "alarm"].to_numpy(bool)),
                                  **continuous(df.loc[ok, "sensor"].to_numpy(), res.loc[ok, "est"].to_numpy())})
@@ -169,7 +185,7 @@ def evaluate(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame
                         daily[f"{scheme}_{product}_{method}_est"] = res["est"]
             # benchmark: yesterday's sensor mean persists (not a product; operationally needs a live sensor)
             ok = df["sensor"].notna() & df["sensor_lag1"].notna() & ((df.index > TRAIN_END) if scheme == "split" else True)
-            rows.append({"scheme": scheme, "target": tname, "product": "sensor_lag1", "method": "persistence", "n_pos": int(obs_all[ok].sum()),
+            rows.append({"scheme": scheme, "target": tname, "product": "sensor_lag1", "horizon": "lead 1 (persistence)", "method": "persistence", "n_pos": int(obs_all[ok].sum()),
                          **contingency(obs_all[ok].to_numpy(), (df.loc[ok, "sensor_lag1"] >= tc).to_numpy()),
                          **continuous(df.loc[ok, "sensor"].to_numpy(), df.loc[ok, "sensor_lag1"].to_numpy())})
     return pd.DataFrame(rows), daily, pd.DataFrame(thr_rows)
@@ -198,6 +214,9 @@ def main(argv: list[str] | None = None) -> int:
         "train_days_ge31": int((sensor[sensor.index <= TRAIN_END] >= 31).sum()), "test_days_ge31": int((sensor[sensor.index > TRAIN_END] >= 31).sum()),
         "alert_level_ge1_equals_ge31": bool(((stress["alert_level"] >= 1) == (stress["temp_c"] >= 31)).all()),
         "leads": "persistence of product (known k days earlier); Open-Meteo marine/previous-runs SST *_previous_dayN returned null for 2026-05..10, so no archived forecast SST",
+        "air_source": {"model": AIR_MODEL, "label": "ERA5 reanalysis (Open-Meteo archive models=era5), UTC daily mean temperature_2m",
+                       "file": files[2].name, "last_date": str(air.dropna().index.max().date())},
+        "horizons": "lag-0 rows = same-day hindcast (target day's full-day air mean); lag-k rows = persistence; product 'air' = air-only baseline",
         "inputs": {p.name: _sha(p) for p in files}, "source": "reanalysis/analysis hindcast vs sensor; theory-only, not used by alerts",
     }
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")

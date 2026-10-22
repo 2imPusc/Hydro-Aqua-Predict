@@ -18,11 +18,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core import heat_stress as hs  # noqa: E402
 from core import paths  # noqa: E402
 from core.greenlab_api import load_cached_history  # noqa: E402
+from experiments.hazard_data import latest_era5  # noqa: E402
 
 STATION = "06M26042804"
 MIN_SENSOR_ROWS = 1296  # 90 % of 1,440 minutes (Phase 0 gate)
 MIN_YEAR_DAYS = 330  # a climatology year needs this many valid SST days
 LOCAL_TZ = "Asia/Ho_Chi_Minh"
+REANALYSIS_MODEL = "era5"  # Open-Meteo archive models=era5 for hot_calm air max / mean wind
 
 
 def _latest(pattern: str) -> Path:
@@ -114,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
     run_dir = paths.EXPERIMENT_OUTPUT_DIR / f"heat-hindcast-{args.stamp}"
     run_dir.mkdir(parents=True, exist_ok=False)
     oisst_file = args.oisst or _longest_oisst()
-    marine_file, era5_file = _latest("sst/openmeteo_marine_nb1_*.csv"), _latest("era5/era5_nb1_*.csv")
+    marine_file, era5_file = _latest("sst/openmeteo_marine_nb1_*.csv"), latest_era5(REANALYSIS_MODEL)
     oisst = pd.read_csv(oisst_file, parse_dates=["time"]).set_index("time")["sst"]
     # OISST is a daily value stamped 00:00 (or 12:00) UTC: the day is its UTC calendar date, no local shift.
     oisst.index = oisst.index.tz_convert("UTC").normalize().tz_localize(None)
@@ -135,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     years = yearly(raw, hot_calm)
     if adj is not None:
         years = years.join(yearly(adj, hot_calm), rsuffix="_adjusted")
+    # hot_calm comes from the archive model, label the column with it
+    years = years.rename(columns=lambda c: c.replace("hot_calm_days", f"hot_calm_days_{REANALYSIS_MODEL}"))
     years.to_csv(run_dir / "climatology_year.csv", index_label="year")
     cols = ("days_alert_ge1", "days_alert_ge2") + (("days_alert_ge1_adjusted", "days_alert_ge2_adjusted") if adj is not None else ())
     trends = [trend(years, c) for c in cols]
@@ -149,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
     manifest = {"run": run_dir.name, "source": "reanalysis", "oisst_offset_c": offset, **{k: v for k, v in info.items() if k != "offset_c"},
                 "thresholds_c": {"watch": hs.WATCH_C, "stress": hs.STRESS_C, "severe": hs.SEVERE_C,
                                  "min_run_days": hs.MIN_RUN_DAYS, "hot_air": hs.HOT_AIR_C, "calm_wind_ms": hs.CALM_WIND_MS},
+                "hot_calm_source": {"model": REANALYSIS_MODEL, "file": era5_file.name,
+                                    "fields": "daily max temperature_2m, daily mean wind_speed_10m (UTC days)"},
                 "inputs": {p.name: _sha(p) for p in (oisst_file, marine_file, era5_file)}, "sensor_days": int(len(sensor))}
     (run_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps({**manifest, "bias": bias, "trends": trends}, indent=2))
