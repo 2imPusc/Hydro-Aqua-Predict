@@ -14,7 +14,9 @@ import pandas as pd
 
 KNOT_MS = 0.514444
 NMI_KM = 1.852
-# 1-min sustained -> 10-min mean at sea (Harper et al. 2010, WMO/TD-1555); 0.88 is the sensitivity case.
+# 1-min sustained -> 10-min mean, at-sea exposure: K = 0.93 (Harper, Kepert & Ginger 2010, WMO/TD-No. 1555,
+# Table 1.2: at-sea 0.93, off-sea 0.90, off-land 0.87, in-land 0.84).  0.88 is the traditional value, which
+# TD-1555 associates with off-land exposure; kept as the sensitivity case (also ~ off-land 0.87).
 ONE_MIN_TO_TEN_MIN = 0.93
 BEAUFORT_LOWER_MS = (0.0, 0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5,
                      32.7, 37.0, 41.5, 46.2, 51.0, 56.1)
@@ -64,7 +66,13 @@ def storm_class_vi(level: int | None) -> str | None:
 
 
 def qd18_risk_level(level: int | None) -> int | None:
-    """Cấp độ rủi ro for a storm on coastal waters / Đông Bắc Bộ (QĐ 18/2021, Điều 42)."""
+    """Cấp độ rủi ro for a storm on vùng biển ven bờ / Đông Bắc Bộ (QĐ 18/2021, Điều 42).
+
+    Checked against the full text (2026-10-23): for ven bờ and Đông Bắc Bộ, cấp 8-11 -> 3 (khoản 1a, 1b),
+    12-13 -> 4 (2b), 14-15 -> 4 (2c), >=16 -> 5 (3c).  Cấp 6-7 is mapped to 3 because the article lists
+    "áp thấp nhiệt đới" explicitly in 1a (ambiguous: it may mean only cấp 8-9).  Biển Đông differs
+    (12-13 -> 3, >=14 -> 4, no cấp 5) and is not modelled; the cage site is on ven bờ waters.
+    """
     if level is None or level < 6:
         return None
     if level <= 11:

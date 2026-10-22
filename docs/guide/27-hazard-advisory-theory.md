@@ -26,8 +26,8 @@ Mỗi phần gồm một module `core/` thuần (không mạng, có test) và m�
 | --- | --- | --- | --- |
 | Cấp Beaufort (cận dưới, m/s) | cấp 6 10.8, 7 13.9, 8 17.2, 9 20.8, 10 24.5, 11 28.5, 12 32.7, 13 37.0, 14 41.5, 15 46.2, 16 51.0, 17 56.1 | thang Beaufort dùng trong QĐ 18/2021/QĐ-TTg | quy định |
 | Loại bão | ATNĐ 6–7; bão 8–9; bão mạnh 10–11; bão rất mạnh 12–15; siêu bão ≥ 16 | QĐ 18/2021/QĐ-TTg | quy định |
-| Cấp độ rủi ro (bão trên vùng biển ven bờ / Đông Bắc Bộ) | ATNĐ, 8–11 → cấp 3; 12–15 → 4; ≥ 16 → 5 | QĐ 18/2021/QĐ-TTg Điều 42 (từ bản tóm tắt thứ cấp) | **cần đối chiếu bản .doc gốc**; chỉ để tham khảo |
-| Gió 1 phút → 10 phút | 0.93 (trên biển); độ nhạy 0.88 | Harper et al. 2010, WMO/TD-1555 | cần kiểm bảng trước khi dùng trong luận văn |
+| Cấp độ rủi ro (bão trên vùng biển ven bờ / Đông Bắc Bộ) | ATNĐ, 8–11 → cấp 3; 12–15 → 4; ≥ 16 → 5 | QĐ 18/2021/QĐ-TTg Điều 42, bản .doc gốc (https://vupc.mae.gov.vn/Data/files/18_2021_QD-TTg.doc), đối chiếu 23/10/2026 | **đã đối chiếu**: đúng cho vùng biển ven bờ / Đông Bắc Bộ từ cấp 8; cấp 6–7 → 3 là cách đọc của "áp thấp nhiệt đới" (điều khoản mơ hồ). Biển Đông khác (12–13 → 3, ≥ 14 → 4, không có cấp 5). Xem `docs/eval/2026-10-23-events-and-sources.md` |
+| Gió 1 phút → 10 phút | 0.93 (trên biển); độ nhạy 0.88 | Harper, Kepert & Ginger 2010, WMO/TD-No. 1555, Bảng 1.2 (https://www.systemsengineeringaustralia.com.au/download/WMO_TC_Wind_Averaging_27_Aug_2010.pdf) | **đã đối chiếu**: trên biển 0.93; ven bờ-biển 0.90; ven bờ-đất 0.87; nội địa 0.84. 0.88 là giá trị truyền thống, ứng với ven đất liền (ca độ nhạy) |
 | Bậc hành động tại lồng (cấp 6/8/10/12) | `SITE_ACTIONS_VI` | đề xuất của nhóm | **cần chuyên gia / người nuôi xem lại** |
 | Ngưỡng sóng cho lồng | chưa có | không tìm thấy nguồn | **chưa đặt**; chỉ báo chiều cao sóng làm ngữ cảnh |
 | Theo dõi nhiệt | 31 °C (trung bình ngày) | Sun & Chen 2014: nhiệt độ tối ưu hệ số chuyển đổi thức ăn 31 °C | tài liệu |
@@ -86,7 +86,7 @@ Mỗi `--stamp` tạo thư mục chạy mới (`storm-hindcast-<stamp>/`, `heat-
 
 ## 7. Điều KHÔNG được tuyên bố
 
-- Đây **không** phải cấp độ rủi ro thiên tai chính thức. Mapping Điều 42 chỉ mang tính tham khảo cho đến khi đối chiếu bản gốc.
+- Đây **không** phải cấp độ rủi ro thiên tai chính thức. Mapping Điều 42 đã đối chiếu bản gốc, nhưng áp dụng cho dự báo của cơ quan khí tượng, không phải gió hồi cứu từ best track.
 - Không có tuyên bố về thời gian báo trước hay độ chính xác dự báo: IBTrACS là oracle.
 - Gió tại lồng là cận dưới trong vùng bán kính gió; không có cấp ≥ 12 kể cả Yagi. Rankine bỏ qua che chắn của đất liền / vịnh và tính bất đối xứng.
 - Mức nhiệt là rủi ro tăng trưởng/stress, không phải tử vong.
@@ -105,4 +105,4 @@ Advisory: `used_by_alerts: False`, `notification_eligible: False`, `basis: "theo
 2. Nối hai cảnh báo vào shadow runner (`runtime/hazard-shadow/*.jsonl`; nhiệt cần `MARINE_ENABLED`).
 3. Chỉ số bệnh (Vibrio / Streptococcus theo nhiệt độ – độ mặn), dùng lại chuỗi ngày của `heat_stress`.
 4. Lịch thả giống, kết hợp `heat_calendar_watch.csv` và `climatology_month.csv`.
-5. Chuyên gia / người nuôi xem lại bậc hành động; đối chiếu Điều 42 với bản gốc.
+5. Chuyên gia / người nuôi xem lại bậc hành động. (Điều 42 và hệ số Harper đã đối chiếu ngày 23/10/2026.)
