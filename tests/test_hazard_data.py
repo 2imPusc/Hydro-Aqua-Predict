@@ -2,7 +2,17 @@ import hashlib
 
 import pytest
 
-from experiments.hazard_data import parse_psl_ncss_csv, write_once
+from datetime import date
+
+from experiments.hazard_data import _year_chunks, era5_precip_target, parse_psl_ncss_csv, write_once
+
+
+def test_year_chunks_and_precip_target_name():
+    chunks = _year_chunks(2025, date(2026, 10, 20))
+    assert chunks == [("2025-01-01", "2025-12-31"), ("2026-01-01", "2026-10-20")]
+    target = era5_precip_target(1982, date(2026, 10, 20))
+    assert target.name == "era5_precip_nb1_1982_20261020.csv"
+    assert target.parent.name == "era5"
 
 
 def test_write_once_refuses_overwrite(tmp_path):
