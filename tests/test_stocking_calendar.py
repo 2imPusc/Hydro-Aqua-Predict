@@ -93,3 +93,64 @@ def test_classify_months_uses_absolute_cuts_and_flags_ties():
     assert out.loc[1, "class_26w"] == "good" and out.loc[3, "class_26w"] == "caution" and out.loc[4, "class_26w"] == "avoid"
     assert out.loc[1, "indist_group_26w"] == out.loc[2, "indist_group_26w"] != out.loc[3, "indist_group_26w"]
     assert "class" not in out.columns
+
+
+def _daily(val, start="2020-01-01", n=100):
+    return pd.Series(val, index=pd.date_range(start, periods=n, freq="D"))
+
+
+def test_cold_flag_run_rule_and_lethal_day():
+    s = _daily(25.0)
+    s.iloc[10:23] = 17.0  # 13 days < 18
+    assert sc.cold_mortality_flag(s, s.index[0], 60) is False
+    s.iloc[10:24] = 17.0  # 14 days
+    assert sc.cold_mortality_flag(s, s.index[0], 60) is True
+    s2 = _daily(25.0)
+    s2.iloc[5] = 15.0  # single day <= 15
+    assert sc.cold_mortality_flag(s2, s2.index[0], 60) is True
+    s3 = _daily(25.0)
+    s3.iloc[5] = 15.1
+    assert sc.cold_mortality_flag(s3, s3.index[0], 60) is False
+    assert sc.cold_mortality_flag(s3, s3.index[50], 60) is None  # incomplete
+
+
+def test_cold_flag_ignores_cold_outside_window():
+    s = _daily(25.0)
+    s.iloc[70:90] = 10.0
+    assert sc.cold_mortality_flag(s, s.index[0], 60) is False
+
+
+def test_feasible_mask_gate_boundary():
+    t = pd.DataFrame({"early_ok_share": [0.79, 0.80, 1.0]}, index=[1, 2, 3])
+    assert list(sc.feasible_mask(t)) == [False, True, True]
+    assert list(sc.feasible_mask(t, 0.5)) == [True, True, True]
+
+
+def test_winter_offset_only_applies_dec_to_mar():
+    s = pd.Series(20.0, index=pd.to_datetime(["2020-01-15", "2020-07-15", "2020-12-01", "2020-04-01"]))
+    out = sc.apply_offset(s, 0.3, -1.5)
+    assert list(out) == pytest.approx([18.8, 20.3, 18.8, 20.3])
+
+
+def _weeks_table():
+    return pd.DataFrame({
+        "heat_ge1": [0.0, 0, 0], "heat_ge2": [0.0, 0, 0], "cold_ge1": [0.0, 10, 0], "cold_ge2": [0.0, 5, 0],
+        "storm_ge8": [0.0, 0, 0], "storm_ge6": [0.0, 0, 0], "suitable": [50.0, 50, 50],
+        "early_heat_ge1": [0.0, 0, 0], "early_heat_ge2": [0.0, 0, 0], "early_cold_ge1": [0.0, 0, 0],
+        "early_cold_ge2": [0.0, 0, 0], "early_storm_ge8": [0.0, 0, 0], "early_storm_ge6": [0.0, 0, 0],
+        "early_ok_share": [1.0, 1.0, 0.5], "cold_flag_share": [0.0, 1.0, 1.0]}, index=[1, 2, 3])
+
+
+def test_final_score_gate_and_penalty():
+    t = _weeks_table()
+    s = sc.final_score(t, sc.WEIGHTS)
+    assert np.isnan(s[3])  # infeasible -> NaN
+    assert s[1] - s[2] > sc.COLD_FLAG_PENALTY  # flagged week loses penalty plus relative-cold risk
+    assert sc.top_k(s, 3) == [1, 2]
+
+
+def test_classify_months_avoid_cold_when_gate_fails():
+    s = pd.Series([0.9 if sc.month_of_week(w) != 1 else float("nan") for w in range(1, 53)], index=range(1, 53))
+    feas = pd.Series([sc.month_of_week(w) != 1 for w in range(1, 53)], index=range(1, 53))
+    out = sc.classify_months({26: s}, feasible_by_len={26: feas})
+    assert out.loc[1, "class_26w"] == sc.CLASS_AVOID_COLD and out.loc[2, "class_26w"] == "good"
