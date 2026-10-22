@@ -5,6 +5,7 @@
     python experiments/hazard_data.py oisst --start-year 1982   # NOAA PSL THREDDS NCSS, daily 0.25 deg
     python experiments/hazard_data.py marine-sst --start 2023-07-01
     python experiments/hazard_data.py era5 --start-year 1982
+    python experiments/hazard_data.py era5-precip --start-year 1982 --end 2026-10-20   # hourly rain (disease index)
 
 Every file gets a sidecar ``<name>.manifest.json`` (url, sha256, fetched_at). An existing file
 is never overwritten: files carry the download date in their name.
@@ -125,21 +126,37 @@ def fetch_marine_sst(start: str, end: date) -> dict:
     return write_once(target, df.to_csv(index=False).encode(), MARINE_URL)
 
 
+def _year_chunks(start_year: int, end: date) -> list[tuple[str, str]]:
+    return [(f"{y}-01-01", min(date(y, 12, 31), end).isoformat()) for y in range(start_year, end.year + 1)]
+
+
 def fetch_era5(start_year: int, end: date) -> dict:
     loc = weather_location_for_station(STATION)
     params = {"latitude": loc["latitude"], "longitude": loc["longitude"],
               "hourly": "temperature_2m,wind_speed_10m,wind_gusts_10m", "wind_speed_unit": "ms", "timezone": "GMT"}
-    chunks = [(f"{y}-01-01", min(date(y, 12, 31), end).isoformat()) for y in range(start_year, end.year + 1)]
-    df = _open_meteo_hourly(ARCHIVE_URL, params, chunks)
+    df = _open_meteo_hourly(ARCHIVE_URL, params, _year_chunks(start_year, end))
     target = paths.HAZARD_DATA_DIR / "era5" / f"era5_nb1_{start_year}_{end:%Y%m%d}.csv"
     return write_once(target, df.to_csv(index=False).encode(), ARCHIVE_URL)
+
+
+def era5_precip_target(start_year: int, end: date) -> Path:
+    """Separate file: the existing era5_nb1_* temperature/wind file stays untouched."""
+    return paths.HAZARD_DATA_DIR / "era5" / f"era5_precip_nb1_{start_year}_{end:%Y%m%d}.csv"
+
+
+def fetch_era5_precip(start_year: int, end: date) -> dict:
+    loc = weather_location_for_station(STATION)
+    params = {"latitude": loc["latitude"], "longitude": loc["longitude"], "hourly": "precipitation",
+              "precipitation_unit": "mm", "timezone": "GMT"}
+    df = _open_meteo_hourly(ARCHIVE_URL, params, _year_chunks(start_year, end))
+    return write_once(era5_precip_target(start_year, end), df.to_csv(index=False).encode(), ARCHIVE_URL)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("ibtracs").add_argument("--subset", choices=["WP", "last3years", "ACTIVE"], required=True)
-    for name in ("oisst", "era5"):
+    for name in ("oisst", "era5", "era5-precip"):
         p = sub.add_parser(name)
         p.add_argument("--start-year", type=int, default=1982)
     sub.add_parser("marine-sst").add_argument("--start", default="2023-07-01")
@@ -152,6 +169,8 @@ def main(argv: list[str] | None = None) -> int:
         meta = fetch_oisst(args.start_year, args.end)
     elif args.cmd == "era5":
         meta = fetch_era5(args.start_year, args.end)
+    elif args.cmd == "era5-precip":
+        meta = fetch_era5_precip(args.start_year, args.end)
     else:
         meta = fetch_marine_sst(args.start, args.end)
     print(json.dumps(meta, indent=2))
