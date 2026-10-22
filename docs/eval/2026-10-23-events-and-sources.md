@@ -1,6 +1,6 @@
 # 2026-10-23: danh mục sự kiện và đối chiếu nguồn bão / nắng nóng
 
-Phạm vi: `experiments/hazard_events.csv`, QĐ 18/2021/QĐ-TTg Điều 42, hệ số Harper 1 phút → 10 phút. Chạy lại `storm-hindcast-20261023c` (thay cho `-20261022d` về phần `events_check`).
+Phạm vi: `experiments/hazard_events.csv`, QĐ 18/2021/QĐ-TTg Điều 42, hệ số Harper 1 phút → 10 phút. Chạy lại `storm-hindcast-20261023f` (thay cho `-20261023c`, `-20261022d` về phần `events_check`).
 
 ## 1. QĐ 18/2021/QĐ-TTg, Điều 42 (bản .doc gốc, trích bằng Word)
 
@@ -32,28 +32,34 @@ Cột `verified`: `yes` = bài đã mở nêu sự kiện và tác động; `par
 
 | Loại | Số dòng | Ghi chú |
 | --- | --- | --- |
-| storm | 8 | yagi-2024 (yes, SAR), wipha-2025 (yes, ngập 14 ha, cuốn 3 tấn cá), wipha-2019, talim-2023, kajiki-2025, matmo-2025, maysak-2026, narra-2026 (partial) |
+| storm | 8 | yagi-2024 (yes, SAR), wipha-2025 (yes: trước bão Hải Phòng chỉ đạo gia cố/thu hoạch sớm khoảng 9.900 ô lồng và 7 giàn bè, nguồn ngày 19/7/2025; sau bão ngập 14 ha, cuốn 3 tấn cá), wipha-2019, talim-2023, kajiki-2025, matmo-2025, maysak-2026, narra-2026 (partial) |
 | disease | 1 | lanha-2018-10: 20 tấn cá song, cá giò, bệnh nấm mang |
 | fishkill | 2 | haiha-clam-2018-11: 2.000 tấn ngao (chưa rõ nguyên nhân); vandon-lowsal-2025-10: độ mặn 20 sau mưa bão |
 | heat | 1 | phulong-2026-06: cá song thiếu oxy, nắng nóng, mực nước thấp (cơ quan chức năng); Tiền Phong nghi nước thải nhưng chưa kết luận |
+
+Sửa so với bản trước: con số 9.900 ô lồng và 7 giàn bè không có trong trang thiệt hại sau bão (d764815); nó nằm ở bài chuẩn bị https://nongnghiepmoitruong.vn/hai-phong-tong-luc-ung-pho-bao-wipha-bao-ve-san-xuat-d763523.html (đã mở và đối chiếu câu "khoảng 9.900 ô lồng và 7 giàn bè nuôi nhuyễn thể trên biển"). Bài đó không nêu Cát Bà; đây là kế hoạch ứng phó, không phải thiệt hại, nên `source_url` của dòng này có cả hai trang. Vùng VAST khu vực 1, 3, 4 nằm ở Quảng Ninh (Hạ Long, Bái Tử Long, Trà Bản), không phải Hải Phòng.
 
 Số liệu thiệt hại lồng bè khác cho Yagi 2024 (chưa thêm dòng riêng để không đếm trùng bão): Quảng Ninh hơn 1.100 lồng bè chìm hoặc cuốn trôi (https://vnexpress.net/trang-tay-sau-bao-yagi-4790511.html); toàn quốc 19.956 ha và 4.246 lồng (https://vneconomy.vn/toan-nganh-thuy-san-dieu-dung-vi-bao-yagi.htm); Quảng Ninh gần 3.000 cơ sở, hơn 43.000 tấn hải sản nuôi (https://vneconomy.vn/quang-ninh-khoi-phuc-nuoi-trong-thuy-hai-san-sau-sieu-bao.htm).
 
 Hạn chế: ngày bắt đầu/kết thúc là ngày bão ảnh hưởng ước tính từ bài viết (vandon và phulong chỉ theo tháng, ±vài ngày). Không tìm thấy trang nêu sự kiện cá chết do nắng nóng ở Cát Bà trước 2026, nên chỉ một dòng heat. Các sự kiện cá chết chưa đủ để kiểm định chỉ báo nhiệt.
 
-## 4. events_check (`storm-hindcast-20261023c`)
+## 4. events_check (`storm-hindcast-20261023f`): kiểm tra nhất quán, không phải kỹ năng phát hiện
 
-| Sự kiện | verified | Bão (IBTrACS) | Gió tại lồng (cấp) | QĐ 18 |
-| --- | --- | --- | --- | --- |
-| yagi-2024 | yes | YAGI | 11 | 4 |
-| wipha-2019 | partial | WIPHA | 7 | 3 |
-| talim-2023 | partial | TALIM | 6 | 3 |
-| wipha-2025 | yes | WIPHA | 7 | 3 |
-| kajiki-2025 | partial | KAJIKI | 6 | không |
-| matmo-2025 | partial | MATMO | 7 | 3 |
-| maysak-2026 | partial | MAYSAK | 7 | 3 |
-| narra-2026 | partial | NARRA | 7 | 3 |
+Các dòng danh mục được **chọn từ các cơn bão đã biết**, nên việc khớp lại IBTrACS là kiểm tra nhất quán (ngày trong danh mục có trùng một lượt bão trong best-track hay không), không phải tỷ lệ phát hiện. Khớp theo ngày đỉnh trong cửa sổ ±1 ngày quanh [start, end] (giờ địa phương); lấy lượt có gió tại lồng lớn nhất. `name_match` = tên bão IBTrACS trùng (không phân biệt hoa thường) với phần tên trong `event_id` trước năm.
 
-Tỷ lệ bắt gặp: cả 8 bão được khớp (8/8), gió tại lồng ≥ cấp 6: 8/8; ≥ cấp 8: 1/8 (chỉ YAGI). Với 2 sự kiện `verified = yes`: ≥ cấp 6 là 2/2, ≥ cấp 8 là 1/2.
+| Sự kiện | verified | Bão (IBTrACS) | name_match | Gió tại lồng (cấp) | QĐ 18 |
+| --- | --- | --- | --- | --- | --- |
+| yagi-2024 | yes | YAGI | có | 11 | 4 |
+| wipha-2019 | partial | WIPHA | có | 7 | 3 |
+| talim-2023 | partial | TALIM | có | 6 | 3 |
+| wipha-2025 | yes | WIPHA | có | 7 | 3 |
+| kajiki-2025 | partial | KAJIKI | có | 6 | thiếu dữ liệu cường độ trong 200 km |
+| matmo-2025 | partial | MATMO | có | 7 | 3 |
+| maysak-2026 | partial | MAYSAK | có | 7 | 3 |
+| narra-2026 | partial | NARRA | có | 7 | 3 |
 
-Diễn giải thận trọng: gió tại lồng là cận dưới/ước tính best track, chưa so với gió đo; các bão `partial` không có thiệt hại lồng bè nên không dùng để đánh giá độ nhạy thiệt hại. Chỉ YAGI cho thiệt hại lớn và là bão duy nhất ≥ cấp 8, phù hợp với ngưỡng cấp 8 là điểm bắt đầu có thiệt hại lồng nhưng n = 1 nên không kết luận được ngưỡng.
+Kết quả: 8/8 dòng khớp một lượt bão và 8/8 trùng tên, nên danh mục nhất quán với best-track. Gió tại lồng ≥ cấp 6: 8/8; ≥ cấp 8: 1/8 (chỉ YAGI).
+
+**KAJIKI-2025 không có cấp QĐ 18 vì thiếu dữ liệu, không phải vì bão yếu.** `qd18_level` suy ra từ `storm_beaufort_max`, là cực đại gió bão trên các điểm đường đi nằm trong bán kính ven bờ 200 km. Khoảng cách gần nhất của Kajiki 2025 tới lồng là 260 km (> 200 km), nên không có điểm nào trong bán kính, `storm_beaufort_max` rỗng và `qd18_level` rỗng. Gió tại lồng (cấp 6) vẫn tính được từ trường gió Rankine. Hệ quả: ô trống là "ngoài bán kính 200 km", không nên đọc là "không có rủi ro QĐ 18".
+
+Diễn giải thận trọng: gió tại lồng là ước tính best track (cận dưới), chưa so với gió đo. Các bão `partial` không có thiệt hại lồng bè nên không dùng để đánh giá độ nhạy thiệt hại. Chỉ YAGI cho thiệt hại lớn và là bão duy nhất ≥ cấp 8, phù hợp với ngưỡng cấp 8 là điểm bắt đầu có thiệt hại lồng, nhưng n = 1 nên không kết luận được ngưỡng.

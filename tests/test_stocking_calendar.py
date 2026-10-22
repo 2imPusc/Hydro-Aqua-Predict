@@ -74,3 +74,22 @@ def test_month_of_week_and_weight_sets_sum_to_one():
     assert sc.month_of_week(1) == 1 and sc.month_of_week(27) == 7 and sc.month_of_week(52) == 12
     for w in sc.WEIGHT_SETS.values():
         assert sum(w.values()) == pytest.approx(1.0)
+
+
+def test_week_table_main_and_early_windows_do_not_overlap():
+    idx = pd.date_range("2019-12-01", "2021-12-31", freq="D")
+    sst = pd.Series(27.0, index=idx)
+    sst["2020-01-06":"2020-01-12"] = 32.0  # ISO week 2 of 2020: first 7 days of the early window
+    thr = {"heat": (31.0, 33.0), "cold": (20.0, 18.0), "suit": (25.0, 30.0)}
+    t = sc.week_table(sst, pd.DatetimeIndex([]), np.array([]), (2020, 2020), 12, thr).loc[2]
+    assert t["early_heat_ge1"] == 7 and t["heat_ge1"] == 0
+    assert t["suitable"] == 7 * (12 - sc.EARLY_WEEKS) and t["early_suitable"] == 7 * sc.EARLY_WEEKS - 7
+
+
+def test_classify_months_uses_absolute_cuts_and_flags_ties():
+    vals = {1: 0.70, 2: 0.69, 3: 0.50, 4: 0.30}
+    s = pd.Series([vals.get(sc.month_of_week(w), 0.10) for w in range(1, 53)], index=range(1, 53))
+    out = sc.classify_months({26: s})
+    assert out.loc[1, "class_26w"] == "good" and out.loc[3, "class_26w"] == "caution" and out.loc[4, "class_26w"] == "avoid"
+    assert out.loc[1, "indist_group_26w"] == out.loc[2, "indist_group_26w"] != out.loc[3, "indist_group_26w"]
+    assert "class" not in out.columns

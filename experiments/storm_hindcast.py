@@ -105,11 +105,13 @@ def events_check(passages: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
         hi = (pd.Timestamp(ev.end_date) + pd.Timedelta(days=1)).date()
         hit = passages[(local >= lo) & (local <= hi)].sort_values("site_beaufort", ascending=False, na_position="last")
         best = hit.iloc[0] if not hit.empty else None
-        rows.append({"event_id": ev.event_id, "verified": ev.verified, "matched": best is not None,
+        storm_name = str(ev.event_id).split("-")[0].lower()
+        name_ok = best is not None and str(best["NAME"]).lower() == storm_name
+        rows.append({"event_id": ev.event_id, "verified": ev.verified, "matched": best is not None, "name_match": name_ok,
                      "SID": None if best is None else best["SID"], "NAME": None if best is None else best["NAME"],
                      "site_beaufort": None if best is None else _none_if_na(best["site_beaufort"]),
                      "qd18_level": None if best is None else _none_if_na(best["qd18_level"])})
-    return pd.DataFrame(rows, columns=["event_id", "verified", "matched", "SID", "NAME", "site_beaufort", "qd18_level"])
+    return pd.DataFrame(rows, columns=["event_id", "verified", "matched", "name_match", "SID", "NAME", "site_beaufort", "qd18_level"])
 
 
 def sensor_response(passages: pd.DataFrame, hist: pd.DataFrame | None = None) -> pd.DataFrame:
