@@ -84,9 +84,10 @@ export const MapLegends = memo(function MapLegends({ enabled, environmentLayers,
             { color: STALE_STYLE.pattern, label: STALE_STYLE.label, shape: 'dot' as const },
           ]} columns={2}
             note={<>{advisoryStale && <b className="font-semibold text-fg">Khuyến nghị đang cũ: trạm hiện sọc xám, không theo mức. </b>}{mockMode ? 'Viền tím nét đứt = điểm mô phỏng.' : 'Một cảm biến vật lý (06M26042804); các điểm khác dùng chung số đo của trạm này.'}</>} />
+          {/* Depth colours most of the map by default: its key comes right after the station states. */}
+          {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} gebco={gebco} showEtopo={enabled.depth_etopo && etopo?.status === 'ready'} />}
           {enabled.site_exposure && exposure?.status === 'ready' && <ExposureLegend theme={theme} exposure={exposure} />}
           {enabled.hsi_zones && <SwatchLegend title="HSI lịch sử" note={HSI_LEGACY_LABEL} items={HSI_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} />}
-          {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} gebco={gebco} showEtopo={enabled.depth_etopo && etopo?.status === 'ready'} />}
           {scalar && <ScalarLegend layer={scalar} />}
           {enabled.flow_streamlines && <SwatchLegend title="Tia dòng chảy" items={[{ color: '#0b5fc1', label: 'Tia nội suy theo nước (+ hạt minh hoạ)', shape: 'line' }, { color: '#ea580c', label: 'Tương thích dòng–trạm (research only)', shape: 'line' }]} />}
           {enabled.wind_particles && <SwatchLegend title="Vệt gió (10 m)" items={[{ color: 'var(--fg-subtle)', label: 'Hạt canvas một màu — chỉ hướng, không mã hoá tốc độ', shape: 'line' }]} note="Chỉ quan sát · không kích hoạt cảnh báo" />}
