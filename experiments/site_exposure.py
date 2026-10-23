@@ -446,7 +446,7 @@ def run(run_name: str, grid: bool = True) -> Path:
         flat[c] = flat[c].map(lambda v: " ".join(v))
     flat[flat.kind == "station"].to_csv(run_dir / "stations.csv", index=False)
     flat.to_csv(run_dir / "all_sites.csv", index=False)
-    (run_dir / "stations.json").write_text(json.dumps(summary[summary.kind.isin(["station", "yagi_damage_ref"])].to_dict("records"),
+    (run_dir / "stations.json").write_text(json.dumps(json.loads(summary[summary.kind.isin(["station", "yagi_damage_ref"])].to_json(orient="records", force_ascii=False)),
                                                       indent=2, ensure_ascii=False, default=_json_default), encoding="utf-8")
     pd.concat(per_dir).to_csv(run_dir / "per_direction.csv", index=False)
     pd.concat(ref_rows).to_csv(run_dir / "direction_scenarios.csv", index=False)

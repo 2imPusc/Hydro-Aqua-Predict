@@ -18,7 +18,7 @@ Mục tiêu: với gió dự báo (tốc độ + hướng), ước lượng gió
 | Bước | Cách làm | Nguồn |
 | --- | --- | --- |
 | Đà gió | Từ điểm lồng, bắn tia **về phía gió thổi tới** (gió từ hướng θ ⇒ tia về θ), bước 100 m, tối đa 200 km, trên mặt nạ nước OSM (`paths.WATER_SHAPEFILE`, phủ 106–109E, 19–21,92N). Đà gió thẳng = trung vị 3 tia θ−6°, θ, θ+6° (lựa chọn của nhóm, tránh một tia lọt khe đảo). Tia ra khỏi phạm vi mặt nạ trước khi gặp đất → gán 200 km, cờ `fetch_censored`. | SPM 1984 §3-V-4: dùng đà gió thẳng |
-| Đà gió hiệu dụng | Saville: F_e = Σ F_i cos²α_i / Σ cos α_i, 15 tia cách 6°, ±42°. **Chỉ là chỉ số phơi nhiễm**, không dùng tính sóng. | Saville 1954 (theo ví dụ USBR TR-69, Western Dam Engineering 2013); SPM 1984 tr. 3-51: "Effective fetch should not be used with the growth curves presented herein" |
+| Đà gió hiệu dụng | Saville: F_e = Σ F_i cos²α_i / Σ cos α_i, 15 tia cách 6°, ±42°. **Chỉ là chỉ số phơi nhiễm**, không dùng tính sóng. | Saville 1954 (theo ví dụ USDA TR-69 (1983), Western Dam Engineering 2013); SPM 1984 tr. 3-51: "Effective fetch should not be used with the growth curves presented herein" |
 | Che chắn địa hình | Lấy cao độ DSM dọc 5 tia ngược gió (θ±10°, bước 30 m, tới 15 km). Mỗi tia lấy vật cản có x/H nhỏ nhất (H ≥ 5 m), hệ số gió = đường "hàng rào kín": 25 % ở 5H, 70 % ở 10H, 90 % ở 15H, 95 % ở 20H, 100 % ở 30H; **sàn 0,5** (giả định). Hệ số hướng = trung bình 5 tia. | Brandle, Zhou & Hodges, *How windbreaks work*, UNL EC1763 (2006), Hình 2 |
 | Sóng | U_A = 0,71 U^1,23 (3-28a). Nước nông (3-39/3-40) với độ sâu = trung bình ETOPO dọc tia đà gió; nước sâu (3-33/3-34), trần sóng phát triển hoàn toàn (3-36/3-37); lấy min giữa giới hạn đà gió và giới hạn thời gian gió (3-35), **thời gian gió giữ hướng 3 h (giả định)**. Kiểm: U_A 20 m/s, F 30 km → 1,77 m (SPM tr. 3-47 ghi 1,75 m). | Shore Protection Manual 1984, tập 1, ch. 3 |
 | Độ sâu | ETOPO 2022 15″ (~460 m, EGM2008), không phải số 0 hải đồ. | `docs/eval/2026-10-23-bathymetry-map.md` |
@@ -64,7 +64,7 @@ Dòng: p50 / p95 / max năm 2024, điểm mô hình cách trạm 1,7–7,1 km.
   (các khu nuôi thực tế nằm ở chỗ kín hơn hẳn lưới đều, đúng như kỳ vọng).
 
 Bảng mọi hướng × cấp gió: `direction_scenarios.csv`. Hồ sơ từng hướng (đà gió, F_e, độ sâu, vật cản, góc): `per_direction.csv`.
-Lớp bản đồ (chưa nối UI): `site_exposure.geojson`.
+Lớp bản đồ (chưa nối UI): `site_exposure.geojson` (JSON chuẩn). `stations.json` của run này còn token `NaN` (pandas đọc được, không phải JSON chuẩn); mã đã sửa cho các run sau.
 
 ## 4. Hồi cứu Yagi 2024
 
