@@ -127,3 +127,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Lý do:** GEBCO không có các hố sâu sai của ETOPO ở Cửa Lục, Vân Đồn; TID cho biết ô nào được đo.
 - **Hệ quả:** chú giải ghi "~97 % ô là nội suy", datum MSL, "không dùng cho hàng hải", ghi công GEBCO Compilation Group (2024). Thư viện tùy chọn cho dữ liệu nguy cơ (`eccodes`, `copernicusmarine`) nằm trong `requirements-hazards.txt`, không bắt buộc cho core/test.
 
+
+## #22 — 2026-10-24 · Ngưỡng mặc định nguy cơ dịch bệnh 0.85 / 0.95
+
+- **Quyết định (chủ dự án đồng ý đề xuất):** `disease_env` bậc 1/2 đổi từ 0.4/0.75 sang 0.85/0.95 trong `config/alert_tiers.default.json`.
+- **Lý do:** chạy thật (RL-47) ngưỡng cũ đưa cả 14 trạm lên bậc 2 ở SST ~29.7 °C; chỉ số chưa có kỹ năng so với khí hậu (RL-34, RL-42), nên ngưỡng thấp chỉ tạo báo động bão hòa.
+- **Hệ quả:** admin vẫn chỉnh được trong `#/settings/alerts`; xem lại khi có DO / độ mặn / sự kiện có tên mầm bệnh.
