@@ -74,13 +74,13 @@ Kết quả chỉ là **thăm dò**: n nhỏ, 5 ca thuộc cùng một cơn bão
 | --- | --- | --- |
 | cấp 6 "theo dõi" | 0/5 thiệt hại ở cấp 6–7 | phù hợp |
 | cấp 8 "chuẩn bị" | thiệt hại bắt đầu ở cấp 8–9 (6/9 ca), major có ở cấp 8–9 (5 ca); P(có thiệt hại) = 0,5 ở cấp ~8,4 | ngưỡng đúng chỗ nhưng **hành động hơi muộn**: gia cố và thu hoạch cần làm xong trước khi gió tại lồng đạt cấp 8 |
-| cấp 10 "nguy hiểm" | ở cấp 10–11 mọi ca đều có thiệt hại, 5/7 major trở lên; P(major) = 0,5 ở cấp ~9 | ngưỡng hơi cao so với bằng chứng |
+| cấp 10 "nguy hiểm" | ở cấp 10–11 mọi ca đều có thiệt hại, 5/7 major trở lên; P(major) = 0,5 ở cấp ~9 nhưng gió là cận dưới | **không mâu thuẫn** với bằng chứng; vì cận dưới nên không kết luận được cấp 10 là quá cao |
 | cấp 12 "rất nguy hiểm" | không đủ ca ≥ 12 để phân biệt với 10–11 (gió cận dưới) | giữ để khớp QĐ 18; không có bằng chứng riêng |
 
 ## 5. Đề xuất (chưa sửa code; cần chuyên gia / người nuôi xem lại)
 
 1. **Giữ** mốc cấp 6 và cấp 8. Ở bậc cấp 8, chuyển "chuẩn bị phương án thu hoạch" thành "**thu hoạch sớm cá thương phẩm nếu kịp**" và nêu rõ phải làm khi **dự báo** gió tại lồng đạt cấp 8 trong 48–72 giờ tới (độ tin cậy: thấp – trung bình; 6/9 ca ở cấp 8–9 có thiệt hại).
-2. **Hạ** bậc "nguy hiểm" từ cấp 10 xuống **cấp 9** cho lồng gỗ / bè hỗn hợp; nội dung: kéo lồng vào nơi kín gió, **người rời lồng bè** (độ tin cậy: thấp; P(major) = 0,5 ở cấp 9,0, KTC 7,8–10,4). Lý do an toàn: Sơn Tinh 2012 và Yagi 2024 đều có người ở lại trên bè khi bão vào.
+2. Giữ bậc "nguy hiểm" ở cấp 10 theo bằng chứng (đường cong P(major) = 0,5 ở cấp 9,0, KTC 7,8–10,4, thiên thấp vì gió cận dưới, nên không chứng minh được cấp 10 là quá cao). **Phương án phòng ngừa** (lựa chọn của chuyên gia, không phải kết quả ước lượng): hạ xuống cấp 9 riêng cho việc **người rời lồng bè**, vì Sơn Tinh 2012 và Yagi 2024 đều có người ở lại trên bè khi bão vào.
 3. Giữ cấp 12 để khớp QĐ 18/2021, nhưng ghi rõ thiệt hại "mất trắng" đã xảy ra ở cấp 10–11 tại lồng.
 4. **Không** đặt bậc riêng cho lồng HDPE: chỉ 1 ca (Noru 2022, không hỏng, gió ước tính cấp 9, giật đo 7–8) và 1 ca hỏng nặng ở Hải Nam (Yagi 2024, vị trí không rõ). Tuyên bố "chịu cấp 12" chưa có thử nghiệm; TCVN 13997:2024 chưa đọc được.
 5. Thêm chỉ báo **sóng** (Open-Meteo marine `wave_height`) làm ngữ cảnh: nguồn sự kiện thường nêu sóng là nguyên nhân, và nghiên cứu dễ tổn thương (Fang 2025, Shi) dùng chiều cao sóng.
@@ -90,6 +90,7 @@ Kết quả chỉ là **thăm dò**: n nhỏ, 5 ca thuộc cùng một cơn bão
 - **Bằng chứng báo chí, không phải điều tra hiện trường.** Lớp thiệt hại gán tay; con số giữa các nguồn có thể lệch (Damrey Phú Yên: 238 lồng theo UN, 24.000 theo VNS – định nghĩa "lồng" khác nhau).
 - **Ca âm yếu:** 6/8 ca "none" là không thấy tin thiệt hại sau khi tìm (bài sớm sau bão, có thể chưa thống kê). Một ca âm trực tiếp (Prapiroon Vân Đồn, "chưa xảy ra thiệt hại" sáng hôm sau).
 - **Gió tại lồng là ước tính best track** (oracle hồi cứu, không phải dự báo), 17/22 là cận dưới theo bán kính gió; Rankine bỏ qua che chắn của đảo/vịnh. Vị trí cấp tỉnh dùng tọa độ vùng nuôi chính, sai số có thể vài chục km.
+- **Kiểm tra với gió báo cáo (4 ca primary):** Prapiroon Vân Đồn (đo cấp 6–7, ước tính 7), Prapiroon Cô Tô (cấp 7–8, có lúc 10; ước tính 9), Matmo Quảng Ninh (61 km/h ≈ cấp 7; ước tính 7) khớp trong 1 cấp; Noru Lý Sơn (giật 7–8, tức gió trung bình ≈ 5–6; ước tính **9**, `wind_radii`) **ước tính cao hơn ~3 cấp**. Vậy "cận dưới" không luôn đúng ở góc phần tư yếu / sau đảo. Noru là một trong 3 ca "none" ở cấp 8–9 và là ca HDPE duy nhất, nên ca này yếu.
 - **Không độc lập:** 5 ca primary cùng là Yagi 2024; Damrey 2 ca. Bootstrap theo ca nên KTC thực còn rộng hơn.
 - **Thiên lệch chọn mẫu:** báo chí đưa tin bão gây thiệt hại nhiều hơn bão không gây thiệt hại; các bão mạnh (≥ 10) đều có thiệt hại một phần vì thế.
 - Mức độ kín gió, loại lồng, neo và việc người nuôi đã gia cố hay chưa ảnh hưởng mạnh (Hồng Kông chỉ hỏng nhẹ ở cấp 11 với Hato) nhưng không được mô hình hóa.
