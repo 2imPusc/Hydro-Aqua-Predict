@@ -103,7 +103,8 @@ def test_heat_requires_persistence_for_tier_two_and_cold_never_with_short_foreca
     h2 = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), run, now=NOW, config=CFG), "heat")
     assert h2[0]["tier"] == 1 and h2[48]["tier"] == 2 and h2[48]["value"] == 33.5
     cold = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), _marine([16.0] * 6), now=NOW, config=CFG), "cold")
-    assert cold[0]["tier"] == 1 and cold[72]["tier"] == 1  # tier 2 needs 14 days, only 6 known
+    # default cold tier 2 (<= 18 °C) needs 3 consecutive days: day 1 tier 1, day 3 onwards tier 2
+    assert cold[0]["tier"] == 1 and cold[48]["tier"] == 2 and cold[72]["tier"] == 2
 
 
 def test_disease_env_index_tiered():
