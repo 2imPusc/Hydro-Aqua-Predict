@@ -128,7 +128,10 @@ const weekday = new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', weekday: 'sh
 const dayMonth = new Intl.DateTimeFormat('vi-VN', { timeZone: 'UTC', day: '2-digit', month: '2-digit' })
 const hm = new Intl.DateTimeFormat('vi-VN', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 const dm = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, day: '2-digit', month: '2-digit' })
-/** `date` is already a local (UTC+7) calendar date string. */
+const isoDay = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
+/** Today's local (UTC+7) date as YYYY-MM-DD, comparable with an outlook `date`. */
+export const localToday = (now: Date = new Date()) => isoDay.format(now)
+/** `date` is already a local (UTC+7) calendar date string (the day whose noon is inside the lead block). */
 export function dayLabel(date: string): { weekday: string; date: string } {
   const at = new Date(`${date}T00:00:00Z`)
   if (Number.isNaN(at.getTime())) return { weekday: '', date }
