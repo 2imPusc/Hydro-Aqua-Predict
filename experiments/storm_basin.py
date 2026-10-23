@@ -829,10 +829,22 @@ def run(stamp: str, fast: bool = False, out_root: Path | None = None) -> Path:
         te = tigge_eval(tg, grid, st)
         results["tigge_hres_track_error"] = te["track_err"]
         results.update(tigge_vs_basin(te["ens_prob"], preds, st))
-        tev = results["tigge_vs_basin_events"]
-        keep = ["SID", "n_runs"] + [c for c in tev.columns if c.startswith("ecmwf_ens_")]
-        results["comparison_site_wind"] = results["comparison_site_wind"].merge(
-            tev[keep].rename(columns={"n_runs": "ens_n_runs_pre_arrival"}), on="SID", how="left")
+        results["tigge_ens_prob"] = te["ens_prob"]
+        comp = results["comparison_site_wind"]
+        extra = []
+        for _, row in comp.iterrows():
+            rec = {}
+            if isinstance(row["SID"], str):
+                for radius in RADII:
+                    for thr in (0.3, 0.5):
+                        lead = ens_leads_to_peak(te["ens_prob"], grid, row["SID"], pd.Timestamp(row["peak_time"]), radius, thr)
+                        rec[f"ens_r{int(radius)}_first_lead_h_to_peak_{thr}"] = lead["first_lead_h"]
+                        rec[f"ens_r{int(radius)}_consistent_lead_h_to_peak_{thr}"] = lead["consistent_lead_h"]
+                    sub = te["ens_prob"][te["ens_prob"]["SID"] == row["SID"]]
+                    rec[f"ens_r{int(radius)}_max_p120"] = sub[f"ens_p{int(radius)}_120"].max() if len(sub) else np.nan
+                    rec["ens_first_run"] = sub["base_time"].min() if len(sub) else pd.NaT
+            extra.append(rec)
+        results["comparison_site_wind"] = pd.concat([comp, pd.DataFrame(extra, index=comp.index)], axis=1)
     # write once
     out = (out_root or paths.EXPERIMENT_OUTPUT_DIR) / f"storm-basin-{stamp}"
     out.mkdir(parents=True, exist_ok=False)
@@ -851,6 +863,18 @@ def run(stamp: str, fast: bool = False, out_root: Path | None = None) -> Path:
                 **FLAGS, "files": sorted(p.name for p in out.iterdir())}
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     return out
+
+
+def ens_leads_to_peak(ensp: pd.DataFrame, grid: pd.DataFrame, sid: str, peak: pd.Timestamp, radius: float,
+                      threshold: float, horizon: int = 120) -> dict:
+    """ENS P(reach radius within horizon) crossings before ``peak``, using only runs while the storm is still outside radius."""
+    sub = ensp[(ensp["SID"] == sid) & (ensp["base_time"] < peak)].sort_values("base_time")
+    g = grid[grid["SID"] == sid].set_index("ISO_TIME")["dist_km"]
+    dist_now = np.array([g.get(t, np.inf) for t in sub["base_time"]], dtype=float)
+    sub = sub[dist_now > radius]
+    if sub.empty:
+        return {"first_lead_h": np.nan, "consistent_lead_h": np.nan}
+    return event_leads(sub["base_time"], sub[f"ens_p{int(radius)}_{horizon}"], peak, threshold)
 
 
 def tigge_vs_basin(ensp: pd.DataFrame, preds: dict, st: pd.DataFrame) -> dict[str, pd.DataFrame]:

@@ -126,6 +126,19 @@ def test_extrapolate_hits_straight_line():
     assert hit24[0] and not hit12[0] and not away[0]
 
 
+def test_ens_leads_to_peak_skips_runs_inside_radius_and_after_peak():
+    t = _times(4, "24h")
+    ensp = pd.DataFrame({"SID": "S", "base_time": t, "ens_p200_120": [0.1, 0.4, 0.9, 0.9]})
+    grid = pd.DataFrame({"SID": "S", "ISO_TIME": t, "dist_km": [900.0, 600.0, 150.0, 50.0]})
+    peak = t[2] + pd.Timedelta(hours=12)
+    out = sb.ens_leads_to_peak(ensp, grid, "S", peak, 200.0, 0.3)
+    # run at t[2] is already inside 200 km and t[3] is after the peak -> only t[0], t[1] count
+    assert out["first_lead_h"] == 36.0 and out["consistent_lead_h"] == 36.0
+    # no run before the peak (storm formed late) -> NaN, not an error
+    early = sb.ens_leads_to_peak(ensp, grid, "S", t[0] - pd.Timedelta(hours=1), 200.0, 0.3)
+    assert np.isnan(early["first_lead_h"])
+
+
 def test_parse_cxml_keeps_wp_forecasts_only():
     xml = b"""<?xml version='1.0'?><cxml><header><baseTime>2024-09-03T00:00:00</baseTime></header>
     <data origin="ecmf" type="analysis"><disturbance ID="a"><fix><validTime>2024-09-03T00:00:00Z</validTime>
