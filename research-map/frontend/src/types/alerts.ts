@@ -55,10 +55,36 @@ export type ActiveStorm = {
 }
 export type ActiveStormsResponse = { status: 'ready' | 'unavailable'; reason?: string; fetched_at?: string; source?: string; storms?: ActiveStorm[] }
 
-export type StationHazard = { hazard: HazardId; tier: Tier | null; value: number | null; action_vi?: string }
+export type StationHazard = {
+  hazard: HazardId; tier: Tier | null; value: number | null; action_vi?: string
+  /** Additive (Track G): per-hazard provenance from the C2 ledger. */
+  label_vi?: string | null; unit?: string | null; data_status?: DataStatus; skip_reason?: string
+  lead_hours?: number; valid_from?: string; valid_to?: string; inputs?: Record<string, unknown>
+}
+export type DataStatus = 'fresh' | 'stale' | 'unavailable'
+export type StationOutlookDay = {
+  date: string; max_tier: Tier | null; hazards: StationHazard[]
+  /** Additive (Track G): 24 h lead block this day covers (72–120 h window fills days 4–5). */
+  data_status?: DataStatus; lead_from_h?: number; lead_to_h?: number; block_from?: string; block_to?: string
+}
+export type StationStormWatch = {
+  source: 'ledger' | 'storms_active'; p_within_500km_120h: number | null; tier: Tier | null; threshold: number | null
+  storm_id?: string | null; storm_name?: string | null; run_time?: string | null; issued_at?: string; file?: string
+  data_status: DataStatus; action_vi?: string | null; model?: string | null; skip_reason?: string; site_note?: string
+}
 export type StationAlerts = {
   id: string; name: string; lat: number; lon: number; exposure_class: ExposureClass | null
-  current: StationHazard[]; outlook: Array<{ date: string; max_tier: Tier | null; hazards: StationHazard[] }>
-  data_status: 'fresh' | 'stale' | 'unavailable'
+  current: StationHazard[]; outlook: StationOutlookDay[]
+  data_status: DataStatus
+  /** Additive (Track G). max_tier counts only fresh, evaluated hazards; null otherwise. */
+  issued_at?: string | null; age_hours?: number | null; max_tier?: Tier | null; storm_watch?: StationStormWatch | null
+  reason?: string | null; config_version?: string | null; inputs_sources?: string[]; inputs_models?: string[]
+  replay?: boolean; replay_labels?: string[]
+  used_by_alerts?: false; notification_eligible?: false; basis?: string
 }
-export type StationHazardsResponse = { status: 'ready' | 'unavailable'; reason?: string; issued_at?: string; config_version?: string; stations?: StationAlerts[] }
+export type StationHazardsResponse = {
+  status: 'ready' | 'unavailable'; reason?: string; issued_at?: string; config_version?: string; stations?: StationAlerts[]
+  /** Additive (Track G). */
+  generated_at?: string; config_versions?: string[]; tiers?: AlertConfig['tiers']; stale_after_hours?: number
+  ledger_files?: string[]; replay?: boolean
+}
