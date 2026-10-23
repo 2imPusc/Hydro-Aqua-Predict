@@ -87,6 +87,10 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
   Health: `python scripts/sensor_coverage.py --station 06M26042804 --last-days 7 --no-write`.
   `--since-last` resumes from the newest interval file: never write a probe file ahead of it
   (use `--start/--end` to fill behind); the coverage report catches any gap that slips through.
+- `HAP-HazardRunner` (hourly) and `HAP-ECMWFStorms` (every 6 h) — shadow hazard jobs via
+  `scripts/run_hazard_job.ps1 -Job hazards|storms` (`MARINE_ENABLED=true` for these jobs only) into
+  `runtime/hazard-shadow/` (append-only); one status line per run in `runtime/logs/hazard-jobs.log`.
+  Install/remove: `scripts/install_hazard_tasks.ps1 [-Remove]`. Enabled 2026-10-24 (owner decision).
 - DATN's `DATN-WeatherSnapshot-06M26042804` is **disabled** since the cut-over (2026-10-10). Do not re-enable.
 
 CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests, frontend build.

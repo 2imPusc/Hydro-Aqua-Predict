@@ -519,3 +519,22 @@ def run_once(now=None, out_dir=None, *, stations: list[dict] | None = None, fetc
     path = append_records(records, out_dir, now.strftime("%Y%m%d"))
     return {"path": str(path), "n_records": len(records), "n_skipped": sum(1 for r in records if r.get("skip_reason")),
             "stations": len(stations), "config_versions": sorted(v for v in versions if v)}
+
+
+def main(argv: list[str] | None = None) -> int:
+    """One shadow pass for every station (scheduled hourly by scripts/install_hazard_tasks.ps1)."""
+    import argparse
+    ap = argparse.ArgumentParser(description="Append one per-station hazard shadow pass to the ledger.")
+    ap.add_argument("--no-storm-watch", action="store_true", help="skip the storm_watch staleness records")
+    args = ap.parse_args(argv)
+    try:
+        summary = run_once(storm_watch=not args.no_storm_watch)
+    except Exception as exc:  # a scheduled run reports and exits non-zero; it never half-writes silently
+        print(json.dumps({"status": "error", "reason": f"{type(exc).__name__}: {exc}"}))
+        return 1
+    print(json.dumps({"status": "ok", **summary}, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
