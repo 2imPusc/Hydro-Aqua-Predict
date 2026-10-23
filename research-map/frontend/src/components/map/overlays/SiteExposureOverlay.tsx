@@ -32,7 +32,7 @@ function exposureIcon(station: ExposureStation, theme: Theme, withLabel: boolean
     className: 'site-exposure-marker',
     html: `<div style="position:relative;width:${size}px;height:${size}px;pointer-events:none">${mapRoseSvg(station, ink)}`
       + (!withLabel ? '</div>' : `<span style="position:absolute;left:50%;top:${size / 2 + 10}px;transform:translateX(-50%);white-space:nowrap;padding:0 5px;border-radius:5px;`
-      + `font:600 10px/15px inherit;font-family:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line-strong);box-shadow:var(--shadow-sm)">${label}</span></div>`),
+      + `font-size:10px;font-weight:600;line-height:15px;font-family:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line-strong);box-shadow:var(--shadow-sm)">${label}</span></div>`),
     iconSize: [size, size], iconAnchor: [size / 2, size / 2],
   })
 }

@@ -50,7 +50,7 @@ function ExposureLegend({ theme, exposure }: { theme: Theme; exposure: SiteExpos
   return <div>
     <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-fg">Phơi nhiễm sóng gió <span className="rounded-[4px] bg-info-bg px-1 text-[10px] font-semibold text-info">lý thuyết</span></div>
     <ul className="m-0 mt-1.5 grid list-none gap-y-1 p-0 text-[11px] text-fg-muted">
-      <li className="flex items-center gap-2">{wedge(0.92)}Hướng gió cho sóng Hs ≥ 2 m (nguy hiểm)</li>
+      <li className="flex items-center gap-2">{wedge(0.92)}Gió thổi từ hướng này cho sóng Hs ≥ 2 m (nguy hiểm)</li>
       <li className="flex items-center gap-2">{wedge(0.42)}Hs 1–2 m (cần chú ý); dài hơn = sóng lớn hơn</li>
       <li className="flex items-center gap-2"><span className="flex-none rounded-[4px] border border-line-strong bg-surface px-1 text-[10px] font-semibold text-fg">hở</span>Lớp: hở / bán kín / kín (Hs lớn nhất ở gió cấp 8)</li>
     </ul>

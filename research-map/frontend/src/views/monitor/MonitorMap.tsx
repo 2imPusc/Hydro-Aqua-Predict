@@ -80,7 +80,8 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
 
       {enabled.station_network && network && <StationNetworkOverlay network={network} dataKey={`${network.network_status}-${network.edge_count}-${network.features.length}`} />}
       {enabled.flow_streamlines && flow && <FlowArtifactOverlay artifact={flow} lod={lod} />}
-      {enabled.site_exposure && <SiteExposureOverlay exposure={exposure} stations={stations} theme={theme} />}
+      {/* The street basemap is always light, so the rose ink follows the basemap, not the UI theme. */}
+      {enabled.site_exposure && <SiteExposureOverlay exposure={exposure} stations={stations} theme={basemap === 'street' ? 'light' : theme} />}
       {stations && <StationMarkers stations={stations} aquacultureMap={aquacultureMap} stale={advisoryStale} staleAgeSeconds={advisoryAgeSeconds} exposure={exposure} theme={theme} />}
 
       <EnvironmentalParticleOverlay type="flow" layer={currentLayer} enabled={enabled.flow_streamlines} waterGeometry={waterGeometry} color={particleColors.flow} />
