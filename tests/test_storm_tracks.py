@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from core import paths
 from core import storm_tracks as st
 
 NB1 = (20.71894, 107.04264)
@@ -176,3 +177,25 @@ def test_merge_duplicate_tracks_relabels_repeat_of_observed_storm():
     assert [s["id"] for s in out["storms"]] == ["36W"]
     assert out["storms"][0]["p_within_500km_120h"] == 1.0 and out["storms"][0]["members"] == 2
     assert out["genesis"]["n_member_tracks"] == 1
+
+
+_TIGGE_2024 = paths.HAZARD_DATA_DIR / "tigge" / "ecmf_cxml_wp_tracks_20240501_20241215_00z_fetched20261023.csv"
+_TIGGE_PROB = paths.EXPERIMENT_OUTPUT_DIR / "storm-basin-20261023b" / "tigge_ens_prob.csv"
+
+
+@pytest.mark.requires_data
+@pytest.mark.skipif(not (_TIGGE_2024.exists() and _TIGGE_PROB.exists()), reason="TIGGE extract / storm-basin run absent")
+def test_agrees_with_storm_basin_tigge_eval_yagi():
+    """Yagi 2024-09-03 00 UTC TIGGE members -> same probabilities as storm_basin.tigge_eval (all R x H)."""
+    tg = pd.read_csv(_TIGGE_2024, low_memory=False)
+    g = tg[(tg["name"].astype(str).str.upper() == "YAGI") & (tg["base_time"] == "2024-09-03T00:00:00")
+           & tg["member"].str.startswith("ens")]
+    assert g["disturbance_id"].nunique() == 1
+    ref = pd.read_csv(_TIGGE_PROB)
+    ref = ref[(ref["base_time"].str.startswith("2024-09-03 00:00")) & (ref["SID"] == "2024244N09137")]
+    assert len(ref) == 1
+    p = st.member_probabilities(g, *NB1)
+    assert p["n_members"] == int(ref["n_members"].iloc[0]) == 51
+    for radius in (200, 500):
+        for h in (24, 48, 72, 96, 120):
+            assert p[f"p{radius}_{h}"] == pytest.approx(ref[f"ens_p{radius}_{h}"].iloc[0], abs=1e-12)
