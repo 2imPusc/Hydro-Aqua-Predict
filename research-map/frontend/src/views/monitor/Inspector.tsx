@@ -4,7 +4,10 @@ import type { AquacultureMap, BathymetryManifest, BathymetrySample, DataMode, Fl
 import { Chip, Disclosure, EmptyState, IconButton, KeyValue, Note, Panel, Segmented, Skeleton, Stat, StateChip, type Tone } from '../../components/ui'
 import { LABEL } from '../../components/map/mapConfig'
 import { HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
-import { advisoryForStation, SEVERITY_STYLE, toSeverity } from '../../components/map/overlays/StationMarkers'
+import { advisoryForStation, SEVERITY_STYLE, STALE_STYLE, toSeverity } from '../../components/map/overlays/StationMarkers'
+import { ExposureDetail } from '../../components/map/overlays/SiteExposureOverlay'
+import { EXPOSURE_LABEL, type ExposureStation, type SiteExposure } from '../../components/map/siteExposure'
+import type { Theme } from '../../hooks/useTheme'
 import { formatAge, formatTime } from '../../hooks/useNow'
 import { describeApiError } from '../../api/client'
 import { scenarioLabel } from '../../app/TopBarStatus'
@@ -74,16 +77,15 @@ function ObservationStat({ item }: { item: SensorObservation }) {
 
 /* ---------------------------------------------------------------- advisory */
 
-const ADVISORY_STALE_SECONDS = 90 * 60
-
 type Driver = { metric: string; value: unknown; unit: string }
 
-function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenario }: { aquaculture: PollState<AquacultureMap>; stations: Stations | null; mode: DataMode; onMode: (mode: DataMode) => void; scenario: string; onScenario: (value: string) => void }) {
+type AdvisoryCardProps = { aquaculture: PollState<AquacultureMap>; stations: Stations | null; mode: DataMode; onMode: (mode: DataMode) => void; scenario: string; onScenario: (value: string) => void; stale: boolean; ageSeconds: number | null; exposure: SiteExposure | null; theme: Theme }
+
+function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenario, stale, ageSeconds, exposure, theme }: AdvisoryCardProps) {
   const map = aquaculture.data
   const isMock = mode === 'mock'
-  // Live advisories are rebuilt by the worker; an old artifact (worker/DB down) must read as stale, not "ready".
-  const ageSeconds = map?.generated_at ? (Date.now() - Date.parse(map.generated_at)) / 1000 : null
-  const stale = !!map && map.mode !== 'mock' && map.status === 'ready' && ageSeconds != null && ageSeconds > ADVISORY_STALE_SECONDS
+  // Live advisories are rebuilt by the worker; an old artifact (worker/DB down) reads as stale (same rule as the map markers).
+  const exposureById = useMemo(() => new Map((exposure?.status === 'ready' ? exposure.stations ?? [] : []).map(item => [item.id, item])), [exposure])
   return (
     <Panel variant="glass" icon={<ShieldAlert size={15} />} title="Khuyến nghị nuôi trồng" collapsible
       actions={map ? <StateChip size="xs" state={map.mode === 'mock' ? 'mock' : stale ? 'stale' : map.status} suffix={stale ? formatAge(ageSeconds) : undefined} /> : aquaculture.error ? <StateChip size="xs" state="unavailable" /> : <StateChip size="xs" state="loading" />}>
@@ -108,7 +110,7 @@ function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenari
         {map && map.status === 'building' && <Note tone="info">Đang dựng artifact khuyến nghị…</Note>}
         {map && stations?.features.length ? (
           <ul className="scroll-thin m-0 max-h-72 list-none space-y-1 overflow-y-auto p-0 pr-0.5">
-            {stations.features.map((station, index) => <StationRow key={`${String(station.properties?.station ?? '')}-${index}`} station={station} index={index} map={map} />)}
+            {stations.features.map((station, index) => <StationRow key={`${String(station.properties?.station ?? '')}-${index}`} station={station} index={index} map={map} stale={stale} exposure={exposureById.get(String(station.properties?.station ?? ''))} theme={theme} />)}
           </ul>
         ) : map && <p className="m-0 text-[11.5px] text-fg-subtle">Chưa tải được danh sách trạm.</p>}
       </div>
@@ -116,7 +118,7 @@ function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenari
   )
 }
 
-function StationRow({ station, index, map }: { station: GeoJSON.Feature; index: number; map: AquacultureMap }) {
+function StationRow({ station, index, map, stale, exposure, theme }: { station: GeoJSON.Feature; index: number; map: AquacultureMap; stale: boolean; exposure?: ExposureStation; theme: Theme }) {
   const [open, setOpen] = useState(false)
   const info = station.properties ?? {}
   const advisory = advisoryForStation(map, info.station, index)?.properties ?? {}
@@ -126,9 +128,10 @@ function StationRow({ station, index, map }: { station: GeoJSON.Feature; index: 
   return (
     <li className="rounded-[var(--radius-sm)] border border-line bg-surface/60">
       <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} className="flex w-full items-center gap-2 px-2 py-1.5 text-left">
-        <span className="size-2 flex-none rounded-full" style={{ background: style.color }} aria-hidden />
+        <span className="size-2.5 flex-none rounded-full" style={{ background: stale ? STALE_STYLE.pattern : style.color }} aria-hidden />
         <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-fg" title={String(info.name ?? '')}>Trạm {String(info.station ?? '?')}</span>
-        <Chip size="xs" tone={style.tone}>{style.label}</Chip>
+        {exposure?.exposure_class && <span className="flex-none text-[10.5px] text-fg-subtle" title="Lớp phơi nhiễm sóng gió (lý thuyết)">{EXPOSURE_LABEL[exposure.exposure_class]}</span>}
+        {stale ? <Chip size="xs" tone="neutral" title={`Lúc dựng: ${style.label}`}>Cũ</Chip> : <Chip size="xs" tone={style.tone}>{style.label}</Chip>}
         <ChevronRight size={14} className={`flex-none text-fg-subtle transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       {open && (
@@ -144,12 +147,14 @@ function StationRow({ station, index, map }: { station: GeoJSON.Feature; index: 
               <MiniValue label="Gió 6h" value={advisory.weather?.wind_6h_kmh} />
             </div>
           </>}
-          {drivers.length > 0 && (
+          {stale && <div className="text-[11px] text-fg-subtle">Mức lúc dựng: <b className="font-semibold text-fg-muted">{style.label}</b> · không phải hiện tại.</div>}
+          {drivers.length > 0 && !stale && (
             <div className="rounded-[6px] bg-warn-bg px-2 py-1 text-warn">
               <b>Nguyên nhân:</b> {drivers.map(driver => `${driver.metric}: ${driver.value} ${driver.unit}`).join(' · ')}
             </div>
           )}
           {map.mode === 'live' && <div className="text-[10.5px] text-fg-subtle">Một cảm biến vật lý; các trạm khác dùng trạng thái vùng của trạm pilot.</div>}
+          {exposure && <div className="border-t border-line pt-1.5 text-fg"><ExposureDetail station={exposure} theme={theme} roseSize={104} /></div>}
         </div>
       )}
     </li>
@@ -268,6 +273,10 @@ export type InspectorProps = {
   zones: HsiZones | null
   sample: BathymetrySample | null
   onCloseSample: () => void
+  advisoryStale: boolean
+  advisoryAgeSeconds: number | null
+  exposure: SiteExposure | null
+  theme: Theme
 }
 
 /** Right inspector: sensor latest, advisory (live/mock), bathymetry sample, provenance. */
@@ -276,7 +285,7 @@ export const Inspector = memo(function Inspector(props: InspectorProps) {
     <div className="scroll-thin pointer-events-auto flex max-h-full flex-col gap-2.5 overflow-y-auto pb-1 pr-0.5">
       {props.sample && <SampleCard sample={props.sample} onClose={props.onCloseSample} />}
       <SensorCard sensor={props.sensor} station={props.station} />
-      <AdvisoryCard aquaculture={props.aquaculture} stations={props.stations} mode={props.mode} onMode={props.onMode} scenario={props.scenario} onScenario={props.onScenario} />
+      <AdvisoryCard aquaculture={props.aquaculture} stations={props.stations} mode={props.mode} onMode={props.onMode} scenario={props.scenario} onScenario={props.onScenario} stale={props.advisoryStale} ageSeconds={props.advisoryAgeSeconds} exposure={props.exposure} theme={props.theme} />
       <ProvenanceCard snapshot={props.snapshot} contextError={props.contextError} layers={props.layers} enabled={props.enabled} flow={props.flow} bathymetry={props.bathymetry} network={props.network} zones={props.zones} />
     </div>
   )

@@ -6,9 +6,11 @@ import { DEPTH_BAND_LABELS, depthBandColor, FLAG_STYLE } from '../../components/
 import { scalarColor } from '../../components/map/overlays/ScalarGridOverlay'
 import { GradientLegend, SwatchLegend } from '../../components/ui'
 import { HSI_CLASSES, HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
-import { SEVERITY_STYLE } from '../../components/map/overlays/StationMarkers'
+import { SEVERITY_STYLE, STALE_STYLE } from '../../components/map/overlays/StationMarkers'
+import { EXPOSURE_INK } from '../../components/map/overlays/SiteExposureOverlay'
+import { wedgePath, type SiteExposure } from '../../components/map/siteExposure'
 import type { EnabledLayers } from './useMonitorData'
-import { isNarrowScreen } from '../shared/MapPanel'
+import { isCompactScreen, LEFT_PANEL_WIDTH, SCROLL_FADE } from './LayerControl'
 
 const SCALAR_TITLE: Record<string, string> = { rain: 'Mưa', sea_level: 'Mực nước', mixed_layer_depth: 'Mixed-layer depth' }
 
@@ -41,22 +43,41 @@ function DepthLegend({ theme, etopo }: { theme: Theme; etopo: EtopoManifest | nu
   </div>
 }
 
+/** Exposure: wedge = wind direction (from), length = Hs at cấp 10, ink weight = Hs band; pill = exposure class. */
+function ExposureLegend({ theme, exposure }: { theme: Theme; exposure: SiteExposure | null }) {
+  const ink = EXPOSURE_INK[theme]
+  const wedge = (opacity: number) => <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden className="flex-none"><path d={wedgePath(2, 14, 0, 14, 45, 14)} fill={ink} fillOpacity={opacity} /></svg>
+  return <div>
+    <div className="flex items-center gap-1.5 text-[11.5px] font-semibold text-fg">Phơi nhiễm sóng gió <span className="rounded-[4px] bg-info-bg px-1 text-[10px] font-semibold text-info">lý thuyết</span></div>
+    <ul className="m-0 mt-1.5 grid list-none gap-y-1 p-0 text-[11px] text-fg-muted">
+      <li className="flex items-center gap-2">{wedge(0.92)}Gió thổi từ hướng này cho sóng Hs ≥ 2 m (nguy hiểm)</li>
+      <li className="flex items-center gap-2">{wedge(0.42)}Hs 1–2 m (cần chú ý); dài hơn = sóng lớn hơn</li>
+      <li className="flex items-center gap-2"><span className="flex-none rounded-[4px] border border-line-strong bg-surface px-1 text-[10px] font-semibold text-fg">hở</span>Lớp: hở / bán kín / kín (Hs lớn nhất ở gió cấp 8)</li>
+    </ul>
+    <div className="mt-1 text-[10.5px] text-fg-subtle">Gió ngoài khơi cấp 10 (24,5 m/s); đà gió + che chắn địa hình + SPM 1984. Chưa kiểm chứng, không dùng cho cảnh báo.{exposure?.run_name ? ` Run ${exposure.run_name}.` : ''}</div>
+  </div>
+}
+
 /** Bottom-left legends for whatever is switched on. */
-export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, etopo }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; etopo: EtopoManifest | null }) {
-  const [open, setOpen] = useState(() => !isNarrowScreen())
+export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, etopo, advisoryStale, exposure }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; etopo: EtopoManifest | null; advisoryStale: boolean; exposure: SiteExposure | null }) {
+  const [open, setOpen] = useState(() => !isCompactScreen())
   const scalar = environmentLayers.find(layer => layer.kind === 'scalar_grid' && enabled[layer.layer as keyof EnabledLayers])
   const bathyBands = enabled.bathymetry_bands && !enabled.bathymetry_slope
   return (
-    <section aria-label="Chú giải" className="glass pointer-events-auto w-[min(296px,calc(100vw-72px))] flex-none overflow-hidden rounded-[var(--radius-lg)]">
+    <section aria-label="Chú giải" className={`glass pointer-events-auto ${LEFT_PANEL_WIDTH} flex-none overflow-hidden rounded-[var(--radius-lg)]`}>
       <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open} className="flex w-full items-center gap-2 px-3.5 py-2 text-left">
         <Palette size={14} className="text-fg-subtle" />
         <span className="flex-1 text-[12px] font-semibold text-fg">Chú giải</span>
         <ChevronDown size={15} className={`text-fg-subtle transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
       </button>
       {open && (
-        <div className="scroll-thin max-h-[34vh] space-y-3 overflow-y-auto border-t border-line px-3.5 pb-3 pt-2.5">
-          <SwatchLegend title="Trạng thái trạm" items={(['NORMAL', 'WATCH', 'WARNING', 'UNKNOWN'] as const).map(key => ({ color: SEVERITY_STYLE[key].color, label: SEVERITY_STYLE[key].label, shape: 'dot' as const }))} columns={2}
-            note={mockMode ? 'Viền tím nét đứt = điểm mô phỏng.' : 'Một cảm biến vật lý (06M26042804); các điểm khác dùng chung số đo của trạm này.'} />
+        <div className="scroll-thin max-h-[34vh] space-y-3 overflow-y-auto border-t border-line px-3.5 pb-5 pt-2.5" style={SCROLL_FADE}>
+          <SwatchLegend title="Trạng thái trạm" items={[
+            ...(['NORMAL', 'WATCH', 'WARNING', 'UNKNOWN'] as const).map(key => ({ color: SEVERITY_STYLE[key].color, label: SEVERITY_STYLE[key].label, shape: 'dot' as const })),
+            { color: STALE_STYLE.pattern, label: STALE_STYLE.label, shape: 'dot' as const },
+          ]} columns={2}
+            note={<>{advisoryStale && <b className="font-semibold text-fg">Khuyến nghị đang cũ: trạm hiện sọc xám, không theo mức. </b>}{mockMode ? 'Viền tím nét đứt = điểm mô phỏng.' : 'Một cảm biến vật lý (06M26042804); các điểm khác dùng chung số đo của trạm này.'}</>} />
+          {enabled.site_exposure && exposure?.status === 'ready' && <ExposureLegend theme={theme} exposure={exposure} />}
           {enabled.hsi_zones && <SwatchLegend title="HSI lịch sử" note={HSI_LEGACY_LABEL} items={HSI_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} />}
           {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} etopo={etopo} />}
           {scalar && <ScalarLegend layer={scalar} />}
