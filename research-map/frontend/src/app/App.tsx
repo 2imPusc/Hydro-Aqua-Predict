@@ -11,10 +11,12 @@ export type ViewProps = { datasetId?: string; tab?: ReliabilityTab; theme: Theme
 // Each view is its own chunk; Leaflet only loads with the map views.
 const VIEWS: Record<ViewId, React.LazyExoticComponent<React.ComponentType<ViewProps>>> = {
   monitor: lazy(() => import('../views/monitor/MonitorView')),
+  alerts: lazy(() => import('../views/alerts/AlertsView')),
   forecast: lazy(() => import('../views/forecast/ForecastView')),
   weather: lazy(() => import('../views/weather/WeatherView')),
   zoning: lazy(() => import('../views/zoning/ZoningView')),
   reliability: lazy(() => import('../views/reliability/ReliabilityView')),
+  settings: lazy(() => import('../views/settings/AlertConfigView')),
 }
 
 function ViewFallback() {

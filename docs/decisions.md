@@ -114,3 +114,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Lý do:** SDB không có dữ liệu ở Cát Bà / Hạ Long; ETOPO phủ đều nhưng thô và có lỗi nguồn ở vài cửa sông.
 - **Hệ quả:** chú giải ghi lưới, datum (EGM2008) và "không dùng cho hàng hải". Nâng cấp tiếp theo: GEBCO 2024 (kèm TID) hoặc hải đồ / đo sâu tại lồng.
 
+
+## #20 — 2026-10-23 · Bậc cảnh báo do admin cấu hình; ngoại lệ ghi duy nhất của API
+
+- **Quyết định (chủ dự án):** ngưỡng và hành động của các bậc cảnh báo được admin chỉnh ngay trong giao diện research-map (`#/settings/alerts`). Chưa làm tài khoản / phân quyền; thiết kế sau.
+- **Ngoại lệ:** API research-map vốn không ghi file nào; nay được ghi **duy nhất** vào `runtime/alert-config/`, mỗi lần lưu là một file phiên bản mới (tạo độc quyền, không ghi đè, không xóa). Mặc định nằm trong `config/alert_tiers.default.json` (theo dõi bằng git).
+- **Hệ quả:** mọi bản ghi cảnh báo shadow mang `config_version`; Docker cần mount ghi được riêng cho `runtime/alert-config/`. `MARINE_ENABLED` và task chạy tự động vẫn tắt cho tới khi chủ dự án bật. Hợp đồng: `docs/superpowers/plans/2026-10-23-phase1-parallel.md`.

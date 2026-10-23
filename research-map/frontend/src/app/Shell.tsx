@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CloudSun, Grid2x2, Map as MapIcon, Moon, ShieldCheck, Sun, TrendingUp, Waves } from 'lucide-react'
+import { BellRing, CloudSun, Grid2x2, Map as MapIcon, Moon, ShieldCheck, SlidersHorizontal, Sun, TrendingUp, Waves } from 'lucide-react'
 import { NAV, type Route, type ViewId } from './routes'
 import { TopBarStatus } from './TopBarStatus'
 import { IconButton } from '../components/ui'
@@ -7,10 +7,12 @@ import type { Theme } from '../hooks/useTheme'
 
 const ICON: Record<ViewId, ReactNode> = {
   monitor: <MapIcon size={19} strokeWidth={1.9} />,
+  alerts: <BellRing size={19} strokeWidth={1.9} />,
   forecast: <TrendingUp size={19} strokeWidth={1.9} />,
   weather: <CloudSun size={19} strokeWidth={1.9} />,
   zoning: <Grid2x2 size={19} strokeWidth={1.9} />,
   reliability: <ShieldCheck size={19} strokeWidth={1.9} />,
+  settings: <SlidersHorizontal size={19} strokeWidth={1.9} />,
 }
 
 function NavLink({ item, active, compact }: { item: (typeof NAV)[number]; active: boolean; compact?: boolean }) {

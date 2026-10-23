@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "config_version": "default-2026-10-23",
+  "note_vi": "Ngưỡng mặc định lấy theo bằng chứng hiện có (docs/eval/2026-10-23-*.md). Admin ghi đè bằng phiên bản mới trong runtime/alert-config/; file này không bị sửa khi vận hành.",
+  "tiers": [
+    {"tier": 0, "label_vi": "Bình thường", "color": "ok"},
+    {"tier": 1, "label_vi": "Theo dõi", "color": "info"},
+    {"tier": 2, "label_vi": "Chuẩn bị", "color": "warn"},
+    {"tier": 3, "label_vi": "Nguy hiểm", "color": "danger"},
+    {"tier": 4, "label_vi": "Rất nguy hiểm", "color": "danger"}
+  ],
+  "hazards": {
+    "storm_wind": {
+      "label_vi": "Gió bão tại lồng",
+      "metric": "site_beaufort",
+      "unit": "cấp Beaufort",
+      "direction": "ge",
+      "thresholds": {"1": 6, "2": 8, "3": 10, "4": 12},
+      "actions_vi": {
+        "1": "Kiểm tra neo, dây, phao; theo dõi bản tin bão.",
+        "2": "Gia cố neo, dây, phao; giảm hoặc ngừng cho ăn; chuẩn bị phương án thu hoạch và di dời.",
+        "3": "Thu hoạch sớm cá thương phẩm nếu kịp; gia cố hoặc kéo lồng vào nơi kín gió; người rời lồng trước khi gió mạnh lên.",
+        "4": "Người rời lồng bè vào nơi trú ẩn theo lệnh của địa phương."
+      },
+      "guardrails": {"min": {"1": 5, "2": 7, "3": 9, "4": 11}, "max": {"1": 7, "2": 9, "3": 11, "4": 13}},
+      "evidence": ["docs/eval/2026-10-23-storm-damage.md", "docs/guide/27-hazard-advisory-theory.md"]
+    },
+    "wave_height": {
+      "label_vi": "Sóng tại lồng (ước tính theo đà gió)",
+      "metric": "hs_m",
+      "unit": "m",
+      "direction": "ge",
+      "thresholds": {"1": 0.5, "2": 1.0, "3": 2.0, "4": 3.0},
+      "actions_vi": {"1": "Theo dõi.", "2": "Vượt giới hạn 1 m cho lồng nổi (NACA/FAO 1989): kiểm tra neo.", "3": "Nguy cơ hỏng lồng gỗ.", "4": "Nguy cơ hỏng nặng."},
+      "evidence": ["docs/eval/2026-10-23-site-exposure.md"]
+    },
+    "storm_watch": {
+      "label_vi": "Theo dõi bão toàn vùng",
+      "metric": "p_within_500km_120h",
+      "unit": "xác suất",
+      "direction": "ge",
+      "thresholds": {"1": 0.3, "2": 0.6},
+      "actions_vi": {"1": "Có bão có thể ảnh hưởng trong 5 ngày: theo dõi.", "2": "Khả năng cao bão ảnh hưởng: chuẩn bị sớm."},
+      "evidence": ["docs/eval/2026-10-23-storm-basin.md"]
+    },
+    "heat": {
+      "label_vi": "Nắng nóng (nhiệt độ nước trung bình ngày)",
+      "metric": "water_temp_daily_c",
+      "unit": "°C",
+      "direction": "ge",
+      "thresholds": {"1": 31.0, "2": 33.0, "3": 34.0},
+      "persistence_days": {"2": 3, "3": 3},
+      "actions_vi": {"1": "Theo dõi; giảm cho ăn giờ nóng.", "2": "Stress nhiệt: giảm mật độ / cho ăn, tăng sục khí nếu có.", "3": "Stress nặng."},
+      "evidence": ["docs/eval/2026-10-23-heat-skill.md", "docs/guide/27-hazard-advisory-theory.md"]
+    },
+    "cold": {
+      "label_vi": "Rét (nhiệt độ nước trung bình ngày)",
+      "metric": "water_temp_daily_c",
+      "unit": "°C",
+      "direction": "le",
+      "thresholds": {"1": 22.0, "2": 18.0, "3": 15.0},
+      "persistence_days": {"2": 14},
+      "actions_vi": {"1": "Cá giò ngừng lớn dưới 22 °C (Nhu et al. 2011).", "2": "Cá bỏ ăn dưới 18 °C; ≥ 14 ngày: nguy cơ nấm/vi khuẩn.", "3": "≤ 15 °C kéo dài: nguy cơ chết hàng loạt (2008)."},
+      "evidence": ["docs/eval/2026-10-23-disease-risk.md", "docs/eval/2026-10-23-stocking-calendar.md"]
+    },
+    "disease_env": {
+      "label_vi": "Nguy cơ dịch bệnh theo điều kiện môi trường",
+      "metric": "disease_index",
+      "unit": "0–1",
+      "direction": "ge",
+      "thresholds": {"1": 0.4, "2": 0.75},
+      "actions_vi": {"1": "Theo dõi biểu hiện cá.", "2": "Tăng quan sát, vệ sinh lưới."},
+      "evidence": ["docs/eval/2026-10-23-disease-risk.md"]
+    }
+  },
+  "scopes": {
+    "exposure_class": {"sheltered": {}, "semi": {}, "exposed": {}},
+    "station": {}
+  }
+}

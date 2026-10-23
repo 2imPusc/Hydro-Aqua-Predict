@@ -23,6 +23,8 @@ from app.bathymetry_artifacts import LODS, load_geojson as load_bathymetry_geojs
 from app import bathymetry_etopo
 from app.aquaculture_artifacts import MODES as AQUACULTURE_MODES, SCENARIOS as AQUACULTURE_SCENARIOS, load_aquaculture_artifact
 from app.research import latest_export_version, router as research_router
+from app.admin_config import router as admin_config_router
+from app.hazard_api import router as hazard_router
 
 
 app = FastAPI(title="Environmental Context Research API", version="0.1.0")
@@ -31,6 +33,8 @@ app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_allow_origin
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 repository = SnapshotRepository(settings.database_url)
 app.include_router(research_router)
+app.include_router(hazard_router)
+app.include_router(admin_config_router)
 logger = logging.getLogger(__name__)
 
 

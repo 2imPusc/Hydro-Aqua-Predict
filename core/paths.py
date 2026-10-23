@@ -38,12 +38,16 @@ STATION_COORDINATES = DATA_DIR / "map" / "station_coordinates.csv"
 WATER_SHAPEFILE = _env_path("HAP_WATER_SHAPEFILE", DATA_DIR / "map" / "water_polygons_clip" / "water_polygons.shp")
 DEPTH_DIR = DATA_DIR / "depth"
 CMEMS_CACHE_DIR = DATA_DIR / "haiphong" / "_cmems_cache"
+ALERT_CONFIG_DEFAULT = PROJECT_ROOT / "config" / "alert_tiers.default.json"  # tracked defaults
 COBIA_THRESHOLDS = PROJECT_ROOT / "hap_shared" / "thresholds" / "cobia_thresholds.json"
 SUITABILITY_LAYERS_DIR = DATA_DIR / "suitability"  # direction 3 (HP + QN) site-suitability inputs
 SUITABILITY_HK_DIR = DATA_DIR / "suitability_hk"  # direction 3 out-of-sample check (Hong Kong)
 FOREIGN_DATA_DIR = DATA_DIR / "foreign"  # direction 4 foreign test datasets, one subfolder per source
 HAZARD_DATA_DIR = DATA_DIR / "hazards"  # theory track: IBTrACS, OISST, ERA5, marine SST downloads (write-once)
 TERRAIN_DIR = DATA_DIR / "terrain"  # land DEM/DSM tiles (write-once), e.g. Copernicus GLO-30 for wind shelter
+CMEMS_DIR = DATA_DIR / "cmems"  # Copernicus Marine point/area extracts (write-once, model named)
+ECMWF_OPENDATA_DIR = HAZARD_DATA_DIR / "ecmwf-opendata"  # real-time ECMWF TC track files (write-once)
+REFERENCES_DIR = DATA_DIR / "references"  # local text copies of cited sources (write-once)
 
 
 def clean_data(region: str) -> Path:
@@ -54,6 +58,8 @@ def clean_data(region: str) -> Path:
 # --- Generated state (gitignored) ---
 RUNTIME_DIR = _env_path("HAP_RUNTIME_DIR", PROJECT_ROOT / "runtime")
 FORECAST_SHADOW_DIR = RUNTIME_DIR / "forecast-shadow"
+HAZARD_SHADOW_DIR = RUNTIME_DIR / "hazard-shadow"  # per-station hazard alerts, append-only JSONL
+ALERT_CONFIG_DIR = RUNTIME_DIR / "alert-config"  # admin alert-tier versions, append-only (decisions #20)
 ARTIFACTS_DIR = _env_path("HAP_ARTIFACTS_DIR", PROJECT_ROOT / "artifacts")
 EXPERIMENT_OUTPUT_DIR = ARTIFACTS_DIR / "experiments"
 RESEARCH_MAP_EXPORT_DIR = ARTIFACTS_DIR / "research-map"  # write-once JSON exports read by research-map/
