@@ -1,6 +1,10 @@
-# Optional extras for hazard data decoding (not needed by core tests or the app).
+# Optional extras for hazard data (not needed by core tests or the app).
+#   .venv\Scripts\python -m pip install -r requirements-hazards.txt
+#
 # experiments/ecmwf_opendata.py decodes ECMWF Open Data tropical-cyclone track BUFR ("tf") files.
 # eccodes ships binary wheels incl. Windows (cp311 win_amd64); installs cffi, findlibs, pycparser; numpy unchanged.
 # pybufrkit 0.2.25 was tried as a pure-Python alternative and fails with bitstring >= 5.
-#   .venv\Scripts\python -m pip install -r requirements-hazards.txt
 eccodes==2.50.0
+# Copernicus Marine downloads (experiments/cmems_sites.py --download).
+# Credentials come from `copernicusmarine login` (home config), never from the repo.
+copernicusmarine>=2.5,<3
