@@ -10,6 +10,9 @@ Contract C1 in docs/superpowers/plans/2026-10-23-phase1-parallel.md; decisions #
 * Scope overrides (``scopes.exposure_class.<c>`` / ``scopes.station.<id>``) are a mapping
   ``hazard_id -> partial hazard dict`` (e.g. ``{"storm_wind": {"thresholds": {"2": 7}}}``).
   Merge order: base < exposure_class < station.
+* Structure is locked (controller decision): saves may change only ``thresholds``, ``actions_vi``,
+  ``persistence_days`` (and scope overrides of those three) relative to the defaults; see
+  ``structural_errors``. ``validate`` only checks internal consistency.
 * ``persistence_days`` is validated and returned, never applied here (the hazard runner applies it).
 
 Stdlib only so the research-map backend (which imports this module) stays light.
@@ -294,6 +297,44 @@ def validate(config: dict) -> list[str]:
     return errs
 
 
+_EDITABLE = ("thresholds", "actions_vi", "persistence_days")
+_LOCKED = ("metric", "unit", "direction", "label_vi", "evidence", "guardrails")
+
+
+def structural_errors(config: dict, defaults: dict | None = None) -> list[str]:
+    """Errors for any change outside thresholds / actions_vi / persistence_days vs the defaults."""
+    if not isinstance(config, dict):
+        return ["config: must be an object"]
+    defaults = defaults if defaults is not None else load_default()
+    errs: list[str] = []
+    if config.get("tiers") != defaults.get("tiers"):
+        errs.append("tiers: not editable")
+    hz, dz = config.get("hazards"), defaults.get("hazards", {})
+    if not isinstance(hz, dict):
+        return errs + ["hazards: must be an object"]
+    for hid in sorted(set(dz) - set(hz)):
+        errs.append(f"hazards.{hid}: hazard cannot be removed")
+    for hid in sorted(set(hz) - set(dz)):
+        errs.append(f"hazards.{hid}: hazard cannot be added")
+    for hid in sorted(set(hz) & set(dz)):
+        h, d = hz[hid], dz[hid]
+        if not isinstance(h, dict):
+            continue
+        for k in _LOCKED:
+            if h.get(k) != d.get(k):
+                errs.append(f"hazards.{hid}.{k}: not editable")
+    scopes = config.get("scopes")
+    if isinstance(scopes, dict):
+        for kind, group in scopes.items():
+            for name, over in (group.items() if isinstance(group, dict) else []):
+                for hid, part in (over.items() if isinstance(over, dict) else []):
+                    for k in (part if isinstance(part, dict) else []):
+                        if k not in _EDITABLE:
+                            errs.append(f"scopes.{kind}.{name}.{hid}.{k}: not editable "
+                                        f"(only {', '.join(_EDITABLE)})")
+    return errs
+
+
 # ---------------------------------------------------------------- tier lookup
 
 def tier_for(hazard_id: str, value: float, config: dict) -> int | None:
@@ -347,7 +388,7 @@ def _next_number(d: Path) -> int:
 
 def save_version(config: dict, *, changed_by: str, reason_vi: str) -> str:
     """Validate and write a new version file; returns its config_version. Never overwrites."""
-    errors = validate(config)
+    errors = validate(config) + structural_errors(config)
     if errors:
         raise ConfigValidationError(errors)
     d = _config_dir()

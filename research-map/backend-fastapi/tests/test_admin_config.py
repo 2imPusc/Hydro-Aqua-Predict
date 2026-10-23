@@ -25,7 +25,7 @@ def test_get_default(client):
     r = client.get("/api/v1/admin/alert-config")
     assert r.status_code == 200
     body = r.json()
-    assert body["status"] == "ok" and body["source"] == "default"
+    assert body["status"] == "ready" and body["source"] == "default"
     assert body["config_version"] == body["effective"]["config_version"]
     assert "storm_wind" in body["effective"]["hazards"]
     assert client.get("/api/v1/admin/alert-config/versions").json()["versions"] == []
@@ -86,3 +86,19 @@ def test_preview_reports_errors(client):
 @pytest.mark.parametrize("v", ["v9999-20261023T000000Z", "nope", "..%2Fx"])
 def test_unknown_version_404(client, v):
     assert client.get(f"/api/v1/admin/alert-config/versions/{v}").status_code == 404
+
+
+def test_structure_locked_422(client, tmp_path):
+    cfg = _effective(client)
+    cfg["hazards"]["storm_wind"]["metric"] = "other"
+    cfg["hazards"]["heat"]["guardrails"] = {"min": {"1": 1}}
+    cfg["hazards"]["new_one"] = copy.deepcopy(cfg["hazards"]["heat"])
+    del cfg["hazards"]["cold"]
+    body = {"config": cfg, "reason_vi": "x"}
+    for url, payload in (("/api/v1/admin/alert-config", body), ("/api/v1/admin/alert-config/preview", {"config": cfg})):
+        r = client.post(url, json=payload)
+        errs = r.json()["errors"]
+        assert any("metric: not editable" in e for e in errs)
+        assert any("cannot be added" in e for e in errs) and any("cannot be removed" in e for e in errs)
+    assert client.post("/api/v1/admin/alert-config", json=body).status_code == 422
+    assert not (tmp_path / "alert-config").exists()

@@ -51,26 +51,26 @@ def tier_examples(config: dict) -> list[dict]:
 @router.get("/alert-config")
 def get_alert_config() -> dict:
     eff = ac.load_effective()
-    return {"status": "ok", "effective": eff, "config_version": eff.get("config_version"),
+    return {"status": "ready", "effective": eff, "config_version": eff.get("config_version"),
             "source": ac.effective_source()}
 
 
 @router.get("/alert-config/versions")
 def list_alert_config_versions() -> dict:
-    return {"status": "ok", "versions": ac.list_versions()}
+    return {"status": "ready", "versions": ac.list_versions()}
 
 
 @router.get("/alert-config/versions/{version}")
 def get_alert_config_version(version: str) -> dict:
     try:
-        return {"status": "ok", "version": ac.get_version(version)}
+        return {"status": "ready", "version": ac.get_version(version)}
     except KeyError:
         raise HTTPException(status_code=404, detail="version not found") from None
 
 
 @router.post("/alert-config", status_code=201)
 def save_alert_config(body: SaveBody):
-    errors = ac.validate(body.config)
+    errors = ac.validate(body.config) + ac.structural_errors(body.config)
     if not body.reason_vi.strip():
         errors = errors + ["reason_vi: required"]
     if errors:
@@ -79,10 +79,10 @@ def save_alert_config(body: SaveBody):
         version = ac.save_version(body.config, changed_by=body.changed_by or "admin-ui", reason_vi=body.reason_vi)
     except ac.ConfigValidationError as exc:
         return JSONResponse(status_code=422, content={"status": "invalid", "errors": exc.errors})
-    return {"status": "ok", "config_version": version}
+    return {"status": "ready", "config_version": version}
 
 
 @router.post("/alert-config/preview")
 def preview_alert_config(body: PreviewBody) -> dict:
-    errors = ac.validate(body.config)
-    return {"status": "ok", "errors": errors, "tier_examples": [] if errors else tier_examples(body.config)}
+    errors = ac.validate(body.config) + ac.structural_errors(body.config)
+    return {"status": "ready", "errors": errors, "tier_examples": [] if errors else tier_examples(body.config)}

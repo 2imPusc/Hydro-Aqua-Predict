@@ -164,3 +164,31 @@ def test_concurrent_saves_never_collide(cfg_dir, base):
     numbers = sorted(int(v[1:5]) for v in results)
     assert numbers == list(range(1, n + 1))
     assert len(list(cfg_dir.glob("v*.json"))) == n
+
+
+@pytest.mark.parametrize("mutate,needle", [
+    (lambda c: c["hazards"]["heat"].update({"metric": "x"}), "heat.metric"),
+    (lambda c: c["hazards"]["heat"].update({"unit": "x"}), "heat.unit"),
+    (lambda c: c["hazards"]["cold"].update({"direction": "ge"}), "cold.direction"),
+    (lambda c: c["hazards"]["heat"].update({"label_vi": "x"}), "heat.label_vi"),
+    (lambda c: c["hazards"]["heat"].update({"evidence": []}), "heat.evidence"),
+    (lambda c: c["hazards"]["storm_wind"]["guardrails"]["max"].update({"4": 20}), "guardrails"),
+    (lambda c: c["tiers"].pop(), "tiers"),
+    (lambda c: c["hazards"].pop("cold"), "cannot be removed"),
+    (lambda c: c["hazards"].update({"zz": copy.deepcopy(c["hazards"]["heat"])}), "cannot be added"),
+    (lambda c: c["scopes"]["station"].update({"NB1": {"heat": {"unit": "K"}}}), "not editable"),
+])
+def test_structure_locked(cfg_dir, base, mutate, needle):
+    c = copy.deepcopy(base)
+    mutate(c)
+    assert any(needle in e for e in ac.structural_errors(c, base)), ac.structural_errors(c, base)
+    with pytest.raises(ac.ConfigValidationError):
+        ac.save_version(c, changed_by="x", reason_vi="r")
+
+
+def test_structure_default_and_allowed_edits_ok(base):
+    c = copy.deepcopy(base)
+    c["hazards"]["heat"]["thresholds"]["1"] = 30.5
+    c["hazards"]["heat"]["actions_vi"]["1"] = "mới"
+    c["scopes"]["station"]["NB1"] = {"heat": {"persistence_days": {"2": 5}}}
+    assert ac.structural_errors(c, base) == []
