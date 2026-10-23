@@ -36,7 +36,9 @@ from app.bathymetry_etopo import (
 )
 from app.domain import water_geometry_for_bounds
 
-GEBCO_ARTIFACT_VERSION = "gebco2024-15s-isobands-v1"
+GEBCO_ARTIFACT_VERSION = "gebco2024-15s-isobands-v2"  # v2: + slope classes
+# Bottom-slope classes (degrees) from the ~460 m grid: it only resolves broad slopes, never narrow channels.
+SLOPE_EDGES_DEG = (0.0, 0.5, 1.0, 2.0)
 DIRECT_TID = range(10, 18)
 INDIRECT_TID = range(40, 46)
 CONFIDENCE_ORDER = ("suspect", "coarse", "direct", "indirect", "unknown")
@@ -134,6 +136,19 @@ def ensure_gebco_artifact(cache_dir: str, raw_path: str, water=None) -> dict[str
                 band_geoms.append((lower, upper, confidence, rest.intersection(mask)))
                 rest = rest.difference(mask)
         band_geoms.append((lower, upper, "unknown", rest))
+    # Slope from the unsmoothed grid (metric spacing per row), then upsampled like the depth for contouring.
+    dy_m = abs(float(lat[1] - lat[0])) * 111_320.0
+    dx_m = abs(float(lon[1] - lon[0])) * 111_320.0 * np.cos(np.radians(lat))[:, None]
+    grad_y, grad_x = np.gradient(depth)
+    slope = np.degrees(np.arctan(np.hypot(grad_x / dx_m, grad_y / dy_m)))
+    slope = np.where(sea & in_water, slope, 0.0)
+    slope_f = smooth(upsample_bilinear(slope, UPSAMPLE), width)
+    slope_edges = list(SLOPE_EDGES_DEG) + [max(float(slope.max()) + 1.0, SLOPE_EDGES_DEG[-1] + 1.0)]
+    slope_geoms = []
+    for index, (lower, upper) in enumerate(zip(slope_edges[:-1], slope_edges[1:])):
+        geometry = _filled_polygons(lon_f, lat_f, slope_f, lower, upper)
+        if geometry is not None:
+            slope_geoms.append((index, lower, upper, geometry.intersection(water)))
     line_geoms = []
     for level in ISOBATHS:
         geometry = _lines(lon_f, lat_f, depth_f, level)
@@ -156,7 +171,12 @@ def ensure_gebco_artifact(cache_dir: str, raw_path: str, water=None) -> dict[str
             lines += _features(geometry, {"kind": "gebco_isobath", "depth_m": level}, tolerance, 0.0)
         flags = (_features(coarse, {"kind": "gebco_flag", "flag": "coarse"}, tolerance, min_area)
                  + _features(suspect_geom, {"kind": "gebco_flag", "flag": "suspect"}, tolerance, min_area))
-        for kind, features in (("isobands", bands), ("isobaths", lines), ("flags", flags)):
+        slopes = []
+        for index, lower, upper, geometry in slope_geoms:
+            last = index == len(SLOPE_EDGES_DEG) - 1
+            slopes += _features(geometry, {"kind": "gebco_slope", "class": index, "min_deg": lower, "max_deg": None if last else upper,
+                                           "label": f"≥ {lower:g}°" if last else f"{lower:g}–{upper:g}°"}, tolerance, min_area)
+        for kind, features in (("isobands", bands), ("isobaths", lines), ("flags", flags), ("slope", slopes)):
             name = f"{kind}-{lod}.json"
             _write_json(staging / name, _round_coordinates({"type": "FeatureCollection", "features": features}))
             files[f"{kind}_{lod}"] = name
@@ -169,7 +189,8 @@ def ensure_gebco_artifact(cache_dir: str, raw_path: str, water=None) -> dict[str
         "depth_source": "gebco2024_15s", "source": source, "citation": citation,
         "source_file": path.name, "source_resolution": "15″ (~460 m)", "vertical_datum": "mean sea level, not chart datum",
         "bbox": [float(lon.min()), float(lat.min()), float(lon.max()), float(lat.max())],
-        "band_edges_m": list(BAND_EDGES), "isobaths_m": list(ISOBATHS), "upsample": UPSAMPLE,
+        "band_edges_m": list(BAND_EDGES), "isobaths_m": list(ISOBATHS), "upsample": UPSAMPLE, "slope_edges_deg": list(SLOPE_EDGES_DEG),
+        "slope_max_deg": round(float(slope.max()), 2),
         "interpolation": "bilinear between grid nodes + ~1-cell moving-average smoothing for contouring; land cells = 0 m shoreline; sample endpoint uses unsmoothed bilinear",
         "water_mask": "OSM water polygons (all geometry clipped to it)",
         "confidence_classes": {"direct": "TID 10-17 (measured)", "indirect": "TID 40-45 (interpolated/predicted)",

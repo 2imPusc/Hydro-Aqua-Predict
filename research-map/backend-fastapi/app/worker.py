@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from app.bathymetry import describe_gebco
 from app.providers import fetch_open_meteo_context, unavailable_layer
 from app.copernicus import fetch_copernicus_layers
-from app.domain import build_context_domain
+from app.domain import build_context_domain, region_water_geometry
 from app.repository import SnapshotRepository
 from app.settings import settings
 from app.network import ensure_station_network_cache
@@ -46,15 +46,22 @@ async def run_once(repository: SnapshotRepository) -> bool:
     domain = build_context_domain(settings.context_buffer_m)
     min_lon, min_lat, max_lon, max_lat = domain["provider_bbox"]
     latitude, longitude = (min_lat + max_lat) / 2, (min_lon + max_lon) / 2
+    region_bbox = tuple(settings.context_region_bbox)
     try:
+        # Environment fields cover the whole region (Hải Phòng – Cát Bà – Hạ Long), not only the 5 km station buffer;
+        # the station network, flow rays and advisories still use the station domain.
         layers = await fetch_open_meteo_context(
             latitude, longitude, settings.stale_minutes,
-            bbox=domain["provider_bbox"], buffer_m=settings.context_buffer_m,
+            bbox=list(region_bbox), buffer_m=settings.context_buffer_m,
+            region_step=settings.context_region_step_deg, region_water=region_water_geometry(region_bbox),
         )
-    except Exception:
+    except Exception as exc:
         # Preserve the last known-good immutable snapshot. Replacing it with
         # an all-unavailable fetch failure makes a transient provider outage
-        # erase the map's usable environmental context.
+        # erase the map's usable environmental context. Say why, so a quota
+        # (HTTP 429) or outage is visible instead of a silently "stale" map.
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        logger.warning("Open-Meteo regional fetch failed (%s%s); keeping the last snapshot", type(exc).__name__, f", HTTP {status}" if status else "")
         return False
     copernicus_layers = await asyncio.to_thread(
         fetch_copernicus_layers,
@@ -64,7 +71,7 @@ async def run_once(repository: SnapshotRepository) -> bool:
         sea_level_dataset=settings.copernicus_sea_level_dataset or settings.copernicus_physics_dataset,
         mld_dataset=settings.copernicus_mld_dataset or settings.copernicus_physics_dataset,
         wave_dataset=settings.copernicus_wave_dataset,
-        bbox=domain["provider_bbox"], stale_minutes=settings.stale_minutes,
+        bbox=list(region_bbox), stale_minutes=settings.stale_minutes,
         buffer_m=settings.context_buffer_m,
     )
     if copernicus_layers:

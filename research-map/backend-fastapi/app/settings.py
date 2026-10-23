@@ -62,9 +62,14 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "postgresql://context_user:change_me@localhost:5434/context_research")
     latitude: float = float(os.getenv("CONTEXT_LATITUDE", "20.71894498573044"))
     longitude: float = float(os.getenv("CONTEXT_LONGITUDE", "107.042635855355"))
-    snapshot_minutes: int = int(os.getenv("CONTEXT_SNAPSHOT_MINUTES", "30"))
+    # 60 min: the regional grid is ~280 Open-Meteo locations per snapshot; hourly keeps the free tier (10k/day) safe.
+    snapshot_minutes: int = int(os.getenv("CONTEXT_SNAPSHOT_MINUTES", "60"))
     stale_minutes: int = int(os.getenv("CONTEXT_STALE_MINUTES", "90"))
     context_buffer_m: int = int(os.getenv("CONTEXT_BUFFER_M", "5000"))
+    # Regional environment grid (rain, wind, wave, sea level, current): the whole HP / Cát Bà / Hạ Long extent
+    # at roughly the provider model grid, so the map covers every farm area without inventing finer detail.
+    context_region_bbox: tuple[float, ...] = tuple(float(v) for v in os.getenv("CONTEXT_REGION_BBOX", "106.5,20.3,108.2,21.6").split(","))
+    context_region_step_deg: float = float(os.getenv("CONTEXT_REGION_STEP_DEG", "0.125"))
     copernicus_username: str = os.getenv("COPERNICUS_USERNAME", "")
     copernicus_password: str = os.getenv("COPERNICUS_PASSWORD", "")
     copernicus_physics_dataset: str = os.getenv("COPERNICUS_PHYSICS_DATASET", "")

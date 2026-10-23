@@ -54,3 +54,16 @@ def test_gebco_artifact_has_tid_confidence_and_is_write_once(tmp_path):
 def test_missing_file_is_unavailable(tmp_path):
     result = gebco.ensure_gebco_artifact(str(tmp_path), str(tmp_path / "nope.nc"), water=box(0, 0, 1, 1))
     assert result["reason_code"] == "gebco_bathymetry_file_missing"
+
+
+def test_gebco_artifact_has_slope_classes(tmp_path):
+    water = box(106.99, 20.69, 107.11, 20.81)
+    cache = str(tmp_path / "cache")
+    manifest = gebco.ensure_gebco_artifact(cache, str(_raw(tmp_path)), water=water)
+    assert manifest["slope_edges_deg"] == list(gebco.SLOPE_EDGES_DEG)
+    slope = gebco.load_geojson(cache, manifest, "slope", "high")
+    classes = {f["properties"]["class"] for f in slope["features"]}
+    assert all(f["properties"]["kind"] == "gebco_slope" for f in slope["features"])
+    # The enclosed -90 m hole is a steep pit on a gentle ramp: both a gentle and the steepest class exist.
+    assert 0 in classes and len(gebco.SLOPE_EDGES_DEG) - 1 in classes
+    assert manifest["slope_max_deg"] > 2.0

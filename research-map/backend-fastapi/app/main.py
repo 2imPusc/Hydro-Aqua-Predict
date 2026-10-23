@@ -15,7 +15,7 @@ import psycopg
 from app.repository import SnapshotRepository, snapshot_status
 from app.schemas import ContextSnapshot, LayerPayload, SensorLatest, SensorObservation, SensorObservationIn
 from app.settings import settings
-from app.domain import build_context_domain, stations_geojson
+from app.domain import build_context_domain, region_geojson, stations_geojson
 from app.aquaculture_artifacts import build_aquaculture_artifacts
 from app.network import building_station_network, ensure_station_network_cache, load_station_network_cache
 from app.hsi_cache import load_hsi_cache
@@ -254,6 +254,12 @@ def aquaculture_map(mode: str = "live", scenario: str = "normal") -> dict:
     return artifact or {"status": "building", "mode": mode, "scenario": scenario, "artifact_version": "aquaculture-map-v1", "type": "FeatureCollection", "features": []}
 
 
+@app.get("/api/v1/context-region")
+def context_region() -> dict:
+    """Regional environment grid extent + simplified OSM water polygon (clips marine fields in the browser)."""
+    return region_geojson(tuple(settings.context_region_bbox), settings.context_region_step_deg)
+
+
 @app.get("/api/v1/context-domain")
 def context_domain() -> dict:
     """Convex-hull context domain buffered 5 km around the station network."""
@@ -351,9 +357,9 @@ def bathymetry_gebco_manifest() -> dict:
 
 @app.get("/api/v1/bathymetry/gebco/{kind}")
 def bathymetry_gebco_layer(kind: str, lod: str = "low") -> dict:
-    """GEBCO 2024 isobands (with TID confidence) / isobaths / flags (worker-built, read-only here)."""
-    if kind not in ("isobands", "isobaths", "flags"):
-        raise HTTPException(status_code=404, detail={"reason_code": "unknown_layer", "allowed": ["isobands", "isobaths", "flags"]})
+    """GEBCO 2024 isobands (with TID confidence) / isobaths / flags / slope classes (worker-built, read-only here)."""
+    if kind not in ("isobands", "isobaths", "flags", "slope"):
+        raise HTTPException(status_code=404, detail={"reason_code": "unknown_layer", "allowed": ["isobands", "isobaths", "flags", "slope"]})
     if lod not in bathymetry_gebco.LOD_TOLERANCE:
         raise HTTPException(status_code=422, detail={"reason_code": "invalid_lod", "allowed": list(bathymetry_gebco.LOD_TOLERANCE)})
     manifest = _gebco_manifest()
