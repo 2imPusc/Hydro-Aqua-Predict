@@ -169,6 +169,17 @@ def _window_hours(rec: dict) -> float:
     return (vt - vf).total_seconds() / 3600.0
 
 
+def _block_local_date(start: datetime) -> str:
+    """Local (UTC+7) date whose noon falls in the 24 h block [start, start + 24 h).
+
+    Same rule core.hazard_runner uses to put a forecast day into a lead window, so the label matches
+    the heat / cold / disease day inside the block (a block starting 16:00 local is mostly tomorrow).
+    """
+    local = start + timedelta(hours=LOCAL_TZ_OFFSET_H)
+    noon = local.replace(hour=12, minute=0, second=0, microsecond=0)
+    return (noon if noon >= local else noon + timedelta(days=1)).date().isoformat()
+
+
 def _outlook(records: list[dict], issued: datetime, statuses: dict[int, str], labels: dict) -> list[dict]:
     """Five 24 h lead blocks; a block takes every record whose lead window overlaps it (72-120 h fills days 4-5)."""
     days = []
@@ -182,7 +193,7 @@ def _outlook(records: list[dict], issued: datetime, statuses: dict[int, str], la
             if lead < hi and lead + _window_hours(rec) > lo:
                 entries.append(_hazard_entry(rec, statuses[idx], labels))
         start = issued.replace(minute=0, second=0, microsecond=0) + timedelta(hours=lo)
-        days.append({"date": (start + timedelta(hours=LOCAL_TZ_OFFSET_H)).date().isoformat(),  # local date at block start
+        days.append({"date": _block_local_date(start),
                      "block_from": _iso(start), "block_to": _iso(start + timedelta(hours=24)),
                      "lead_from_h": lo, "lead_to_h": hi,
                      "max_tier": _max_tier(entries),
@@ -317,7 +328,7 @@ def active_storms() -> dict:
                    key=lambda p: p.name, reverse=True) if folder.is_dir() else []
     if not files:
         return {"status": "unavailable", "reason": "no_storm_track_summary", "source": "ecmwf_opendata", "storms": [],
-                "used_by_alerts": False}
+                **FLAGS}
     for path in files:
         try:
             body = json.loads(path.read_text(encoding="utf-8"))
@@ -329,9 +340,9 @@ def active_storms() -> dict:
         age_h = (_now() - run).total_seconds() / 3600.0
         stale = age_h > STORMS_STALE_AFTER_H
         out = {**body, "status": "ready", "file": path.name, "run_age_hours": round(age_h, 1),
-               "data_status": "stale" if stale else "fresh", "used_by_alerts": False, "notification_eligible": False}
+               "data_status": "stale" if stale else "fresh", **FLAGS}
         if stale:
             out["reason"] = "stale_run"
         return out
     return {"status": "unavailable", "reason": "unreadable_storm_track_summary", "source": "ecmwf_opendata",
-            "storms": [], "used_by_alerts": False}
+            "storms": [], **FLAGS}

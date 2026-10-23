@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback, useMemo, useRef } from 'react'
 import L from 'leaflet'
 import { GeoJSON, LayerGroup, Marker } from 'react-leaflet'
 import type { BathymetryVectorLayer } from '../../../types/monitor'
@@ -36,6 +36,11 @@ type Props = {
   showBands: boolean
   showIsobaths: boolean
   onSample: (latitude: number, longitude: number) => void
+  /**
+   * Draw under every other vector layer (comparison layer). All vectors share one canvas renderer whose
+   * draw order is add order, so a layer toggled on later would otherwise paint over the default depth.
+   */
+  underlay?: boolean
 }
 
 const ready = (layer: BathymetryVectorLayer | null) => layer?.status === 'ready' ? layer : null
@@ -81,8 +86,11 @@ function isobathLabels(lines: BathymetryVectorLayer, lod: Lod) {
  * clipped to the OSM water mask, labelled isobaths, and the confidence flags (drawn with the bands).
  * GEBCO bands carry a TID confidence: direct = solid, indirect = normal, unknown/coarse/suspect = faded.
  */
-export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ source = 'etopo', theme, lod, isobands, isobaths, flags, showBands, showIsobaths, onSample }: Props) {
+export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ source = 'etopo', theme, lod, isobands, isobaths, flags, showBands, showIsobaths, onSample, underlay = false }: Props) {
   const bands = ready(isobands), lines = ready(isobaths), flagged = ready(flags)
+  const bandsRef = useRef<L.GeoJSON>(null), flagsRef = useRef<L.GeoJSON>(null)
+  // Flags first, then bands, so the order at the bottom of the stack is bands < flags < everything else.
+  const toBack = useMemo(() => (underlay ? { add: () => { flagsRef.current?.bringToBack(); bandsRef.current?.bringToBack() } } : undefined), [underlay])
   const bandStyle = useCallback((feature?: GeoJSON.Feature) => {
     const color = depthBandColor(Number(feature?.properties?.band ?? 0), theme)
     // Opacity by confidence: coarse-grid and suspect parts fade so they never read as solid data.
@@ -106,14 +114,14 @@ export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ source = 'eto
   const halo = theme === 'dark' ? '#0b1220' : '#ffffff'
 
   return <>
-    {showBands && bands && <GeoJSON key={`${source}-bands-${bands.lod}-${theme}`} data={bands} style={bandStyle}
+    {showBands && bands && <GeoJSON ref={bandsRef} eventHandlers={toBack} key={`${source}-bands-${bands.lod}-${theme}`} data={bands} style={bandStyle}
       onEachFeature={(feature, layer) => {
         const confidence = String(feature.properties?.confidence ?? '')
         const note = confidence === 'suspect' ? ' · nghi lỗi nguồn' : confidence === 'coarse' ? ' · lưới thô' : TID_LABEL[confidence] ? ` · ${TID_LABEL[confidence]}` : ''
         layer.bindTooltip(`Độ sâu ${feature.properties?.label ?? ''} · ${SOURCE_NAME[source]} ~460 m${note}`, { sticky: true })
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
       }} />}
-    {showBands && flagged && <GeoJSON key={`${source}-flags-${flagged.lod}`} data={flagged} style={flagStyle}
+    {showBands && flagged && <GeoJSON ref={flagsRef} eventHandlers={toBack} key={`${source}-flags-${flagged.lod}`} data={flagged} style={flagStyle}
       onEachFeature={(feature, layer) => {
         layer.bindTooltip(FLAG_STYLE[feature.properties?.flag === 'suspect' ? 'suspect' : 'coarse'].label, { sticky: true })
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))

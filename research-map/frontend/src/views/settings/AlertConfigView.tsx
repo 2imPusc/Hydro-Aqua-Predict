@@ -18,20 +18,44 @@ type Toast = { tone: 'ok' | 'info'; message: string } | null
 
 const LEAVE_PROMPT = 'Có thay đổi chưa lưu. Rời trang và bỏ các thay đổi này?'
 
-/** Blocks leaving with unsaved edits: tab close/reload and in-app hash links. */
+const isSettingsHash = (url: string) => {
+  const at = url.indexOf('#')
+  return at >= 0 && url.slice(at).startsWith('#/settings')
+}
+
+/**
+ * Blocks leaving with unsaved edits: tab close/reload, in-app hash links, and back/forward or a typed hash.
+ * Back/forward and typed hashes are caught on `popstate`, which fires before `hashchange` (the router
+ * only listens to hashchange): on cancel the settings URL is put back with replaceState, so the
+ * router's hashchange handler re-reads the settings hash and the draft stays mounted.
+ */
 function useLeaveGuard(dirty: boolean) {
   useEffect(() => {
     if (!dirty) return undefined
+    let confirmedByClick = false
+    let settingsUrl = window.location.href
     const onBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
     const onClick = (event: MouseEvent) => {
       const anchor = (event.target as Element | null)?.closest?.('a[href^="#/"]')
       const href = anchor?.getAttribute('href')
       if (!href || href.startsWith('#/settings')) return
-      if (!window.confirm(LEAVE_PROMPT)) { event.preventDefault(); event.stopPropagation() }
+      if (window.confirm(LEAVE_PROMPT)) confirmedByClick = true
+      else { event.preventDefault(); event.stopPropagation() }
+    }
+    const onPopState = () => {
+      if (isSettingsHash(window.location.href)) { settingsUrl = window.location.href; return }
+      if (confirmedByClick) { confirmedByClick = false; return }
+      if (window.confirm(LEAVE_PROMPT)) return
+      window.history.replaceState(window.history.state, '', settingsUrl)
     }
     window.addEventListener('beforeunload', onBeforeUnload)
+    window.addEventListener('popstate', onPopState)
     document.addEventListener('click', onClick, true)
-    return () => { window.removeEventListener('beforeunload', onBeforeUnload); document.removeEventListener('click', onClick, true) }
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      window.removeEventListener('popstate', onPopState)
+      document.removeEventListener('click', onClick, true)
+    }
   }, [dirty])
 }
 

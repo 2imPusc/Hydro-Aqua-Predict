@@ -3,7 +3,7 @@ import { Ban, BellOff, CircleCheck, Eye, History, OctagonAlert, Rewind, Settings
 import { Chip, Disclosure } from '../../components/ui'
 import type { DataStatus, StationAlerts, StationHazard, StationOutlookDay, StationStormWatch } from '../../types/alerts'
 import {
-  BAR, EXPOSURE_HINT, EXPOSURE_LABEL, STATUS_LABEL, dayLabel, hazardName, hazardValue, localTime, shortName, skipText,
+  BAR, EXPOSURE_HINT, EXPOSURE_LABEL, STATUS_LABEL, dayLabel, hazardName, hazardValue, localTime, localToday, shortName, skipText,
   tierClass, tierLabel, tierTone, topHazard, usableTier, type TierMeta,
 } from './model'
 
@@ -66,14 +66,23 @@ export function ReplayChip({ size = 'xs' }: { size?: 'xs' | 'sm' }) {
 
 const pct = (p: number | null | undefined) => (p == null ? '—' : `${Math.round(p * 100)} %`)
 
-/** Storm-watch chip, shown only when the watch reaches tier ≥ 1 (p ≥ threshold) on fresh data. */
-export function StormChip({ watch }: { watch: StationStormWatch | null | undefined }) {
+/**
+ * Storm-watch chip, shown only when the watch reaches tier ≥ 1 (p ≥ threshold) on fresh data.
+ * The watch comes from its own ECMWF run, not the station run: on a station whose run is stale or
+ * missing, or when the value is the basin summary (not this station), it is drawn neutral and
+ * names its source, so it never reads as a current tier of that station.
+ */
+export function StormChip({ watch, stationStatus }: { watch: StationStormWatch | null | undefined; stationStatus: DataStatus }) {
   if (!watch || watch.data_status !== 'fresh' || watch.tier == null || watch.tier < 1) return null
   const name = watch.storm_name ?? watch.storm_id
+  const detached = stationStatus !== 'fresh' || !!watch.site_note
+  const run = watch.run_time ? localTime(watch.run_time) : '—'
+  const why = stationStatus !== 'fresh' ? ' Lần chạy của trạm không mới: chip chỉ là thông tin bão, không phải bậc hiện tại của trạm.' : ''
   return (
-    <Chip size="xs" tone={watch.tier >= 2 ? 'warn' : 'info'} icon={<Tornado size={11} aria-hidden />}
-      title={`Xác suất tâm bão đi trong 500 km quanh trạm trong 120 giờ (ECMWF ENS); ngưỡng theo dõi ${pct(watch.threshold)}. Không tự nâng thành cảnh báo.${watch.site_note ? ' Tính cho điểm tóm tắt của vùng, không riêng trạm.' : ''}`}>
+    <Chip size="xs" tone={detached ? 'neutral' : watch.tier >= 2 ? 'warn' : 'info'} icon={<Tornado size={11} aria-hidden />}
+      title={`Xác suất tâm bão đi trong 500 km quanh trạm trong 120 giờ (ECMWF ENS, lần chạy ${run}); ngưỡng theo dõi ${pct(watch.threshold)}. Không tự nâng thành cảnh báo.${watch.site_note ? ' Tính cho điểm tóm tắt của vùng, không riêng trạm.' : ''}${why}`}>
       Bão{name ? ` ${name}` : ''}: {pct(watch.p_within_500km_120h)} trong 500 km · 5 ngày
+      {detached && <span className="font-medium opacity-80">· ECMWF {run}{watch.site_note ? ' · cả vùng' : ''}</span>}
     </Chip>
   )
 }
@@ -81,11 +90,13 @@ export function StormChip({ watch }: { watch: StationStormWatch | null | undefin
 /** 5 × 24 h lead blocks; a block with no fresh evaluated hazard is hatched and says so. */
 export function OutlookStrip({ days, tiers, stationName }: { days: StationOutlookDay[]; tiers: TierMeta[]; stationName: string }) {
   if (!days.length) return null
+  const today = localToday()
   return (
     <ol className="m-0 grid list-none grid-cols-5 gap-1 p-0" aria-label={`Triển vọng 5 ngày, ${stationName}`}>
       {days.map((day, index) => {
         const label = dayLabel(day.date)
-        const head = index === 0 ? 'Hôm nay' : label.weekday
+        // `date` = local day whose noon is inside the 24 h block; block 0 issued in the afternoon is tomorrow
+        const head = day.date === today ? 'Hôm nay' : label.weekday
         const window = `${day.lead_from_h ?? index * 24}–${day.lead_to_h ?? (index + 1) * 24} h`
         const tier = day.data_status === 'fresh' ? day.max_tier : null
         const text = tier == null
@@ -211,7 +222,7 @@ export function StationCard({ station, tiers, id }: { station: StationAlerts; ti
       <OutlookStrip days={station.outlook} tiers={tiers} stationName={name} />
       <div className="flex flex-wrap items-center gap-1.5">
         <StatusChip status={station.data_status} ageHours={station.age_hours} />
-        <StormChip watch={station.storm_watch} />
+        <StormChip watch={station.storm_watch} stationStatus={station.data_status} />
         {station.replay && <ReplayChip />}
       </div>
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">

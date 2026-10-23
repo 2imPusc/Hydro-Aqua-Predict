@@ -102,3 +102,28 @@ def test_structure_locked_422(client, tmp_path):
         assert any("cannot be added" in e for e in errs) and any("cannot be removed" in e for e in errs)
     assert client.post("/api/v1/admin/alert-config", json=body).status_code == 422
     assert not (tmp_path / "alert-config").exists()
+
+
+def test_oversized_body_413_no_write(client, tmp_path):
+    cfg = _effective(client)
+    cfg["hazards"]["storm_wind"]["actions_vi"]["1"] = "x" * (admin_config.MAX_BODY_BYTES + 1)
+    for url in ("/api/v1/admin/alert-config", "/api/v1/admin/alert-config/preview"):
+        assert client.post(url, json={"config": cfg, "reason_vi": "quá lớn"}).status_code == 413
+    assert not (tmp_path / "alert-config").exists()
+
+
+def test_reason_length_capped(client, tmp_path):
+    cfg = _effective(client)
+    cfg["hazards"]["storm_wind"]["thresholds"]["2"] = 7
+    assert client.post("/api/v1/admin/alert-config", json={"config": cfg, "reason_vi": "x" * 1001}).status_code == 422
+    assert not (tmp_path / "alert-config").exists()
+
+
+def test_unwritable_dir_503(client, monkeypatch):
+    def boom(*args, **kwargs):
+        raise PermissionError("read-only file system")
+    monkeypatch.setattr(admin_config.ac, "save_version", boom)
+    cfg = _effective(client)
+    cfg["hazards"]["storm_wind"]["thresholds"]["2"] = 7
+    r = client.post("/api/v1/admin/alert-config", json={"config": cfg, "reason_vi": "thử"})
+    assert r.status_code == 503 and r.json()["reason"] == "config_dir_not_writable"

@@ -35,6 +35,8 @@ services:
       - "8010:8000"
     volumes:
       - ../:/workspace:ro
+      # The only API write (decisions #20): new alert-config version files, exclusive create.
+      - ../runtime/alert-config:/workspace/runtime/alert-config
       - context_cache:/cache
       - ${GEBCO_HOST_DIR:-./cache}:/gebco:ro
     depends_on:
