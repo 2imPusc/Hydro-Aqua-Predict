@@ -1,0 +1,109 @@
+\section{Cơ chế dự báo và cảnh báo}
+
+\begin{frame}{Luồng xử lý từ sensor đến advisory}
+  \begin{center}
+  \resizebox{0.96\textwidth}{!}{
+  \begin{tikzpicture}[
+    >=Stealth, node distance=0.45cm and 0.55cm,
+    box/.style={draw, rounded corners=2pt, minimum width=2.1cm,
+      minimum height=1.0cm, align=center, fill=cyan!10},
+    accent/.style={fill=orange!20, draw=orange!70!black},
+    arrow/.style={->, thick},
+    label/.style={font=\scriptsize, midway, fill=white, inner sep=1pt}]
+    \node[box] (sensor) {Sensor\\mỗi phút};
+    \node[box, right=of sensor] (qc) {QC + phát hiện\\sensor bất thường};
+    \node[box, right=of qc] (chem) {NH4 $\to$ NH3\\Emerson};
+    \node[box, right=of chem] (forecast) {Forecast sensor-first\\$15/30/60$ phút};
+    \node[box, right=of forecast] (context) {Nội suy \DO{} /\\độ mặn có gate};
+    \node[box, accent, right=of context] (advisory) {Advisory\\và dashboard};
+    \draw[arrow] (sensor) -- (qc);
+    \draw[arrow] (qc) -- (chem);
+    \draw[arrow] (chem) -- (forecast);
+    \draw[arrow] (forecast) -- (context);
+    \draw[arrow] (context) -- (advisory);
+  \end{tikzpicture}}
+  \end{center}
+  \begin{block}{Tính nhất quán thời gian}
+    Forecast luôn bắt đầu từ mốc sensor hợp lệ gần nhất; đầu ra được lưu vào shadow ledger
+    để so sánh với quan sát thực khi thời điểm tương lai đã đến.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Dự báo từng chỉ số theo đúng nguồn có thể tin cậy}
+  \begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+      \begin{block}{Sensor-first forecast}
+        \begin{itemize}
+          \item Nhiệt độ: XGBoost + đặc trưng giờ/ngày.
+          \item TSS: XGBoost lag nếu đủ lịch sử.
+          \item pH, NH4: persistence khi chưa có mô hình tốt hơn.
+          \item NH3: quy đổi lại từ NH4, pH, nhiệt độ dự báo.
+        \end{itemize}
+      \end{block}
+    \end{column}
+    \begin{column}{0.48\textwidth}
+      \begin{exampleblock}{Nội suy chỉ số chưa lắp sensor}
+        \begin{itemize}
+          \item Đầu vào là \textit{các sensor đã dự báo} tại từng horizon.
+          \item Model DO/độ mặn chỉ trả kết quả khi feature hợp lệ và không OOD.
+          \item Kết quả mang nhãn \texttt{inferred}; không giả mạo là số đo.
+        \end{itemize}
+      \end{exampleblock}
+    \end{column}
+  \end{columns}
+  \vspace{0.5em}
+  \begin{alertblock}{Vì sao có giá trị trống?}
+    Model bị chặn bởi thiếu feature, sensor bất thường, ngoài miền dữ liệu huấn luyện,
+    hoặc chưa xác nhận cơ sở quy đổi NH4 $\to$ NH3. Đây là cơ chế an toàn.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Đánh giá rủi ro tại từng horizon}
+  \begin{center}
+  \begin{tabular}{llll}
+    \toprule
+    Chỉ số & Điều kiện & Mức tại mốc dự báo & Nguồn \\
+    \midrule
+    Nhiệt độ & $\geq 31^\circ C$ & WATCH; $\geq 33^\circ C$: WARNING & Sensor forecast \\
+    NH3 & $\geq 0.05$ mg/L & WATCH; $\geq 0.10$: WARNING & Quy đổi forecast \\
+    \DO{} nội suy & $\leq 5$ mg/L & WATCH; $\leq 4$: WARNING & Inferred + gate \\
+    \DO{} nội suy & $\leq 3$ mg/L & Critical advisory, cần xác nhận & Inferred + gate \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \vspace{0.5em}
+  \begin{block}{Tổng hợp timeline}
+    Mức của hệ thống là mức xấu nhất trong các mốc $15$, $30$, $60$ phút;
+    đồng thời lưu \textbf{mốc rủi ro sớm nhất} để người nuôi biết thời gian chuẩn bị.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Gate trước khi cho phép cảnh báo dựa trên DO nội suy}
+  \begin{center}
+  \resizebox{0.92\textwidth}{!}{%
+  \begin{tikzpicture}[
+    >=Stealth, node distance=0.8cm,
+    process/.style={draw, rounded corners, minimum width=3.6cm, minimum height=.75cm, align=center, fill=cyan!10},
+    decision/.style={draw, rounded corners, minimum width=3.6cm, minimum height=.75cm, align=center, fill=orange!20},
+    arrow/.style={->, thick}]
+    \node[process] (a) {DO dự báo từ feature sensor};
+    \node[decision, below=of a] (b) {Feature hợp lệ và trong miền huấn luyện?};
+    \node[process, below left=1.0cm and 1.8cm of b] (c) {Không: BLOCKED\\hiển thị lý do};
+    \node[process, below right=1.0cm and 1.8cm of b, fill=teal!15] (d) {Có: advisory DO};
+    \node[decision, below=of d] (e) {DO thấp kéo dài hoặc có stress kép?};
+    \node[process, below left=.8cm and 1.4cm of e] (f) {WATCH\\chỉ theo dõi};
+    \node[process, below right=.8cm and 1.4cm of e, fill=orange!25] (g) {WARNING\\đủ điều kiện vận hành};
+    \draw[arrow] (a) -- (b);
+    \draw[arrow] (b) -- node[above left, font=\scriptsize]{Không} (c);
+    \draw[arrow] (b) -- node[above right, font=\scriptsize]{Có} (d);
+    \draw[arrow] (d) -- (e);
+    \draw[arrow] (e) -- (f);
+    \draw[arrow] (e) -- (g);
+  \end{tikzpicture}
+  }
+  \end{center}
+  \begin{alertblock}{Giới hạn an toàn}
+    DO nội suy \textbf{không tự tạo Emergency}. Khi có rủi ro cao, hệ thống yêu cầu
+    kiểm tra thực địa/dấu hiệu vật nuôi trước khi gửi thông báo thực tế.
+  \end{alertblock}
+\end{frame}

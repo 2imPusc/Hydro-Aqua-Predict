@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lab-realtime · Giám sát, dự báo, cảnh báo nuôi cá lồng</title>
+
+<!-- Fonts: Archivo (display) + Nunito (body); cả hai có subset tiếng Việt -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&family=Nunito:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+/* ===========================================
+   THEME — Swiss Modern
+   Đổi màu/kiểu chữ toàn deck tại đây
+   =========================================== */
+:root {
+    --stage-bg: #e4e4e0;
+    --slide-bg: #ffffff;
+    --ink: #0a0a0a;
+    --ink-2: #3a3a3a;
+    --muted: #767676;
+    --rule: #d9d9d6;
+    --red: #ff3300;
+    --red-ink: #d42a00;          /* đỏ dùng cho chữ nhỏ (đủ tương phản) */
+    --grid: rgba(0, 0, 0, .045);
+    --series-a: #2f6fb0;         /* baseline persistence (đã validate) */
+    --series-b: #e62e00;         /* mô hình Ridge (đã validate) */
+    --font-display: 'Archivo', 'Arial Narrow', sans-serif;
+    --font-body: 'Nunito', 'Segoe UI', sans-serif;
+    --pad-x: 112px;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ===========================================
+   FIXED 16:9 STAGE — viewport-base.css (đầy đủ)
+   =========================================== */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-viewport { position: fixed; inset: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--slide-bg, #fff); }
+.slide { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; display: block; visibility: hidden; opacity: 0; pointer-events: none; background: var(--slide-bg, #fff); }
+.slide.active, .slide.visible { visibility: visible; opacity: 1; pointer-events: auto; z-index: 1; }
+img, video, canvas, svg { max-width: 100%; max-height: 100%; }
+.deck-controls { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 1000; }
+@media print {
+    html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+    .deck-viewport { position: static; overflow: visible; background: #fff; }
+    .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+    .slide { position: relative; display: block !important; visibility: visible !important; opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px; break-after: page; page-break-after: always; }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+}
+
+/* ===========================================
+   SLIDE SURFACE — lưới Bauhaus 120px
+   =========================================== */
+.slide {
+    font-family: var(--font-body);
+    color: var(--ink);
+    background-color: #fff;
+    background-image:
+        linear-gradient(var(--grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 120px 120px;
+    background-position: -8px -8px;
+}
+
+/* ===========================================
+   CHROME — header (số mục + breadcrumb), footer (trang)
+   =========================================== */
+.hdr {
+    position: absolute; left: var(--pad-x); right: var(--pad-x); top: 56px;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font: 700 19px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase;
+}
+.hdr .sec b { color: var(--red); margin-right: 14px; }
+.hdr .crumb { color: var(--muted); }
+.ft {
+    position: absolute; left: var(--pad-x); right: var(--pad-x); bottom: 44px;
+    display: flex; justify-content: space-between;
+    font: 600 17px/1 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+}
+.ft .pg { color: var(--ink); }
+
+/* Thanh đỏ dọc cạnh tiêu đề */
+.redbar { position: absolute; left: 64px; top: 128px; width: 14px; height: 96px; background: var(--red); transform-origin: top; }
+
+/* ===========================================
+   TYPOGRAPHY
+   =========================================== */
+.t {
+    position: absolute; left: var(--pad-x); top: 120px; width: 1720px;
+    font: 900 60px/1.05 var(--font-display); letter-spacing: -.025em; word-spacing: .06em;
+}
+.t em { font-style: normal; color: var(--red); }
+.lead { font-size: 27px; line-height: 1.45; color: var(--ink-2); }
+.k { font: 800 15px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.k.r { color: var(--red-ink); }
+h3 { font: 800 30px/1.15 var(--font-display); letter-spacing: -.01em; margin-bottom: 12px; }
+p, li, td, th { font-size: 25px; line-height: 1.42; }
+ul.dash { list-style: none; }
+ul.dash li { position: relative; padding-left: 30px; margin-bottom: 9px; }
+ul.dash li::before { content: ""; position: absolute; left: 0; top: 15px; width: 16px; height: 4px; background: var(--ink); }
+ul.dash.r li::before { background: var(--red); }
+code, .mono { font-family: 'Archivo', monospace; font-weight: 600; font-size: .92em; letter-spacing: .01em; background: #f1f1ee; padding: 1px 7px; }
+.small { font-size: 20px; color: var(--muted); line-height: 1.4; }
+.hl { background: linear-gradient(transparent 62%, rgba(255, 51, 0, .22) 62%); }
+
+/* ===========================================
+   LAYOUT — vùng nội dung chuẩn + lưới cột
+   =========================================== */
+.body { position: absolute; left: var(--pad-x); right: var(--pad-x); top: 268px; bottom: 112px; }
+.cols { display: grid; gap: 48px; height: 100%; }
+.c2 { grid-template-columns: 1fr 1fr; }
+.c3 { grid-template-columns: repeat(3, 1fr); }
+.c4 { grid-template-columns: repeat(4, 1fr); }
+.c-6-4 { grid-template-columns: 1.5fr 1fr; }
+.c-4-6 { grid-template-columns: 1fr 1.5fr; }
+
+/* Card: rule đen dày phía trên kiểu Swiss */
+.card { border-top: 8px solid var(--ink); padding-top: 22px; }
+.card.r { border-top-color: var(--red); }
+.card .n { font: 900 52px/1 var(--font-display); color: var(--red); margin-bottom: 14px; letter-spacing: -.02em; }
+.box { border: 3px solid var(--ink); padding: 26px 30px; background: #fff; font-size: 24px; line-height: 1.4; }
+.box.fill ul.dash li::before { background: var(--red); }
+.box.fill { background: var(--ink); color: #fff; }
+.box.fill .k { color: #bdbdbd; }
+.box.red { border-color: var(--red); }
+
+/* Tag */
+.tag { display: inline-block; font: 800 14px/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; padding: 7px 10px; border: 2px solid var(--ink); margin-right: 8px; vertical-align: middle; }
+.tag.r { border-color: var(--red); color: var(--red-ink); }
+.tag.f { background: var(--ink); color: #fff; }
+.tag.g { border-color: #9a9a9a; color: #6a6a6a; }
+
+/* ===========================================
+   TABLE
+   =========================================== */
+table.tb { width: 100%; border-collapse: collapse; background: #fff; }
+.tb th { text-align: left; font: 800 15px/1.2 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 0 16px 12px 0; border-bottom: 4px solid var(--ink); }
+.tb td { padding: 12px 16px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tb td.num, .tb th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tb td b.win { color: var(--red-ink); }
+.tb tr.sep td { border-top: 2px solid var(--ink); }
+
+/* ===========================================
+   FLOW DIAGRAM (hộp + mũi tên)
+   =========================================== */
+.flow { display: flex; align-items: stretch; gap: 0; }
+.flow .st { flex: 1; border: 3px solid var(--ink); padding: 18px 20px; background: #fff; }
+.flow .st.r { border-color: var(--red); }
+.flow .st.f { background: var(--ink); color: #fff; }
+.flow .st h4 { font: 800 22px/1.2 var(--font-display); margin-bottom: 8px; }
+.flow .st p { font-size: 21px; line-height: 1.35; }
+.flow .ar { width: 46px; display: flex; align-items: center; justify-content: center; font: 900 30px var(--font-display); color: var(--red); }
+
+/* ===========================================
+   ANIMATIONS — reveal theo slide đang hiển thị
+   =========================================== */
+.rv { opacity: 0; transform: translateY(26px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
+.slide.visible .rv { opacity: 1; transform: none; }
+.slide.visible .rv.d1 { transition-delay: .08s; } .slide.visible .rv.d2 { transition-delay: .16s; }
+.slide.visible .rv.d3 { transition-delay: .24s; } .slide.visible .rv.d4 { transition-delay: .32s; }
+.slide.visible .rv.d5 { transition-delay: .40s; } .slide.visible .rv.d6 { transition-delay: .48s; }
+.redbar { transform: scaleY(0); transition: transform .8s cubic-bezier(.7, 0, .2, 1); }
+.slide.visible .redbar { transform: scaleY(1); }
+
+/* ===========================================
+   SLIDE 1 — TITLE
+   =========================================== */
+.title-bar { position: absolute; left: 120px; top: 240px; width: 24px; height: 560px; background: var(--red); transform: scaleY(0); transform-origin: top; transition: transform .9s cubic-bezier(.7, 0, .2, 1); }
+.slide.visible .title-bar { transform: scaleY(1); }
+.title-h { position: absolute; left: 200px; top: 220px; font: 900 132px/1 var(--font-display); letter-spacing: -.035em; }
+.title-h span { display: block; }
+.title-h span:nth-child(3) { color: var(--red); }
+.title-sub { position: absolute; left: 204px; top: 650px; width: 1000px; font-size: 34px; line-height: 1.4; }
+.title-meta { position: absolute; left: 204px; bottom: 96px; display: flex; gap: 80px; font-size: 22px; }
+.title-meta b { display: block; font: 800 16px var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: #777; margin-bottom: 8px; }
+.ring { position: absolute; right: 140px; top: 250px; width: 420px; height: 420px; border: 24px solid var(--ink); border-radius: 50%; }
+.ring-dot { position: absolute; right: 300px; top: 410px; width: 100px; height: 100px; background: var(--red); border-radius: 50%; transform: scale(0); transition: transform .6s .7s cubic-bezier(.3, 1.6, .5, 1); }
+.slide.visible .ring-dot { transform: scale(1); }
+
+/* ===========================================
+   SLIDE 2 — AGENDA
+   =========================================== */
+.agenda { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 0; height: 100%; border-top: 8px solid var(--ink); }
+.agenda .it { padding: 30px 40px 30px 0; border-bottom: 1px solid var(--rule); }
+.agenda .it .no { font: 900 92px/1 var(--font-display); letter-spacing: -.04em; color: var(--ink); }
+.agenda .it:nth-child(5) .no { color: var(--red); }
+.agenda .it h3 { margin: 14px 0 8px; }
+.agenda .it p { font-size: 21px; color: var(--ink-2); }
+
+/* ===========================================
+   STAT block (số lớn)
+   =========================================== */
+.stat .v { font: 900 84px/1 var(--font-display); letter-spacing: -.04em; }
+.stat .v.r { color: var(--red); }
+.stat .l { font-size: 21px; color: var(--ink-2); margin-top: 8px; line-height: 1.35; }
+
+/* ===========================================
+   TIMELINE (chống rò rỉ thời gian)
+   =========================================== */
+.tl { position: relative; height: 170px; margin-top: 18px; }
+.tl .line { position: absolute; left: 0; right: 0; top: 60px; height: 4px; background: var(--ink); }
+.tl .pt { position: absolute; top: 0; width: 230px; transform: translateX(-50%); text-align: center; }
+.tl .pt .tm { font: 800 24px var(--font-display); }
+.tl .pt .dt { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); margin: 10px auto 12px; border: 4px solid #fff; box-shadow: 0 0 0 3px var(--ink); }
+.tl .pt.ok .dt { background: var(--series-a); box-shadow: 0 0 0 3px var(--series-a); }
+.tl .pt.no .dt { background: #fff; box-shadow: 0 0 0 3px var(--red); }
+.tl .pt p { font-size: 19px; line-height: 1.3; }
+
+/* ===========================================
+   CHART (MAE nhiệt độ)
+   =========================================== */
+.chart-wrap { position: relative; }
+.legend { display: flex; gap: 28px; font-size: 19px; color: var(--ink-2); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 18px; height: 18px; border-radius: 4px; margin-right: 8px; vertical-align: -2px; }
+#maeChart text { font-family: var(--font-body); }
+.tip { position: absolute; pointer-events: none; background: var(--ink); color: #fff; font-size: 17px; line-height: 1.35; padding: 8px 12px; opacity: 0; transition: opacity .12s; white-space: nowrap; z-index: 5; }
+.tip.on { opacity: 1; }
+
+/* ===========================================
+   MATURITY LADDER
+   =========================================== */
+.mat { width: 100%; border-collapse: collapse; }
+.mat td { padding: 12px 0; border-bottom: 1px solid var(--rule); font-size: 23px; }
+.mat td:last-child { text-align: right; white-space: nowrap; }
+.lvl { display: inline-block; width: 210px; text-align: center; font: 800 13px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; padding: 7px 0; }
+.lvl.l3 { background: var(--ink); color: #fff; }
+.lvl.l2 { border: 2px solid var(--ink); }
+.lvl.l1 { border: 2px dashed #8a8a8a; color: #555; }
+.lvl.l0 { border: 2px solid var(--red); color: var(--red-ink); }
+
+/* ===========================================
+   ROADMAP
+   =========================================== */
+.road { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.road .s { border-top: 8px solid var(--ink); padding-top: 14px; }
+.road .s:first-child { border-top-color: var(--red); }
+.road .s .k { margin-bottom: 8px; }
+.road .s h4 { font: 800 22px/1.2 var(--font-display); margin-bottom: 6px; }
+.road .s p { font-size: 20px; line-height: 1.35; color: var(--ink-2); }
+
+/* ===========================================
+   CLOSING
+   =========================================== */
+.big-q { font: 900 96px/1.02 var(--font-display); letter-spacing: -.035em; }
+.big-q em { font-style: normal; color: var(--red); }
+
+
+/* ===========================================
+   TABLE VARIANTS — sm (bảng dày), mtx (ma trận vai trò)
+   =========================================== */
+.tb.sm td, .tb.sm th { font-size: 22px; }
+.tb.sm th { font-size: 14px; }
+.tb.sm td { padding: 10px 14px 10px 0; }
+.tb.sm code { font-size: 18px; padding: 1px 5px; line-height: 1.7; }
+.tb.mtx th.c, .tb.mtx td.mk { text-align: center; }
+.tb.mtx td { padding: 5px 10px 5px 0; vertical-align: middle; font-size: 22px; line-height: 1.25; }
+.tb.mtx td .small { font-size: 16px !important; line-height: 1.2; }
+.tb.mtx .tag { font-size: 12px; padding: 5px 8px; }
+.k code, .tb th code { text-transform: none; }
+.tb.mtx th { font-size: 14px; line-height: 1.3; }
+.mk { font: 900 24px/1 var(--font-display); }
+.mk.y { color: var(--red); } .mk.o { color: var(--ink); } .mk.d { color: var(--muted); } .mk.n { color: #c9c9c6; }
+
+/* ===========================================
+   DATA-FLOW DIAGRAM
+   =========================================== */
+.dflow { display: block; overflow: visible; }
+.dflow .nd rect { fill: #fff; stroke: #0a0a0a; stroke-width: 2; }
+.dflow .nd.src rect { fill: #f1f1ee; stroke: #0a0a0a; }
+.dflow .nd.mdl rect { stroke: #ff3300; stroke-width: 4; }
+.dflow .nd.fe rect { fill: #0a0a0a; }
+.dflow .nd.fe text { fill: #fff; }
+.dflow .nd.led rect { fill: #fff; stroke: #0a0a0a; stroke-width: 3; stroke-dasharray: 8 6; }
+.dflow .tt { font: 800 22px var(--font-display); fill: #0a0a0a; }
+.dflow .ts { font: 400 18px var(--font-body); fill: #3a3a3a; }
+.dflow .nd.fe .ts { fill: #cfcfcf; }
+.dflow .ed { fill: none; stroke: #0a0a0a; stroke-width: 2.5; }
+.dflow .ed.red { stroke: #ff3300; }
+.dflow .ed.dash { stroke-dasharray: 9 7; }
+.dflow .ed.gray { stroke: #9a9a9a; }
+.dflow .el { font: 700 17px var(--font-body); fill: #3a3a3a; paint-order: stroke; stroke: #fff; stroke-width: 6px; }
+.dflow .el.red { fill: #d42a00; }
+.dflow .el.gray { fill: #767676; }
+
+
+/* ===========================================
+   HIDDEN SLIDES — data-hidden: giữ trong file, bỏ khỏi trình chiếu và in
+   =========================================== */
+.slide[data-hidden] { display: none !important; }
+
+/* Model cards (4 cột) và slide bài báo */
+.mc h3 { font-size: 28px; }
+.mc .n { font-size: 44px; margin-bottom: 8px; }
+.mc .pb { font-size: 21px; color: var(--ink-2); margin-bottom: 14px; min-height: 90px; }
+.mc .k { margin: 6px 0 8px; }
+.mc .k.r { margin-top: 18px; }
+.mc li { font-size: 21px; margin-bottom: 6px; }
+.ptitle { font: 800 28px/1.25 var(--font-display); margin-bottom: 6px; }
+ol.apply { counter-reset: ap; list-style: none; }
+ol.apply li { counter-increment: ap; position: relative; padding: 0 0 18px 64px; font-size: 24px; line-height: 1.4; }
+ol.apply li::before { content: counter(ap); position: absolute; left: 0; top: -4px; font: 900 40px/1 var(--font-display); color: var(--red); }
+
+
+/* Slide bốn hướng phát triển */
+.dir { display: flex; flex-direction: column; }
+.dir h3 { font-size: 26px; line-height: 1.2; min-height: 64px; }
+.dir .n { font-size: 44px; margin-bottom: 6px; }
+.dir .k { margin: 12px 0 6px; }
+.dir .hv { font-size: 19px; line-height: 1.35; color: var(--ink-2); min-height: 78px; }
+ul.pm { list-style: none; }
+ul.pm li { position: relative; padding-left: 26px; font-size: 19px; line-height: 1.35; margin-bottom: 6px; }
+ul.pm.plus li::before { content: "+"; position: absolute; left: 0; top: -2px; font: 900 22px var(--font-display); color: var(--series-a); }
+ul.pm.minus li::before { content: "−"; position: absolute; left: 0; top: -2px; font: 900 22px var(--font-display); color: var(--red); }
+.dir .rd { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--rule); padding-top: 12px; margin-top: auto; }
+.dir .rd .k { margin: 0; }
+.dir .rd .lvl { width: 150px; }
+
+/* ===========================================
+   NAV + EDIT CHROME (ngoài stage)
+   =========================================== */
+.progress { position: fixed; left: 0; bottom: 0; height: 5px; background: var(--red); z-index: 1000; transition: width .4s var(--ease); }
+.edit-hotzone { position: fixed; top: 0; left: 0; width: 80px; height: 80px; z-index: 10000; cursor: pointer; }
+.edit-toggle { position: fixed; top: 16px; left: 16px; z-index: 10001; border: 2px solid var(--ink); background: #fff; font: 800 13px var(--font-display); letter-spacing: .1em; padding: 9px 12px; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .3s; }
+.edit-toggle.show, .edit-toggle.active { opacity: 1; pointer-events: auto; }
+.edit-toggle.active { background: var(--red); color: #fff; border-color: var(--red); }
+body.editing [contenteditable="true"]:hover { outline: 2px dashed var(--red); outline-offset: 4px; }
+</style>
+</head>
+<body>
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage">
+
+<!-- =====================================================
+     01 · TITLE
+     ===================================================== -->
+<section class="slide active visible" data-title="Mở đầu">
+    <div class="hdr"><span>lab-realtime</span><span class="crumb">Seminar nhóm · 10/2026</span></div>
+    <div class="title-bar"></div>
+    <div class="ring rv d2"></div><div class="ring-dot"></div>
+    <h1 class="title-h"><span class="rv">Giám sát.</span><span class="rv d1">Dự báo.</span><span class="rv d2">Cảnh báo.</span></h1>
+    <p class="title-sub rv d3">Điều kiện nuôi cá lồng ven biển từ sensor, dữ liệu quan trắc lịch sử và bản tin thời tiết</p>
+    <div class="title-meta rv d4">
+        <div><b>Trạm thử nghiệm</b>06M26042804 · Cát Bà, Hải Phòng</div>
+        <div><b>Đối tượng</b>Cá giò (cobia)</div>
+        <div><b>Trình bày</b>Đỗ Minh Phúc · 20225064</div>
+    </div>
+</section>
+
+<!-- =====================================================
+     02 · AGENDA
+     ===================================================== -->
+<section class="slide" data-title="Nội dung">
+    <div class="hdr"><span class="sec"><b>00</b>Nội dung</span><span class="crumb">lab-realtime · Seminar nhóm</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Nội dung <em>trình bày</em></h2>
+    <div class="body">
+
+        <div class="agenda">
+            <div class="it rv d1"><div class="no">01</div><h3>Bài toán</h3><p>Người nuôi cần biết lúc nào phải kiểm tra lồng, không chỉ xem một con số.</p></div>
+            <div class="it rv d2"><div class="no">02</div><h3>Nguồn dữ liệu</h3><p>Dữ liệu thu thập, API và dữ liệu mở: gồm những trường nào, dùng vào việc gì.</p></div>
+            <div class="it rv d3"><div class="no">03</div><h3>Mô hình bài toán</h3><p>Đầu vào, các bước xử lý và đầu ra của hệ thống.</p></div>
+            <div class="it rv d4"><div class="no">04</div><h3>Kiến trúc giải pháp</h3><p>Luồng dữ liệu giữa các mô hình để tạo ra phân loại, bản đồ và cảnh báo.</p></div>
+            <div class="it rv d5"><div class="no">05</div><h3>Kết quả &amp; đánh giá</h3><p>Những gì đã làm được và những gì còn thiếu dữ liệu kiểm chứng.</p></div>
+            <div class="it rv d6"><div class="no">06</div><h3>Hướng mở rộng</h3><p>Bốn hướng phát triển và hai nghiên cứu tham khảo năm 2026.</p></div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     03 · BÀI TOÁN — bối cảnh + câu hỏi vận hành
+     ===================================================== -->
+<section class="slide" data-title="Bài toán">
+    <div class="hdr"><span class="sec"><b>01</b>Bài toán</span><span class="crumb">Bối cảnh</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Trạm đo được 5 chỉ số — nhưng <em>thiếu DO và độ mặn</em></h2>
+    <div class="body">
+
+        <div class="cols c-4-6">
+            <div class="rv d1">
+                <p class="lead" style="margin-bottom:28px">Cá giò nuôi lồng ven biển dễ bị ảnh hưởng bởi <b>DO thấp, nhiệt độ cao, NH3, độ đục (TSS)</b>, cũng như <b>mưa lớn và gió mạnh</b>.</p>
+                <div class="box fill" style="margin-bottom:24px">
+                    <div class="k" style="margin-bottom:12px">Trạm GreenLab đo</div>
+                    <div style="font:900 40px/1.15 var(--font-display)">COD · NH4 · pH<br>Nhiệt độ · TSS</div>
+                    <div style="font-size:20px;margin-top:10px;color:#cfcfcf">khoảng 1 phút một lần</div>
+                </div>
+                <div class="box red">
+                    <div class="k r" style="margin-bottom:10px">Không đo được</div>
+                    <div style="font:900 40px/1.15 var(--font-display);color:var(--red)">DO · Độ mặn</div>
+                    <div style="font-size:21px;margin-top:8px">→ hai chỉ số quan trọng nhất với sức khỏe cá phải được <b>suy ra từ các chỉ số khác</b></div>
+                </div>
+            </div>
+            <div class="rv d2">
+                <table class="tb">
+                    <thead><tr><th style="width:42%">Câu hỏi của người nuôi</th><th>Bài toán cần giải</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Hiện tại</b> nước trong lồng thế nào?</td><td>Làm sạch dữ liệu sensor, suy ra DO và độ mặn, đánh giá mức phù hợp để nuôi</td></tr>
+                        <tr><td><b>15 phút đến vài giờ tới</b> có nguy cơ gì?</td><td>Dự báo ngắn hạn các chỉ số sensor, từ đó suy ra các chỉ số còn lại</td></tr>
+                        <tr><td><b>Thời tiết</b> sắp tới có đáng lo không?</td><td>Lấy bản tin thời tiết và biển để đánh giá rủi ro</td></tr>
+                        <tr><td>Kết quả có dùng được cho <b>khu vực xung quanh</b>?</td><td>Xác định phạm vi tin cậy khi mở rộng ra không gian</td></tr>
+                        <tr><td><b>Cần làm gì?</b></td><td>Đưa ra mức cảnh báo, lý do và khuyến nghị kiểm tra</td></tr>
+                    </tbody>
+                </table>
+                <p class="small" style="margin-top:22px">Kết quả mong muốn: <b style="color:var(--ink)">mức nguy cơ, thời điểm, lý do và việc cần làm</b> — thay vì chỉ một nhãn “phù hợp / không phù hợp”.</p>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     04 · NGUỒN DỮ LIỆU — MA TRẬN NGUỒN × VAI TRÒ
+     ===================================================== -->
+<section class="slide" data-title="Nguồn dữ liệu" data-hidden="true">
+    <div class="hdr"><span class="sec"><b>02</b>Nguồn dữ liệu</span><span class="crumb">Nguồn × vai trò trong pipeline</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Chín nguồn, mỗi nguồn <em>một vai trò</em> trong pipeline</h2>
+    <div class="body">
+
+        <table class="tb mtx rv d1">
+            <thead><tr><th style="width:24%">Nguồn</th><th style="width:10%">Loại</th>
+            <th class="c">Nội suy<br>tại trạm</th><th class="c">Nội suy giữa trạm<br>&amp; vùng tin cậy</th><th class="c">Dự báo<br>tương lai</th>
+            <th class="c">Phân loại<br>&amp; cảnh báo</th><th class="c">Kiểm<br>chứng</th><th class="c">Hiển thị<br>bản đồ</th></tr></thead>
+            <tbody><tr><td><b>Quan trắc định kỳ HP · QN · HY</b><div class="small" style="font-size:18px">theo quý, 2020–2024</div></td><td><span class="tag f">Thu thập</span></td><td class="mk y">●</td><td class="mk y">●</td><td class="mk n">–</td><td class="mk o">○</td><td class="mk o">○</td><td class="mk n">–</td></tr><tr><td><b>Sensor GreenLab</b><div class="small" style="font-size:18px">API + cache; MongoDB, CSV dự phòng</div></td><td><span class="tag ">API</span></td><td class="mk y">●</td><td class="mk y">●</td><td class="mk y">●</td><td class="mk y">●</td><td class="mk y">●</td><td class="mk y">●</td></tr><tr><td><b>Open-Meteo Forecast</b><div class="small" style="font-size:18px">bản tin theo giờ, 3 ngày</div></td><td><span class="tag ">API</span></td><td class="mk n">–</td><td class="mk n">–</td><td class="mk o">○</td><td class="mk y">●</td><td class="mk n">–</td><td class="mk y">●</td></tr><tr><td><b>Open-Meteo Marine</b><div class="small" style="font-size:18px">sóng, dòng chảy, mực nước</div></td><td><span class="tag ">API</span></td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk y">●</td></tr><tr><td><b>Open-Meteo Archive</b><div class="small" style="font-size:18px">thời tiết quan trắc quá khứ</div></td><td><span class="tag ">API</span></td><td class="mk n">–</td><td class="mk n">–</td><td class="mk o">○</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td></tr><tr><td><b>Copernicus CMEMS</b><div class="small" style="font-size:18px">tái phân tích hải dương</div></td><td><span class="tag g">Dữ liệu mở</span></td><td class="mk o">○</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk y">●</td></tr><tr><td><b>CHIRPS v3</b><div class="small" style="font-size:18px">mưa vệ tinh</div></td><td><span class="tag g">Dữ liệu mở</span></td><td class="mk o">○</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td></tr><tr><td><b>GEBCO · OSM water</b><div class="small" style="font-size:18px">độ sâu, ranh giới mặt nước</div></td><td><span class="tag g">Dữ liệu mở</span></td><td class="mk n">–</td><td class="mk o">○</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk y">●</td></tr><tr><td><b>Nhật ký thực địa</b><div class="small" style="font-size:18px">DO đo tay, sự kiện</div></td><td><span class="tag f">Thu thập</span></td><td class="mk d">◇</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk n">–</td><td class="mk d">◇</td><td class="mk n">–</td></tr></tbody>
+        </table>
+        <p class="small rv d2" style="margin-top:14px"><b style="color:var(--ink)">●</b> đang dùng trong pipeline &nbsp;·&nbsp; <b style="color:var(--ink)">○</b> thử nghiệm / hồi cứu &nbsp;·&nbsp; <b style="color:var(--ink)">◇</b> đã thiết kế, chưa có dữ liệu. Nội suy/dự báo = huấn luyện hoặc đầu vào của mô hình.</p>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     05 · NGUỒN 1 — QUAN TRẮC ĐỊNH KỲ
+     ===================================================== -->
+<section class="slide" data-title="Nguồn dữ liệu">
+    <div class="hdr"><span class="sec"><b>02</b>Nguồn dữ liệu</span><span class="crumb">Nguồn 1 · số liệu thu thập theo quý</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Quan trắc định kỳ: <em>dữ liệu để huấn luyện</em></h2>
+    <div class="body">
+
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <table class="tb sm">
+                    <thead><tr><th style="width:21%">Nhóm</th><th style="width:33%">Trường</th><th>Dùng vào việc gì</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Định danh</b></td><td><code>Station</code> <code>Quarter</code> <code>X</code> <code>Y</code></td><td>Ghép dữ liệu theo trạm, thời gian; tính khoảng cách giữa các trạm (VN-2000)</td></tr>
+                        <tr><td><b>Hóa lý</b></td><td>Nhiệt độ, pH, TSS</td><td><span class="tag">đầu vào</span> trùng với chỉ số sensor đo</td></tr>
+                        <tr><td><b>Sensor không đo</b></td><td>DO, độ mặn, độ trong</td><td><span class="tag r">cần nội suy</span> tại trạm và giữa các trạm</td></tr>
+                        <tr><td><b>Dinh dưỡng</b></td><td>NH3, PO4, COD, BOD5</td><td>NH3 làm đầu vào; PO4 dùng trung vị; BOD5 bị loại vì dữ liệu bất thường</td></tr>
+                        <tr><td><b>Vi sinh, độc chất</b></td><td>Coliform, H2S, CN</td><td>Dùng trung vị của vùng khi chấm điểm</td></tr>
+                        <tr><td><b>Kim loại nặng</b></td><td>As, Cd, Pb, Cu, Zn, Hg, Cr</td><td>Dùng trung vị của vùng (mô hình học kém)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="rv d2">
+                <div class="box" style="margin-bottom:22px">
+                    <div class="k" style="margin-bottom:10px">Quy mô</div>
+                    <p>Hải Phòng: <b>14 trạm × 22 quý</b> (08/2020–11/2024)<br>Quảng Ninh, Hưng Yên: <b>99 trạm × 16 quý</b> (2021–2024)</p>
+                </div>
+                <div class="k r" style="margin-bottom:10px">Dùng để huấn luyện</div>
+                <ul class="dash r">
+                    <li><b>A · Nội suy tại trạm</b>: XGBoost theo từng vùng; ExtraTrees cho DO, độ mặn ở Hải Phòng</li>
+                    <li><b>B · Trạm ảo</b>: quan hệ giữa trạm gốc và trạm khác trong cùng quý</li>
+                    <li><b>E · Phân vùng tin cậy</b>: sai số theo khoảng cách giữa các trạm</li>
+                    <li>Trung vị theo vùng cho các chỉ số không xây mô hình</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     06 · NGUỒN 2 — SENSOR GREENLAB
+     ===================================================== -->
+<section class="slide" data-title="Nguồn dữ liệu">
+    <div class="hdr"><span class="sec"><b>02</b>Nguồn dữ liệu</span><span class="crumb">Nguồn 2 · API · khoảng 1 phút</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Sensor GreenLab: <em>dữ liệu thời gian thực</em> cho mọi mô hình</h2>
+    <div class="body">
+
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:10px">GET <code>/Datums/LastestDataByDevice</code> · đăng nhập bằng tài khoản</div>
+                <div class="flow" style="margin-bottom:22px">
+                    <div class="st"><h4>Dữ liệu API trả về</h4><p><code>DeviceSerialNumber</code> <code>SensorType</code> <code>ReceivedDate</code> <code>Value</code></p></div>
+                    <div class="ar">→</div>
+                    <div class="st r"><h4>Sau chuẩn hóa (trung vị theo phút)</h4><p><code>device</code> <code>fetchedAt</code> COD · NH4 · pH · nhiệt độ · TSS</p></div>
+                </div>
+                <table class="tb sm">
+                    <thead><tr><th style="width:22%">Trường</th><th>Dùng vào việc gì</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Nhiệt độ, pH</b></td><td>Đầu vào mô hình nội suy (A) · chỉ số cần dự báo (C) · so với ngưỡng cảnh báo</td></tr>
+                        <tr><td><b>NH4</b></td><td>Quy đổi sang NH3 để phân loại và cảnh báo · dự báo bằng giá trị gần nhất</td></tr>
+                        <tr><td><b>TSS</b></td><td>Đầu vào mô hình nội suy · dự báo bằng XGBoost</td></tr>
+                        <tr><td><b>COD</b></td><td>Quyết định dùng bộ 5 hay 4 chỉ số đầu vào (khi sensor COD hỏng)</td></tr>
+                        <tr><td><b>fetchedAt</b></td><td>Kiểm tra dữ liệu còn mới · tạo giá trị trễ cho dự báo · đối chiếu dự báo với số đo thực</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="rv d2">
+                <div class="k" style="margin-bottom:10px">Cấu hình trạm · <code>stations.yaml</code></div>
+                <table class="tb sm" style="margin-bottom:22px">
+                    <tbody>
+                        <tr><td><code>region</code></td><td>Chọn mô hình theo vùng</td></tr>
+                        <tr><td><code>max_staleness</code></td><td>Quá 10 phút không có dữ liệu → tạm dừng dự báo, cảnh báo</td></tr>
+                        <tr><td><code>map_reference</code></td><td>Trạm NB1 làm điểm tham chiếu trên bản đồ</td></tr>
+                        <tr><td><code>weather_location</code></td><td>Tọa độ lấy bản tin thời tiết</td></tr>
+                    </tbody>
+                </table>
+                <div class="box red">
+                    <div class="k r" style="margin-bottom:8px">Trường tính thêm</div>
+                    <p style="font-size:22px">NH3, trạng thái độ mới, cờ lỗi sensor (giá trị đứng yên, đột biến, dịch mức), trạng thái COD</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     07 · NGUỒN 3 — OPEN-METEO API
+     ===================================================== -->
+<section class="slide" data-title="Nguồn dữ liệu">
+    <div class="hdr"><span class="sec"><b>02</b>Nguồn dữ liệu</span><span class="crumb">Nguồn 3 · API mở, miễn phí</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Open-Meteo: <em>bản tin thời tiết</em> cho cảnh báo và dự báo</h2>
+    <div class="body">
+
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <table class="tb sm">
+                    <thead><tr><th style="width:20%">Dịch vụ</th><th style="width:45%">Trường (theo giờ)</th><th>Dùng vào việc gì</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Dự báo</b><div class="small" style="font-size:17px">forecast · 3 ngày</div></td><td><code>precipitation</code> <code>wind_speed_10m</code> <code>wind_direction_10m</code> <code>temperature_2m</code> <code>relative_humidity_2m</code> <code>cloud_cover</code> <code>surface_pressure</code></td><td><span class="tag f">cảnh báo</span> khuyến nghị mưa, gió<br><span class="tag g">thử nghiệm</span> đầu vào mô hình B5</td></tr>
+                        <tr><td><b>Biển</b><div class="small" style="font-size:17px">marine</div></td><td><code>wave_height/direction/period</code> <code>ocean_current_velocity/direction</code> <code>sea_level_height_msl</code> <code>sea_surface_temperature</code></td><td><span class="tag">hiển thị</span> thông tin bối cảnh trên bản đồ</td></tr>
+                        <tr><td><b>Lịch sử</b><div class="small" style="font-size:17px">archive</div></td><td><code>precipitation</code> <code>wind_speed_10m</code> <code>temperature_2m</code> <code>cloud_cover</code> <code>surface_pressure</code> → tổng mưa 1–24 giờ, gió trung bình</td><td><span class="tag g">thử nghiệm</span> tìm độ trễ tác động của thời tiết lên chỉ số nước</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="rv d2">
+                <div class="k" style="margin-bottom:10px">Lưu bản tin mỗi giờ, đúng lúc phát hành</div>
+                <table class="tb sm" style="margin-bottom:20px">
+                    <tbody>
+                        <tr><td><code>retrieved_at</code></td><td>Lúc hệ thống nhận được bản tin</td></tr>
+                        <tr><td><code>valid_at</code></td><td>Giờ mà bản tin dự báo cho</td></tr>
+                        <tr><td><code>provider</code></td><td>Nhà cung cấp, mô hình thời tiết</td></tr>
+                        <tr><td><code>location</code>, mã băm</td><td>Đúng vị trí; phát hiện dữ liệu bị sửa</td></tr>
+                    </tbody>
+                </table>
+                <div class="box">
+                    <p style="font-size:22px">Vị trí lấy bản tin: <b>NB1</b>, cảng cá Cát Bà (20.719 N, 107.043 E) — điểm gần lồng, chưa phải tọa độ GPS của lồng.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     08 · NGUỒN 4 — DỮ LIỆU MỞ + GROUND TRUTH
+     ===================================================== -->
+<section class="slide" data-title="Nguồn dữ liệu">
+    <div class="hdr"><span class="sec"><b>02</b>Nguồn dữ liệu</span><span class="crumb">Nguồn 4 · dữ liệu mở · nhật ký thực địa</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Dữ liệu mở bổ sung <em>biển, mưa, độ sâu</em></h2>
+    <div class="body">
+
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <table class="tb sm">
+                    <thead><tr><th style="width:19%">Nguồn</th><th style="width:40%">Trường</th><th>Dùng vào việc gì</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Copernicus Marine</b><div class="small" style="font-size:17px">đăng ký miễn phí</div></td><td><code>thetao</code> nhiệt độ nước, <code>so</code> độ mặn</td><td><span class="tag g">thử nghiệm</span> nội suy độ mặn: RMSE 0.387 → 0.091; nội suy DO kém đi</td></tr>
+                        <tr><td></td><td><code>uo</code>/<code>vo</code> dòng chảy, <code>zos</code> mực nước, <code>mlotst</code> lớp nước xáo trộn, <code>VHM0</code> độ cao sóng</td><td><span class="tag">hiển thị</span> lớp nền bản đồ</td></tr>
+                        <tr><td><b>CHIRPS v3</b></td><td>Tổng mưa tháng trước (trễ 2 ngày)</td><td><span class="tag g">thử nghiệm</span> thêm thông tin mưa cho nội suy</td></tr>
+                        <tr><td><b>GEBCO</b></td><td>Độ sâu đáy biển (ảnh GeoTIFF)</td><td><span class="tag">hiển thị</span> · dự kiến phân vùng theo độ sâu</td></tr>
+                        <tr><td><b>OpenStreetMap</b></td><td>Ranh giới mặt nước</td><td>Bỏ phần đất liền khi vẽ vùng tin cậy</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="rv d2">
+                <div class="k r" style="margin-bottom:10px">Nhật ký thực địa · đang lên kế hoạch</div>
+                <table class="tb sm" style="margin-bottom:18px">
+                    <tbody>
+                        <tr><td><code>event_type</code></td><td>DO thấp, cá chết, bệnh…</td></tr>
+                        <tr><td><code>measured_do</code></td><td>DO đo bằng máy cầm tay</td></tr>
+                        <tr><td><code>fish_symptoms</code></td><td>Cá nổi đầu, bỏ ăn…</td></tr>
+                        <tr><td><code>actions_taken</code></td><td>Sục khí, ngừng cho ăn</td></tr>
+                        <tr><td><code>label_quality</code></td><td>Mức chắc chắn: cao / vừa / thấp</td></tr>
+                    </tbody>
+                </table>
+                <p style="font-size:22px">→ Làm căn cứ để <b>đánh giá cảnh báo</b> (bỏ sót, báo nhầm) và <b>hiệu chỉnh DO suy ra từ mô hình</b>.</p>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     07 · NGUỒN NGOÀI + CHỐNG RÒ RỈ THỜI GIAN
+     ===================================================== -->
+<section class="slide" data-title="Nguồn ngoài">
+    <div class="hdr"><span class="sec"><b>02</b>Nguồn dữ liệu</span><span class="crumb">Nguồn bên ngoài · tránh dùng dữ liệu tương lai</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Chỉ dùng bản tin <em>đã phát hành trước</em> thời điểm dự báo</h2>
+    <div class="body">
+
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <table class="tb">
+                    <thead><tr><th style="width:28%">Nguồn</th><th>Cách dùng</th><th style="width:21%">Mức độ</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Open-Meteo dự báo</b></td><td>Hiển thị, khuyến nghị mưa và gió, lưu bản tin mỗi giờ từ 01/08</td><td><span class="tag f">đang dùng</span></td></tr>
+                        <tr><td><b>Open-Meteo biển</b></td><td>Sóng, dòng chảy, mực nước — hiển thị riêng</td><td><span class="tag">hiển thị</span></td></tr>
+                        <tr><td><b>Open-Meteo lịch sử</b></td><td>Tìm độ trễ tác động trong 1–24 giờ</td><td><span class="tag g">thử nghiệm</span></td></tr>
+                        <tr><td><b>CMEMS / GLORYS</b></td><td>Tái tạo DO, độ mặn trong quá khứ</td><td><span class="tag g">dữ liệu cũ</span></td></tr>
+                        <tr><td><b>CHIRPS v3</b></td><td>Mưa tháng trước, trễ 2 ngày</td><td><span class="tag g">dữ liệu cũ</span></td></tr>
+                        <tr><td><b>GEBCO · OSM</b></td><td>Độ sâu, ranh giới mặt nước</td><td><span class="tag">bản đồ</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="rv d2">
+                <div class="k" style="margin-bottom:6px">Ví dụ: lúc 10:00 dự báo cho 11:00</div>
+                <div class="tl">
+                    <div class="line"></div>
+                    <div class="pt ok" style="left:14%"><div class="tm">09:50</div><div class="dt"></div><p>Nhận bản tin<br><b>được dùng</b></p></div>
+                    <div class="pt" style="left:50%"><div class="tm">10:00</div><div class="dt"></div><p>Chạy dự báo<br><b>chốt dữ liệu vào</b></p></div>
+                    <div class="pt no" style="left:86%"><div class="tm" style="color:var(--red)">10:05</div><div class="dt"></div><p>Bản tin mới<br><b style="color:var(--red-ink)">không dùng</b></p></div>
+                </div>
+                <div class="box" style="margin-top:34px">
+                    <p style="font-size:22px">Bản tin phải được nhận <b>trước</b> lúc chạy dự báo, đúng trạm và đúng vị trí; tuổi bản tin tính từ lúc nhận.</p>
+                    <p style="font-size:22px;margin-top:10px">Không dùng dữ liệu giả lập hay số liệu quan trắc của tương lai.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     08 · MÔ HÌNH BÀI TOÁN — INPUT / PIPELINE / OUTPUT
+     ===================================================== -->
+<section class="slide" data-title="Mô hình bài toán">
+    <div class="hdr"><span class="sec"><b>03</b>Mô hình bài toán</span><span class="crumb">Đầu vào → xử lý → đầu ra</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Dự báo <em>chỉ số đo được</em> trước, rồi suy ra DO</h2>
+    <div class="body">
+
+        <div class="cols" style="grid-template-columns:1fr 1.45fr 1fr;gap:36px">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:14px">Đầu vào</div>
+                <ul class="dash">
+                    <li><b>Sensor</b>: pH, nhiệt độ, NH3, TSS, COD</li>
+                    <li><b>Bản tin thời tiết</b>: mưa, gió, mây, áp suất; sóng, dòng chảy</li>
+                    <li><b>Thời gian</b>: tháng, giờ trong ngày</li>
+                    <li><b>Tiêu chí</b>: QCVN 10, ngưỡng cho cá giò</li>
+                    <li><b>Mô hình</b> đã huấn luyện, có ghi phiên bản</li>
+                </ul>
+            </div>
+            <div class="rv d2">
+                <div class="k" style="margin-bottom:14px">Các bước xử lý</div>
+                <div style="display:grid;grid-template-columns:1fr;gap:10px">
+                    <div class="box" style="padding:14px 20px"><b>1 · Nhận dữ liệu, kiểm tra độ mới</b></div>
+                    <div class="box" style="padding:14px 20px"><b>2 · Phát hiện lỗi sensor</b> <span class="small">giá trị đứng yên, đột biến</span></div>
+                    <div class="box" style="padding:14px 20px"><b>3 · Suy ra DO, độ mặn</b> → đánh giá mức phù hợp nuôi</div>
+                    <div class="box red" style="padding:14px 20px"><b>4 · Dự báo 15/30/60 phút</b> → suy ra DO, độ mặn tương lai</div>
+                    <div class="box" style="padding:14px 20px"><b>5 · Xét mưa, gió</b> trong 3–24 giờ tới</div>
+                    <div class="box fill" style="padding:14px 20px"><b>6 · Tổng hợp mức rủi ro</b> → lưu vào sổ ghi dự báo</div>
+                </div>
+            </div>
+            <div class="rv d3">
+                <div class="k" style="margin-bottom:14px">Đầu ra</div>
+                <ul class="dash r">
+                    <li>Bộ chỉ số đầy đủ, ghi rõ chỉ số nào <b>đo</b>, <b>suy ra</b> hay <b>lấy trung vị</b></li>
+                    <li>Điểm và nhãn phù hợp nuôi</li>
+                    <li>Giá trị ở các trạm ảo lân cận</li>
+                    <li>Chuỗi dự báo 15/30/60 phút</li>
+                    <li>Cảnh báo: mức độ, nguyên nhân, khuyến nghị</li>
+                    <li>Sai số dự báo theo từng mốc</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     10 · KIẾN TRÚC — LUỒNG DỮ LIỆU GIỮA CÁC MÔ HÌNH
+     ===================================================== -->
+<section class="slide" data-title="Kiến trúc">
+    <div class="hdr"><span class="sec"><b>04</b>Kiến trúc</span><span class="crumb">Luồng dữ liệu → tính năng</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Luồng dữ liệu: từ sensor đến <em>các tính năng</em></h2>
+    <div class="body">
+
+        <div class="rv d1" style="margin-top:-6px"><svg class="dflow" viewBox="0 0 1696 640" width="1696" height="640" role="img" aria-label="Luồng dữ liệu giữa các mô hình"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0a0a0a"/></marker><marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ff3300"/></marker></defs><g class="nd src"><rect x="0" y="0" width="210" height="92"/><text class="tt" x="18" y="38">GreenLab API</text><text class="ts" x="18" y="68">5 chỉ số · ~1 phút</text></g>
+<g class="nd dat"><rect x="280" y="0" width="230" height="92"/><text class="tt" x="298" y="38">Làm sạch dữ liệu</text><text class="ts" x="298" y="68">lỗi sensor · độ mới</text></g>
+<g class="nd mdl"><rect x="580" y="0" width="300" height="92"/><text class="tt" x="598" y="38">A · Nội suy tại trạm</text><text class="ts" x="598" y="68">XGBoost · ExtraTrees</text></g>
+<g class="nd dat"><rect x="950" y="0" width="270" height="92"/><text class="tt" x="968" y="38">Bộ chỉ số đầy đủ</text><text class="ts" x="968" y="68">đo + suy ra + trung vị</text></g>
+<g class="nd fe"><rect x="1290" y="0" width="250" height="92"/><text class="tt" x="1308" y="38">Phân loại nuôi</text><text class="ts" x="1308" y="68">mức phù hợp theo loài</text></g>
+<g class="nd mdl"><rect x="580" y="135" width="300" height="92"/><text class="tt" x="598" y="173">B · Nội suy trạm khác</text><text class="ts" x="598" y="203">trạm gốc → trạm lân cận</text></g>
+<g class="nd dat"><rect x="950" y="135" width="270" height="92"/><text class="tt" x="968" y="173">Chỉ số trạm lân cận</text><text class="ts" x="968" y="203">+ điểm phù hợp</text></g>
+<g class="nd fe"><rect x="1290" y="135" width="250" height="92"/><text class="tt" x="1308" y="173">Bản đồ nuôi trồng</text><text class="ts" x="1308" y="203">trạm ảo + vùng tin cậy</text></g>
+<g class="nd mdl"><rect x="580" y="270" width="300" height="92"/><text class="tt" x="598" y="308">C · Dự báo ngắn hạn</text><text class="ts" x="598" y="338">+15 / +30 / +60 phút</text></g>
+<g class="nd dat"><rect x="950" y="270" width="270" height="92"/><text class="tt" x="968" y="308">Chỉ số tương lai</text><text class="ts" x="968" y="338">suy ra lại DO, độ mặn</text></g>
+<g class="nd fe"><rect x="1290" y="270" width="250" height="92"/><text class="tt" x="1308" y="308">Cảnh báo nuôi</text><text class="ts" x="1308" y="338">nước · dự báo · thời tiết</text></g>
+<g class="nd src"><rect x="0" y="405" width="210" height="92"/><text class="tt" x="18" y="443">Open-Meteo API</text><text class="ts" x="18" y="473">dự báo + biển</text></g>
+<g class="nd dat"><rect x="280" y="405" width="230" height="92"/><text class="tt" x="298" y="443">Lưu bản tin</text><text class="ts" x="298" y="473">mỗi giờ · có mã băm</text></g>
+<g class="nd mdl"><rect x="580" y="405" width="300" height="92"/><text class="tt" x="598" y="443">D · Luật thời tiết</text><text class="ts" x="598" y="473">mưa 6 giờ · gió mạnh nhất</text></g>
+<g class="nd dat"><rect x="950" y="405" width="270" height="92"/><text class="tt" x="968" y="443">Khuyến nghị</text><text class="ts" x="968" y="473">mưa, gió + lý do</text></g>
+<g class="nd src"><rect x="0" y="540" width="210" height="92"/><text class="tt" x="18" y="578">Quan trắc quý</text><text class="ts" x="18" y="608">2020–24 · CMEMS</text></g>
+<g class="nd mdl"><rect x="580" y="540" width="300" height="92"/><text class="tt" x="598" y="578">E · Phân vùng tin cậy</text><text class="ts" x="598" y="608">sai số theo khoảng cách</text></g>
+<g class="nd dat"><rect x="950" y="540" width="270" height="92"/><text class="tt" x="968" y="578">Vùng tin cậy</text><text class="ts" x="968" y="608">cao · vừa · thấp · loại</text></g>
+<g class="nd led"><rect x="1580" y="0" width="116" height="497"/><text class="tt" transform="translate(1630 248) rotate(-90)" text-anchor="middle">SỔ GHI DỰ BÁO</text><text class="ts" transform="translate(1662 248) rotate(-90)" text-anchor="middle">lưu lúc phát hành · đối chiếu số đo thực</text></g>
+<path class="ed " d="M210,46 H276" marker-end="url(#ah)"/>
+<path class="ed " d="M510,32 H576" marker-end="url(#ah)"/>
+<path class="ed " d="M880,46 H946" marker-end="url(#ah)"/>
+<path class="ed " d="M1220,46 H1286" marker-end="url(#ah)"/>
+<path class="ed " d="M730,92 V131" marker-end="url(#ah)"/>
+<text class="el " x="742" y="122">bộ chỉ số trạm gốc</text>
+<path class="ed " d="M880,181 H946" marker-end="url(#ah)"/>
+<path class="ed " d="M1220,181 H1286" marker-end="url(#ah)"/>
+<path class="ed " d="M395,92 V302 H576" marker-end="url(#ah)"/>
+<text class="el " x="407" y="195">chuỗi sensor</text>
+<path class="ed " d="M880,316 H946" marker-end="url(#ah)"/>
+<path class="ed " d="M1220,316 H1286" marker-end="url(#ah)"/>
+<path class="ed " d="M210,451 H276" marker-end="url(#ah)"/>
+<path class="ed " d="M510,451 H576" marker-end="url(#ah)"/>
+<path class="ed " d="M880,451 H946" marker-end="url(#ah)"/>
+<path class="ed " d="M1220,451 H1415 V366" marker-end="url(#ah)"/>
+<path class="ed dash red" d="M460,405 V332 H576" marker-end="url(#ahr)"/>
+<text class="el dash red" x="274" y="389">B5 · đang thử nghiệm</text>
+<path class="ed " d="M880,586 H946" marker-end="url(#ah)"/>
+<path class="ed red" d="M1220,586 H1254 V199 H1286" marker-end="url(#ahr)"/>
+<text class="el red" x="1262" y="572">lọc</text>
+<path class="ed dash gray" d="M210,586 H546 V62"/>
+<path class="ed dash gray" d="M546,62 H576" marker-end="url(#ah)"/>
+<path class="ed dash gray" d="M546,181 H576" marker-end="url(#ah)"/>
+<path class="ed dash gray" d="M546,586 H576" marker-end="url(#ah)"/>
+<text class="el gray" x="228" y="572">huấn luyện trước</text>
+<path class="ed " d="M1540,46 H1576" marker-end="url(#ah)"/>
+<path class="ed " d="M1540,181 H1576" marker-end="url(#ah)"/>
+<path class="ed " d="M1540,316 H1576" marker-end="url(#ah)"/></svg></div>
+        <div class="legend rv d2" style="margin-top:12px;font-size:19px">
+            <span><i style="background:#fff;border:3px solid #e62e00;border-radius:0"></i>Mô hình / luật</span>
+            <span><i style="background:#fff;border:2px solid #0a0a0a;border-radius:0"></i>Dữ liệu trung gian</span>
+            <span><i style="background:#0a0a0a;border-radius:0"></i>Tính năng</span>
+            <span>Nét đứt đỏ: đang thử nghiệm · nét đứt xám: huấn luyện trước</span>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     11 · KIẾN TRÚC — TRUY VẾT TÍNH NĂNG
+     ===================================================== -->
+<section class="slide" data-title="Kiến trúc">
+    <div class="hdr"><span class="sec"><b>04</b>Kiến trúc</span><span class="crumb">Tính năng · mô hình · dữ liệu</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Mỗi tính năng dùng <em>mô hình và dữ liệu</em> nào</h2>
+    <div class="body">
+
+        <table class="tb sm rv d1">
+            <thead><tr><th style="width:22%">Tính năng</th><th style="width:29%">Mô hình / luật</th><th style="width:29%">Dữ liệu vào</th><th>Trạng thái</th></tr></thead>
+            <tbody>
+                <tr><td><b>Phân loại nuôi tại trạm</b></td><td>A + chấm điểm theo tiêu chí của loài</td><td>Số đo sensor + chỉ số suy ra + trung vị vùng</td><td><span class="lvl l3">Chạy được</span></td></tr>
+                <tr><td><b>Phân loại cho thời điểm tới</b></td><td>C → A → chấm điểm</td><td>Chuỗi sensor, dự báo 15/30/60 phút</td><td><span class="lvl l2">Chạy thử</span></td></tr>
+                <tr><td><b>Bản đồ trạm ảo</b></td><td>B + chấm điểm; lọc theo E</td><td>Bộ chỉ số trạm gốc; lịch sử Hải Phòng</td><td><span class="lvl l1">Bản demo</span></td></tr>
+                <tr><td><b>Cảnh báo tức thời</b></td><td>Luật ngưỡng cho cá giò + phát hiện lỗi sensor</td><td>Số đo trực tiếp</td><td><span class="lvl l3">Chạy được</span></td></tr>
+                <tr><td><b>Cảnh báo từ DO suy ra</b></td><td>ExtraTrees + luật lặp lại 2 chu kỳ</td><td>NH3, pH, nhiệt độ, TSS</td><td><span class="lvl l0">Đang tắt</span></td></tr>
+                <tr><td><b>Khuyến nghị từ dự báo</b></td><td>C + ngưỡng DO, nhiệt độ dự báo</td><td>Chuỗi dự báo</td><td><span class="lvl l2">Chạy thử</span></td></tr>
+                <tr><td><b>Khuyến nghị thời tiết</b></td><td>D: mưa ≥10 mm/6 giờ, gió ≥35 km/h</td><td>Bản tin Open-Meteo</td><td><span class="lvl l3">Chạy được</span></td></tr>
+                <tr><td><b>Đánh giá dự báo</b></td><td>Sổ ghi dự báo, đối chiếu lệch ≤4 phút</td><td>Dự báo lúc phát hành + số đo sau đó</td><td><span class="lvl l3">Chạy được</span></td></tr>
+            </tbody>
+        </table>
+        <p class="small rv d2" style="margin-top:18px"><b style="color:var(--ink)">Chạy thử</b>: kết quả được ghi lại để đánh giá, chưa gửi tới người nuôi. <b style="color:var(--ink)">Đang tắt</b>: chờ nhà cung cấp xác nhận đơn vị đo NH4.</p>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     10 · CÁC KHỐI XỬ LÝ CHÍNH
+     ===================================================== -->
+<section class="slide" data-title="Mô hình thành phần">
+    <div class="hdr"><span class="sec"><b>04</b>Kiến trúc</span><span class="crumb">Mô hình A · B · C · E</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Các mô hình thành phần: <em>cách làm và kết quả</em></h2>
+    <div class="body">
+
+        <div class="cols c4 rv d1" style="gap:36px">
+            <div class="card  mc">
+                <div class="n">A</div><h3>Nội suy tại trạm</h3>
+                <p class="pb">Suy ra DO, độ mặn, PO4, độ trong từ các chỉ số sensor đo được.</p>
+                <div class="k">Cách làm</div><ul class="dash"><li>XGBoost theo vùng, 5 chỉ số đầu vào (4 khi COD hỏng)</li><li>ExtraTrees cho DO, độ mặn ở Hải Phòng</li><li>Chỉ số khó học → dùng trung vị vùng</li></ul>
+                <div class="k r">Kết quả</div><ul class="dash r"><li>DO Hải Phòng: R² 0.58–0.62</li><li>Độ mặn: R² 0.46 khi thêm tháng</li><li>DO Quảng Ninh chưa tốt hơn trung vị</li></ul>
+            </div>
+            <div class="card  mc">
+                <div class="n">B</div><h3>Nội suy sang trạm khác</h3>
+                <p class="pb">Ước lượng chất lượng nước ở các trạm lân cận không có sensor.</p>
+                <div class="k">Cách làm</div><ul class="dash"><li>Học quan hệ giữa trạm gốc và 13 trạm Hải Phòng trong cùng quý</li><li>Chấm điểm phù hợp cho từng trạm ảo</li></ul>
+                <div class="k r">Kết quả</div><ul class="dash r"><li>Đã hiển thị được bản đồ trạm ảo</li><li>Độ chính xác không đều giữa các trạm</li><li>Sai số độ mặn tăng theo khoảng cách</li></ul>
+            </div>
+            <div class="card r mc">
+                <div class="n">C</div><h3>Dự báo ngắn hạn</h3>
+                <p class="pb">Dự báo chỉ số sensor sau 15, 30 và 60 phút.</p>
+                <div class="k">Cách làm</div><ul class="dash"><li>Nhiệt độ, TSS: XGBoost</li><li>pH, NH4: giữ giá trị gần nhất</li><li>Dùng A để suy ra DO, độ mặn tương lai</li></ul>
+                <div class="k r">Kết quả</div><ul class="dash r"><li>Nhiệt độ: sai số giảm 17–20%</li><li>TSS: sai số giảm 4–9%</li><li>pH, NH4: chưa mô hình nào tốt hơn</li></ul>
+            </div>
+            <div class="card  mc">
+                <div class="n">E</div><h3>Phân vùng tin cậy</h3>
+                <p class="pb">Kết quả ở trạm gốc dùng được cho khu vực cách bao xa.</p>
+                <div class="k">Cách làm</div><ul class="dash"><li>Ước lượng sai số theo khoảng cách</li><li>Hiệu chỉnh để khoảng sai số đúng 80/90/95% trường hợp</li><li>Kiểm tra theo thời gian và theo trạm</li></ul>
+                <div class="k r">Kết quả</div><ul class="dash r"><li>1/36 trường hợp đạt: độ mặn, cách 5–10 km</li><li>Các vùng khác chưa đủ tin cậy để hiển thị</li></ul>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     11 · CẢNH BÁO HYBRID + RANH GIỚI AN TOÀN
+     ===================================================== -->
+<section class="slide" data-title="Cảnh báo">
+    <div class="hdr"><span class="sec"><b>04</b>Kiến trúc</span><span class="crumb">Cảnh báo kết hợp mô hình và luật</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Mức cảnh báo <em>phụ thuộc nguồn dữ liệu</em></h2>
+    <div class="body">
+
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <table class="tb sm">
+                    <thead><tr><th style="width:21%">Nguồn</th><th>Điều kiện</th><th style="width:24%">Mức cao nhất</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Số đo sensor</b></td><td>Vượt ngưỡng DO, nhiệt độ, NH3; DO giảm nhanh trong 15 phút; DO thấp kèm nhiệt độ cao</td><td><span class="tag f">Khẩn cấp</span></td></tr>
+                        <tr><td><b>DO suy ra</b></td><td>≤5 mg/L → Theo dõi; ≤4 lặp lại 2 lần, hoặc kèm nhiệt độ ≥31 °C / NH3 ≥0.05 → Cảnh báo; ≤3 kèm nhiều yếu tố bất lợi → Khuyến nghị khẩn</td><td><span class="tag r">Khuyến nghị khẩn</span></td></tr>
+                        <tr><td><b>Dự báo</b></td><td>DO dự báo ≤5 → Theo dõi; ≤4 hoặc nhiệt độ dự báo ≥33 °C → Cảnh báo</td><td><span class="tag">Cảnh báo</span></td></tr>
+                        <tr><td><b>Thời tiết</b></td><td>Mưa ≥10 mm/6 giờ hoặc gió ≥35 km/h → Theo dõi; chỉ xét khi đủ số liệu từng giờ</td><td><span class="tag">Theo dõi</span></td></tr>
+                        <tr><td><b>Tổng hợp</b></td><td>Lấy mức cao nhất giữa nước và thời tiết; chỉ báo “bình thường” khi đủ mọi nguồn</td><td><span class="tag g">Chỉ ghi lại</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="rv d2">
+                <div class="box fill" style="margin-bottom:22px">
+                    <div class="k" style="margin-bottom:10px">Nguyên tắc an toàn</div>
+                    <ul class="dash" style="color:#fff">
+                        <li style="color:#fff">Mức khẩn cấp chỉ dựa trên <b>DO đo trực tiếp</b> — trạm chưa có sensor DO</li>
+                        <li style="color:#fff">Dữ liệu quá hạn hoặc mất → tạm dừng cảnh báo, ghi rõ lý do</li>
+                        <li style="color:#fff">Mất một nguồn không làm mất cảnh báo đang có căn cứ</li>
+                        <li style="color:#fff">Dữ liệu nghi lỗi không được dùng để nâng mức cảnh báo</li>
+                    </ul>
+                </div>
+                <div class="box">
+                    <div class="k" style="margin-bottom:10px">Sổ ghi dự báo</div>
+                    <p style="font-size:22px">Mỗi dự báo được lưu ngay lúc phát hành, kèm bản tin thời tiết đã dùng. Khi có số đo thực (lệch ≤4 phút), hệ thống tính sai số MAE, RMSE và độ lệch.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     12 · KẾT QUẢ — SUY LUẬN + DỰ BÁO (biểu đồ)
+     ===================================================== -->
+<section class="slide" data-title="Kết quả dự báo">
+    <div class="hdr"><span class="sec"><b>05</b>Kết quả</span><span class="crumb">Kết quả nội suy và dự báo</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Nhiệt độ <em>giảm sai số 17–20%</em>; pH, NH4 chưa cải thiện</h2>
+    <div class="body">
+
+        <div class="cols c2">
+            <div class="rv d1 chart-wrap" id="chartWrap">
+                <div class="k" style="margin-bottom:10px">MAE nhiệt độ (°C) · kiểm tra trên 14 ngày cuối · thấp hơn là tốt hơn</div>
+                <div class="legend"><span><i style="background:var(--series-a)"></i>Giữ giá trị gần nhất (đối chứng)</span><span><i style="background:var(--series-b)"></i>Ridge + giá trị trễ + thời gian</span></div>
+                <svg id="maeChart" viewBox="0 0 820 470" width="820" height="470" role="img" aria-label="Sai số MAE dự báo nhiệt độ theo mốc thời gian"></svg>
+                <div class="tip" id="maeTip"></div>
+                <p class="small">Dữ liệu 29/05–26/07/2026. <b style="color:var(--red-ink)">Chạy trước khi sửa lỗi định dạng thời gian — cần chạy lại để xác nhận.</b></p>
+            </div>
+            <div class="rv d2">
+                <div class="k" style="margin-bottom:12px">Dự báo sensor Hải Phòng · 20% dữ liệu cuối · MAE</div>
+                <table class="tb" style="margin-bottom:30px">
+                    <thead><tr><th>Chỉ số</th><th class="num">15′</th><th class="num">30′</th><th class="num">60′</th><th>Chọn</th></tr></thead>
+                    <tbody>
+                        <tr><td>Nhiệt độ</td><td class="num">0.182 → <b class="win">0.150</b></td><td class="num">0.189 → <b class="win">0.158</b></td><td class="num">0.207 → <b class="win">0.181</b></td><td>XGBoost</td></tr>
+                        <tr><td>TSS</td><td class="num">17.5 → <b class="win">16.8</b></td><td class="num">19.9 → <b class="win">18.2</b></td><td class="num">22.4 → <b class="win">20.4</b></td><td>XGBoost</td></tr>
+                        <tr><td>pH, NH4</td><td class="num" colspan="3" style="text-align:center">giữ giá trị gần nhất cho kết quả tốt hơn</td><td>Giữ giá trị</td></tr>
+                    </tbody>
+                </table>
+                <div class="k" style="margin-bottom:12px">Nội suy trên dữ liệu quan trắc định kỳ</div>
+                <table class="tb">
+                    <thead><tr><th>Vùng / chỉ số</th><th>Kết quả</th></tr></thead>
+                    <tbody>
+                        <tr><td>HP / DO</td><td>ExtraTrees · RMSE 0.25 · R² 0.58–0.62</td></tr>
+                        <tr><td>HP / độ mặn</td><td>ExtraTrees + tháng · R² từ −0.18 lên 0.46</td></tr>
+                        <tr><td>QN / DO, PO4</td><td>Dùng trung vị — mô hình chưa tốt hơn ổn định</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     13 · KẾT QUẢ — THỜI TIẾT + KHÔNG GIAN
+     ===================================================== -->
+<section class="slide" data-title="Thời tiết & không gian">
+    <div class="hdr"><span class="sec"><b>05</b>Kết quả</span><span class="crumb">Kết quả thời tiết và không gian</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Thời tiết <em>có ảnh hưởng</em> — chưa đủ dữ liệu kết luận</h2>
+    <div class="body">
+
+        <div class="cols c2">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:14px">Thời tiết và dữ liệu biển</div>
+                <table class="tb sm">
+                    <thead><tr><th style="width:34%">Thí nghiệm</th><th>Kết quả</th></tr></thead>
+                    <tbody>
+                        <tr><td>Độ trễ của thời tiết, theo giờ (NB1)</td><td>Dự báo NH4 tốt hơn ở 1/3/6 giờ; TSS chưa ổn định; nhiệt độ, pH kém đi</td></tr>
+                        <tr><td>Thêm thời tiết, dữ liệu theo quý (NB1)</td><td>Độ mặn: R² tăng 0.94 (9/9 cặp trạm); DO tốt hơn ở 6/9 cặp — nhưng chưa đủ 30 cặp</td></tr>
+                        <tr><td>Thêm dữ liệu Copernicus</td><td>Độ mặn: RMSE 0.387 → 0.091 khi thử trên trạm chưa dùng để học; DO kém đi (0.253 → 0.333)</td></tr>
+                    </tbody>
+                </table>
+                <div class="box red" style="margin-top:24px;display:flex;gap:28px;align-items:center">
+                    <div class="stat"><div class="v r">0</div></div>
+                    <p style="font-size:22px"><b>cặp dữ liệu hợp lệ để kiểm chứng B5.</b> Số liệu sensor và bản tin đã lưu gần như không trùng thời gian; cần khoảng 63 ngày lưu bản tin liên tục.</p>
+                </div>
+            </div>
+            <div class="rv d2">
+                <div class="k" style="margin-bottom:14px">Phân vùng tin cậy</div>
+                <ul class="dash" style="margin-bottom:22px">
+                    <li><b>Độ mặn Hải Phòng</b>: lấy nguyên giá trị trạm gốc cho trạm khác thì sai số tăng theo khoảng cách — 0.04 (2–5 km) lên 0.47 (&gt;20 km)</li>
+                    <li><b>Quảng Ninh</b>: khả năng phát hiện độ mặn thấp giảm từ 0.82 xuống 0.06 khi xa hơn 10 km</li>
+                    <li>Khoảng sai số 90% đạt 90–99% trên toàn bộ dữ liệu, nhưng có khoảng cách chỉ đạt 65.7%</li>
+                    <li>Cách tính bán kính HSI cũ cho “100% đúng nhãn” vì dùng cả dữ liệu của trạm cần đoán → đã loại bỏ</li>
+                </ul>
+                <div class="cols" style="grid-template-columns:auto 1fr;gap:28px;height:auto;align-items:center">
+                    <div class="stat"><div class="v">1<span style="color:#b5b5b5">/36</span></div></div>
+                    <p style="font-size:22px">trường hợp đạt yêu cầu: <b>độ mặn, cách NB1 5–10 km</b>, độ phủ 80% và 90%.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     14 · ĐÁNH GIÁ HIỆN TRẠNG
+     ===================================================== -->
+<section class="slide" data-title="Đánh giá">
+    <div class="hdr"><span class="sec"><b>05</b>Đánh giá</span><span class="crumb">Điểm mạnh · hạn chế · mức hoàn thiện</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Hệ thống đã chạy được — <em>còn thiếu dữ liệu kiểm chứng</em></h2>
+    <div class="body">
+
+        <div class="cols" style="grid-template-columns:1fr 1fr 1.1fr;gap:44px">
+            <div class="card rv d1">
+                <h3>Điểm mạnh</h3>
+                <ul class="dash">
+                    <li>Mọi kết quả đều ghi rõ là số đo, giá trị suy ra hay dự báo</li>
+                    <li>Đánh giá theo đúng trình tự thời gian; mô hình phải tốt hơn cách đối chứng mới được dùng</li>
+                    <li>Không dùng thông tin tương lai khi ghép bản tin thời tiết</li>
+                    <li>Dự báo chỉ số đo được trước, tránh cộng dồn sai số</li>
+                    <li>Tự chuyển nguồn khi lỗi; chạy lại được kết quả</li>
+                </ul>
+            </div>
+            <div class="card r rv d2">
+                <h3>Hạn chế</h3>
+                <ul class="dash r">
+                    <li>Mới có 1 trạm, chưa có tọa độ GPS của lồng</li>
+                    <li>Chưa có sensor DO và dữ liệu thực địa → chưa đo được tỷ lệ bỏ sót, báo nhầm</li>
+                    <li>Đơn vị NH4 chưa được nhà cung cấp xác nhận</li>
+                    <li>Mô hình học từ dữ liệu theo quý nhưng chạy trên dữ liệu theo phút</li>
+                    <li>Ngưỡng cảnh báo đặt thủ công; dự báo chưa có khoảng tin cậy</li>
+                </ul>
+            </div>
+            <div class="card rv d3">
+                <h3>Mức hoàn thiện</h3>
+                <table class="mat">
+                    <tr><td>Thu nhận, lưu trữ, làm sạch</td><td><span class="lvl l3">Chạy được</span></td></tr>
+                    <tr><td>Suy luận + chấm điểm</td><td><span class="lvl l3">Có · dữ liệu cũ</span></td></tr>
+                    <tr><td>Dự báo + sổ ghi dự báo</td><td><span class="lvl l3">Có · cần chạy lại</span></td></tr>
+                    <tr><td>Khuyến nghị, lưu bản tin</td><td><span class="lvl l2">Bước đầu</span></td></tr>
+                    <tr><td>Thời tiết vào mô hình (B5)</td><td><span class="lvl l1">Đang sửa</span></td></tr>
+                    <tr><td>Phân vùng tin cậy</td><td><span class="lvl l1">Mới thử nghiệm</span></td></tr>
+                    <tr><td>Đánh giá bằng sự kiện thực</td><td><span class="lvl l0">Chưa có</span></td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     18 · MỞ RỘNG — LIÊN HỆ NGHIÊN CỨU 2026
+     ===================================================== -->
+<section class="slide" data-title="Hướng phát triển">
+    <div class="hdr"><span class="sec"><b>06</b>Hướng mở rộng</span><span class="crumb">Bốn hướng phát triển</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Bốn hướng phát triển: <em>tiềm năng và hạn chế</em></h2>
+    <div class="body">
+        <div class="cols c4 rv d1" style="gap:34px;height:auto">
+            <div class="card r dir">
+                <div class="n">1</div><h3>Dự báo sâu hơn các chỉ số tương lai</h3>
+                <div class="k">Đã có</div><p class="hv">Dự báo 15/30/60 phút, bộ thí nghiệm B0–B5, sổ ghi dự báo</p>
+                <div class="k">Tiềm năng</div><ul class="pm plus"><li>Kéo dài lên 6–12 giờ — đủ thời gian để người nuôi xử lý</li><li>Thêm khoảng tin cậy; thử các mô hình nền chuỗi thời gian (Chronos…)</li></ul>
+                <div class="k">Hạn chế</div><ul class="pm minus"><li>Mới ~3 tháng dữ liệu của 1 trạm, còn khoảng trống</li><li>pH, NH4 chưa tốt hơn cách giữ giá trị gần nhất; DO không đo được</li></ul>
+                <div class="rd"><span class="k">Mức sẵn sàng</span><span class="lvl l3">Cao</span></div>
+            </div>
+            <div class="card  dir">
+                <div class="n">2</div><h3>Cảnh báo kết hợp thời tiết tại điểm nuôi</h3>
+                <div class="k">Đã có</div><p class="hv">Luật mưa, gió; lưu bản tin mỗi giờ; tổng hợp mức rủi ro</p>
+                <div class="k">Tiềm năng</div><ul class="pm plus"><li>Giá trị thực tế trực tiếp cho người nuôi</li><li>Mưa có tác động trễ lên NH4 — có cơ sở để kết hợp</li></ul>
+                <div class="k">Hạn chế</div><ul class="pm minus"><li>Chưa có cặp dữ liệu để kiểm chứng (cần ~63 ngày bản tin liên tục)</li><li>Ngưỡng đặt thủ công; chưa có sự kiện thực địa; bản tin lấy tại cảng NB1</li></ul>
+                <div class="rd"><span class="k">Mức sẵn sàng</span><span class="lvl l2">Trung bình</span></div>
+            </div>
+            <div class="card  dir">
+                <div class="n">3</div><h3>Bản đồ phân vùng tiềm năng nuôi trồng</h3>
+                <div class="k">Đã có</div><p class="hv">Tiêu chí cho cá giò; ~200 trạm quan trắc 2020–2024; dòng chảy, sóng (Copernicus), độ sâu (GEBCO)</p>
+                <div class="k">Tiềm năng</div><ul class="pm plus"><li>Phục vụ quy hoạch vùng nuôi</li><li>Có phương pháp đã công bố (logic mờ + đa tiêu chí, Ghaderi 2026) để đối chiếu</li></ul>
+                <div class="k">Hạn chế</div><ul class="pm minus"><li>Bài toán dài hạn, khác với theo dõi lồng thời gian thực</li><li>Trọng số cần chuyên gia; khó kiểm chứng nếu thiếu số liệu vụ nuôi</li></ul>
+                <div class="rd"><span class="k">Mức sẵn sàng</span><span class="lvl l2">Trung bình</span></div>
+            </div>
+            <div class="card  dir">
+                <div class="n">4</div><h3>Bản đồ tin cậy nuôi trồng có yếu tố thời tiết</h3>
+                <div class="k">Đã có</div><p class="hv">Bán kính theo chênh lệch HSI, phân vùng tin cậy theo sai số, lưới thời tiết ~1 km</p>
+                <div class="k">Tiềm năng</div><ul class="pm plus"><li>Ghép độ tin cậy không gian với rủi ro thời tiết trên cùng bản đồ</li><li>Cho biết kết quả tại trạm dùng được đến đâu, trong điều kiện thời tiết nào</li></ul>
+                <div class="k">Hạn chế</div><ul class="pm minus"><li>Cách tính HSI cũ dùng nhầm dữ liệu trạm cần đoán; mới 1/36 trường hợp đạt</li><li>Chỉ 1 trạm sensor; dòng chảy Open-Meteo độ phân giải ~8 km</li></ul>
+                <div class="rd"><span class="k">Mức sẵn sàng</span><span class="lvl l1">Thấp</span></div>
+            </div>
+        </div>
+        <p class="small rv d2" style="margin-top:20px"><b style="color:var(--ink)">Đề xuất thứ tự:</b> 1 → 2 (dùng chung dữ liệu sensor và bản tin) · 3 làm song song vì dữ liệu đã có · 4 sau khi xong 3 và có thêm điểm đo đối chứng.</p>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="Mở rộng 1">
+    <div class="hdr"><span class="sec"><b>06</b>Hướng mở rộng</span><span class="crumb">Hướng 1 · Ghaderi (2026)</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Hướng 1 — <em>đánh giá vùng nuôi bằng logic mờ</em></h2>
+    <div class="body">
+
+        <div class="cols c2">
+            <div class="card r rv d1">
+                <div class="k r" style="margin-bottom:8px">Regional Studies in Marine Science · 101 · 105287</div>
+                <p class="ptitle">Multi-criteria evaluation of suitable sites for marine cage aquaculture in southern Iran based on oceanographic and environmental factors</p>
+                <p class="small" style="margin-bottom:18px">doi:10.1016/j.rsma.2026.105287</p>
+                <div class="k" style="margin-bottom:10px">Nội dung bài báo</div>
+                <ul class="dash"><li>Đánh giá vùng biển miền Nam Iran để đặt lồng nuôi xa bờ</li><li>Dùng logic mờ (fuzzy) kết hợp đánh giá đa tiêu chí</li><li>Tiêu chí gồm yếu tố môi trường, hải dương và dòng chảy</li><li>Đối tượng: <b>cá giò</b>, cá chẽm, cá mú chấm cam</li><li>So sánh trọng số đều với trọng số do chuyên gia đặt</li></ul>
+            </div>
+            <div class="rv d2">
+                <div class="k r" style="margin-bottom:12px">Áp dụng vào dự án</div>
+                <ol class="apply"><li><b>Hàm thuộc mờ</b> thay cho ngưỡng cứng khi chấm điểm phù hợp → giá trị gần ngưỡng không làm nhãn đổi đột ngột</li><li><b>Phân tích độ nhạy trọng số</b> (đều so với chuyên gia) cho bộ tiêu chí cá giò hiện có</li><li><b>Thêm tiêu chí dòng chảy, sóng, độ sâu</b> — dữ liệu Copernicus, GEBCO đã có sẵn</li><li><b>Kết hợp điểm phù hợp với vùng tin cậy</b> để có bản đồ quy hoạch kèm mức độ tin cậy</li></ol>
+                <div class="box" style="margin-top:22px"><p style="font-size:21px">Khác biệt: bài báo chọn vị trí nuôi lâu dài; dự án theo dõi lồng đang nuôi theo thời gian thực. Hai hướng bổ sung cho nhau.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<section class="slide" data-title="Mở rộng 2">
+    <div class="hdr"><span class="sec"><b>06</b>Hướng mở rộng</span><span class="crumb">Hướng 2 · Martina và cs. (2026)</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Hướng 2 — <em>dùng LLM hỗ trợ xây dựng pipeline dữ liệu</em></h2>
+    <div class="body">
+
+        <div class="cols c2">
+            <div class="card  rv d1">
+                <div class="k " style="margin-bottom:8px">Future Generation Computer Systems · 108587</div>
+                <p class="ptitle">Empirical evaluation of LLMs capabilities for data pipeline generation on Databricks platform</p>
+                <p class="small" style="margin-bottom:18px">doi:10.1016/j.future.2026.108587</p>
+                <div class="k" style="margin-bottom:10px">Nội dung bài báo</div>
+                <ul class="dash"><li>Đánh giá 7 mô hình ngôn ngữ lớn (GPT-5, Claude 4, Qwen3) tự viết pipeline ETL bằng PySpark trên Databricks</li><li>3 tình huống: kiểm tra chất lượng dữ liệu, tổng hợp theo thời gian, ghép nhiều nguồn</li><li>Đo bằng số lần mô hình phải tự sửa lỗi</li><li>Claude Opus 4 và GPT-5 mini ổn định nhất (0–1 lần sửa)</li><li>Điểm trình bày code không phản ánh code có chạy đúng hay không</li></ul>
+            </div>
+            <div class="rv d2">
+                <div class="k r" style="margin-bottom:12px">Áp dụng vào dự án</div>
+                <ol class="apply"><li><b>Ba tình huống trùng với pipeline của dự án:</b> làm sạch dữ liệu sensor, tổng hợp theo phút/giờ, ghép sensor với bản tin thời tiết</li><li><b>Dùng LLM để viết nhanh phần xử lý dữ liệu,</b> nhưng luôn kèm kiểm thử đầu–cuối và kiểm tra việc dùng nhầm dữ liệu tương lai</li><li><b>Đo số lần sửa lỗi</b> trên các tình huống của dự án để chọn công cụ phù hợp</li><li><b>Chỉ cần Spark/Databricks khi mở rộng nhiều trạm;</b> với ~80 nghìn mốc thời gian hiện nay, pandas là đủ</li></ol>
+                <div class="box" style="margin-top:22px"><p style="font-size:21px">Mức liên quan: gián tiếp — bài báo thuộc lĩnh vực kỹ thuật dữ liệu, không trực tiếp về mô hình môi trường.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     15 · TIỀM NĂNG + HƯỚNG MỞ RỘNG
+     ===================================================== -->
+<section class="slide" data-title="Mở rộng" data-hidden="true">
+    <div class="hdr"><span class="sec"><b>06</b>Mở rộng</span><span class="crumb">Tiềm năng · hướng nghiên cứu · lộ trình</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Từ nền tảng shadow đến <em>pilot đánh giá được</em></h2>
+    <div class="body" style="display:flex;flex-direction:column;gap:36px">
+        <div class="cols c4 rv d1" style="height:auto;gap:36px">
+            <div><div class="k r" style="margin-bottom:8px">Ứng dụng</div><p style="font-size:21px"><b>Hỗ trợ quyết định</b> cho người nuôi bằng sensor rẻ + thời tiết miễn phí</p></div>
+            <div><div class="k r" style="margin-bottom:8px">Soft sensor</div><p style="font-size:21px"><b>DO, độ mặn suy luận</b> giảm nhu cầu đầu đo đắt — nếu kiểm chứng được</p></div>
+            <div><div class="k r" style="margin-bottom:8px">Khung an toàn</div><p style="font-size:21px"><b>Evidence-gating</b> tái dùng cho quan trắc môi trường khác</p></div>
+            <div><div class="k r" style="margin-bottom:8px">Tri thức nền</div><p style="font-size:21px"><b>&gt;100 trạm × 4–5 năm</b> cho trạm sensor mới</p></div>
+        </div>
+        <table class="tb rv d2">
+            <thead><tr><th style="width:24%">Hướng nghiên cứu</th><th>Nội dung</th><th style="width:24%">Hướng nghiên cứu</th><th>Nội dung</th></tr></thead>
+            <tbody>
+                <tr><td><b>Giá trị B5</b></td><td>Sensor-only vs + bản tin trên cùng origin</td><td><b>Phát hiện sự kiện</b></td><td>Xác suất DO thấp / TSS tăng vọt trong N giờ</td></tr>
+                <tr><td><b>Soft sensor DO</b></td><td>Hiệu chỉnh với DO đo tay, biến ngày/đêm, bức xạ</td><td><b>Foundation model</b></td><td>Chronos / TimesFM / Moirai zero-shot vs XGBoost</td></tr>
+                <tr><td><b>Không gian có calibration</b></td><td>Zone, độ sâu GEBCO, khoảng cách đường nước</td><td><b>Mạng nhiều trạm</b></td><td>Chuyển giao giữa trạm, mô hình đồ thị không–thời gian</td></tr>
+            </tbody>
+        </table>
+        <div class="road rv d3">
+            <div class="s"><div class="k r">Giai đoạn 1</div><h4>Dữ liệu đúng & đủ</h4><p>NH4 · GPS · 63 ngày snapshot · chạy lại benchmark</p></div>
+            <div class="s"><div class="k">Giai đoạn 2</div><h4>Ground truth</h4><p>DO đo tay · nhật ký ≥ 10 sự kiện</p></div>
+            <div class="s"><div class="k">Giai đoạn 3</div><h4>B5 + uncertainty</h4><p>Chân trời 6–12h · đánh giá theo sự kiện</p></div>
+            <div class="s"><div class="k">Giai đoạn 4</div><h4>Shadow pilot</h4><p>4–8 tuần · review với người nuôi</p></div>
+            <div class="s"><div class="k">Giai đoạn 5</div><h4>Tích hợp webapp</h4><p>Notification theo gate</p></div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     16 · THẢO LUẬN
+     ===================================================== -->
+<section class="slide" data-title="Thảo luận">
+    <div class="hdr"><span class="sec"><b>—</b>Thảo luận</span><span class="crumb">lab-realtime · Seminar nhóm</span></div>
+    <div style="position:absolute;left:120px;top:200px;width:24px;height:420px;background:var(--red)"></div>
+    <div style="position:absolute;left:200px;top:180px;width:1100px">
+        <p class="big-q rv">Thời tiết có giúp<br>cảnh báo <em>sớm hơn</em>?</p>
+        <p class="lead rv d1" style="margin-top:36px;width:960px">Đây vẫn là câu hỏi chính chưa có lời đáp. Hệ thống đã sẵn sàng; bước tiếp theo là thu thập dữ liệu để kiểm chứng.</p>
+    </div>
+    <div class="rv d2" style="position:absolute;right:112px;top:200px;width:520px">
+        <div class="k" style="margin-bottom:14px">Xin ý kiến nhóm</div>
+        <ul class="dash r">
+            <li>Có nên chuyển sang <b>phát hiện sự kiện</b> DO thấp, TSS tăng đột biến thay vì dự báo giá trị?</li>
+            <li>Có nên tập trung dự báo trước <b>6–12 giờ</b> để người nuôi kịp xử lý?</li>
+            <li>Đánh giá thử nghiệm khi đã có <b>ít nhất 10 sự kiện</b> thực địa?</li>
+            <li>Ai có thể hỗ trợ <b>đo DO</b> tại Cát Bà?</li>
+        </ul>
+    </div>
+    <div class="rv d3" style="position:absolute;left:204px;bottom:112px;font-size:21px;color:var(--muted)">
+        Tài liệu chi tiết: <code>lab-realtime/docs/guide/00-tong-quan-du-an.md</code>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · 20225064</span><span class="pg"></span></div>
+</section>
+
+</main>
+</div>
+
+<!-- Chrome ngoài stage -->
+<div class="progress" id="progress"></div>
+<div class="edit-hotzone" id="editHotzone"></div>
+<button class="edit-toggle" id="editToggle" title="Chế độ sửa (E)">SỬA</button>
+
+<script>
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   Phím: ← → Space PageUp/Down Home End · vuốt · cuộn chuột
+   =========================================== */
+class SlidePresentation {
+    constructor() {
+        this.slides = [...document.querySelectorAll('.slide:not([data-hidden])')];
+        this.stage = document.getElementById('deckStage');
+        this.progress = document.getElementById('progress');
+        this.current = 0;
+        this.wheelLock = false;
+        this.fillPageNumbers();
+        this.setupStageScale();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupWheelNav();
+        const start = parseInt(location.hash.replace('#', ''), 10);
+        this.show(Number.isFinite(start) ? start - 1 : 0);
+    }
+    fillPageNumbers() {
+        const n = this.slides.length;
+        this.slides.forEach((s, i) => s.querySelectorAll('.pg').forEach(el => {
+            el.textContent = String(i + 1).padStart(2, '0') + ' / ' + String(n).padStart(2, '0');
+        }));
+    }
+    setupStageScale() {
+        const scale = () => {
+            const f = Math.min(innerWidth / 1920, innerHeight / 1080);
+            const x = (innerWidth - 1920 * f) / 2, y = (innerHeight - 1080 * f) / 2;
+            this.stage.style.transform = `translate(${x}px, ${y}px) scale(${f})`;
+        };
+        scale();
+        addEventListener('resize', scale);
+    }
+    setupKeyboardNav() {
+        document.addEventListener('keydown', e => {
+            if (document.body.classList.contains('editing')) return;
+            if (['ArrowRight', 'ArrowDown', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); this.show(this.current + 1); }
+            if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); this.show(this.current - 1); }
+            if (e.key === 'Home') this.show(0);
+            if (e.key === 'End') this.show(this.slides.length - 1);
+        });
+    }
+    setupTouchNav() {
+        let x0 = null;
+        addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+        addEventListener('touchend', e => {
+            if (x0 === null) return;
+            const dx = e.changedTouches[0].clientX - x0;
+            if (Math.abs(dx) > 50) this.show(this.current + (dx < 0 ? 1 : -1));
+            x0 = null;
+        });
+    }
+    setupWheelNav() {
+        addEventListener('wheel', e => {
+            if (this.wheelLock || Math.abs(e.deltaY) < 30) return;
+            this.wheelLock = true;
+            this.show(this.current + (e.deltaY > 0 ? 1 : -1));
+            setTimeout(() => (this.wheelLock = false), 700);
+        }, { passive: true });
+    }
+    show(i) {
+        this.current = Math.max(0, Math.min(i, this.slides.length - 1));
+        this.slides.forEach((s, k) => {
+            const on = k === this.current;
+            s.classList.toggle('active', on);
+            s.classList.toggle('visible', on);
+        });
+        this.progress.style.width = ((this.current + 1) / this.slides.length * 100) + '%';
+        history.replaceState(null, '', '#' + (this.current + 1));
+    }
+}
+const deck = new SlidePresentation();
+
+/* ===========================================
+   CHART — MAE nhiệt độ (grouped bar, 1 trục)
+   Bar 64px, đầu bo 4px neo baseline, gap 2px, tooltip khi hover
+   =========================================== */
+(function buildChart() {
+    const data = [
+        { h: '+15 phút', a: 0.1798074732, b: 0.1437839529 },
+        { h: '+30 phút', a: 0.1851544214, b: 0.1506474753 },
+        { h: '+60 phút', a: 0.2041286509, b: 0.1685164469 },
+    ];
+    const svg = document.getElementById('maeChart'), tip = document.getElementById('maeTip');
+    const wrap = document.getElementById('chartWrap');
+    const NS = 'http://www.w3.org/2000/svg';
+    const X0 = 70, Y0 = 400, TOP = 30, MAX = 0.22, W = 64;
+    const y = v => Y0 - v / MAX * (Y0 - TOP);
+    const el = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text) e.textContent = text; svg.appendChild(e); return e; };
+
+    // Grid + trục (recessive)
+    [0, 0.05, 0.10, 0.15, 0.20].forEach(v => {
+        el('line', { x1: X0, x2: 800, y1: y(v), y2: y(v), stroke: v === 0 ? '#0a0a0a' : '#e6e6e3', 'stroke-width': v === 0 ? 2 : 1 });
+        el('text', { x: X0 - 12, y: y(v) + 6, 'text-anchor': 'end', 'font-size': 17, fill: '#767676' }, v.toFixed(2));
+    });
+
+    const bar = (x, v, color) => {
+        const top = y(v), r = 4;
+        return el('path', { d: `M${x},${Y0} V${top + r} Q${x},${top} ${x + r},${top} H${x + W - r} Q${x + W},${top} ${x + W},${top + r} V${Y0} Z`, fill: color });
+    };
+    data.forEach((d, i) => {
+        const gx = 200 + i * 245;
+        const pa = bar(gx - W - 1, d.a, '#2f6fb0');
+        const pb = bar(gx + 1, d.b, '#e62e00');
+        // Nhãn giá trị (text token, không dùng màu series)
+        el('text', { x: gx - W / 2 - 1, y: y(d.a) - 10, 'text-anchor': 'middle', 'font-size': 18, fill: '#3a3a3a' }, d.a.toFixed(3));
+        el('text', { x: gx + W / 2 + 1, y: y(d.b) - 10, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#0a0a0a' }, d.b.toFixed(3));
+        el('text', { x: gx, y: Y0 + 34, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, fill: '#0a0a0a' }, d.h);
+        const drop = ((1 - d.b / d.a) * 100).toFixed(1).replace('.', ',');
+        el('text', { x: gx, y: Y0 + 62, 'text-anchor': 'middle', 'font-size': 18, fill: '#767676' }, `−${drop}%`);
+        // Vùng hover rộng hơn mark
+        const hit = el('rect', { x: gx - W - 30, y: TOP, width: 2 * W + 60, height: Y0 - TOP, fill: 'transparent', style: 'cursor:crosshair' });
+        hit.addEventListener('mousemove', ev => {
+            tip.innerHTML = `<b>${d.h}</b><br>Giữ giá trị gần nhất: ${d.a.toFixed(4)} °C<br>Ridge: ${d.b.toFixed(4)} °C<br>Giảm ${drop}%`;
+            const r = wrap.getBoundingClientRect(), s = r.width / wrap.offsetWidth;
+            tip.style.left = ((ev.clientX - r.left) / s + 18) + 'px';
+            tip.style.top = ((ev.clientY - r.top) / s - 20) + 'px';
+            tip.classList.add('on'); pa.setAttribute('opacity', .85); pb.setAttribute('opacity', .85);
+        });
+        hit.addEventListener('mouseleave', () => { tip.classList.remove('on'); pa.removeAttribute('opacity'); pb.removeAttribute('opacity'); });
+    });
+})();
+
+/* ===========================================
+   INLINE EDITING — E hoặc góc trên-trái; Ctrl+S lưu localStorage
+   =========================================== */
+const editor = {
+    isActive: false,
+    key: 'lab-realtime-seminar-2026-10-v4',
+    targets() { return document.querySelectorAll('.slide h1, .slide h2, .slide h3, .slide h4, .slide p, .slide li, .slide td, .slide th, .slide .k, .slide .v, .slide .l'); },
+    toggleEditMode() {
+        this.isActive = !this.isActive;
+        document.body.classList.toggle('editing', this.isActive);
+        this.targets().forEach(n => n.setAttribute('contenteditable', this.isActive ? 'true' : 'false'));
+        document.getElementById('editToggle').classList.toggle('active', this.isActive);
+        if (!this.isActive) this.save();
+    },
+    save() { try { localStorage.setItem(this.key, JSON.stringify([...this.targets()].map(n => n.innerHTML))); } catch (e) {} },
+    load() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(this.key) || 'null');
+            const nodes = [...this.targets()];
+            if (saved && saved.length === nodes.length) nodes.forEach((n, i) => (n.innerHTML = saved[i]));
+        } catch (e) {}
+    },
+};
+editor.load();
+const editToggle = document.getElementById('editToggle'), hotzone = document.getElementById('editHotzone');
+let hideTimeout = null;
+editToggle.addEventListener('click', () => editor.toggleEditMode());
+hotzone.addEventListener('click', () => editor.toggleEditMode());
+hotzone.addEventListener('mouseenter', () => { clearTimeout(hideTimeout); editToggle.classList.add('show'); });
+hotzone.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => { if (!editor.isActive) editToggle.classList.remove('show'); }, 400); });
+editToggle.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+editToggle.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => { if (!editor.isActive) editToggle.classList.remove('show'); }, 400); });
+document.addEventListener('keydown', e => {
+    if ((e.key === 'e' || e.key === 'E') && e.target.getAttribute('contenteditable') !== 'true') editor.toggleEditMode();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); editor.save(); }
+});
+</script>
+</body>
+</html>

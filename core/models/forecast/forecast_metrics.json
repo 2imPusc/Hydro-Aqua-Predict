@@ -1,0 +1,228 @@
+{
+  "haiphong": {
+    "minute": {
+      "Temperature": {
+        "mae": 0.1756,
+        "rmse": 0.2467,
+        "r2": 0.67,
+        "n_train": 41795,
+        "n_holdout": 10449
+      },
+      "pH": {
+        "mae": 0.0098,
+        "rmse": 0.0117,
+        "r2": 0.9381,
+        "n_train": 41795,
+        "n_holdout": 10449
+      },
+      "NH4": {
+        "mae": 1.4059,
+        "rmse": 1.4886,
+        "r2": 0.8558,
+        "n_train": 41795,
+        "n_holdout": 10449
+      },
+      "TSS": {
+        "mae": 4.465,
+        "rmse": 10.6616,
+        "r2": 0.8916,
+        "n_train": 41795,
+        "n_holdout": 10449
+      },
+      "DO": {
+        "mae": 0.0106,
+        "rmse": 0.0189,
+        "r2": 0.5475,
+        "n_train": 41795,
+        "n_holdout": 10449
+      }
+    },
+    "hour": {
+      "Temperature": {
+        "mae": 0.0928,
+        "rmse": 0.1148,
+        "r2": 0.9024,
+        "n_train": 684,
+        "n_holdout": 171
+      },
+      "pH": {
+        "mae": 0.0189,
+        "rmse": 0.0234,
+        "r2": 0.733,
+        "n_train": 684,
+        "n_holdout": 171
+      },
+      "NH4": {
+        "mae": 1.5857,
+        "rmse": 1.7869,
+        "r2": 0.7838,
+        "n_train": 684,
+        "n_holdout": 171
+      },
+      "TSS": {
+        "mae": 14.707,
+        "rmse": 22.3708,
+        "r2": 0.4614,
+        "n_train": 684,
+        "n_holdout": 171
+      },
+      "DO": {
+        "mae": 0.0094,
+        "rmse": 0.0119,
+        "r2": 0.6592,
+        "n_train": 684,
+        "n_holdout": 171
+      }
+    },
+    "day": {
+      "Temperature": {
+        "mae": 0.3423,
+        "rmse": 0.3632,
+        "r2": -2.5128,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "pH": {
+        "mae": 0.0346,
+        "rmse": 0.0406,
+        "r2": -2.585,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "NH4": {
+        "mae": 3.2699,
+        "rmse": 4.326,
+        "r2": -1.3845,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "TSS": {
+        "mae": 26.0625,
+        "rmse": 35.4257,
+        "r2": -0.6233,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "DO": {
+        "mae": 0.0097,
+        "rmse": 0.0119,
+        "r2": -0.5244,
+        "n_train": 24,
+        "n_holdout": 6
+      }
+    }
+  },
+  "quangninh": {
+    "minute": {
+      "Temperature": {
+        "mae": 0.2405,
+        "rmse": 0.3995,
+        "r2": 0.9149,
+        "n_train": 10546,
+        "n_holdout": 2637
+      },
+      "pH": {
+        "mae": 0.0134,
+        "rmse": 0.0188,
+        "r2": 0.9374,
+        "n_train": 10546,
+        "n_holdout": 2637
+      },
+      "NH4": {
+        "mae": 6.777,
+        "rmse": 8.3343,
+        "r2": 0.0418,
+        "n_train": 10546,
+        "n_holdout": 2637
+      },
+      "TSS": {
+        "mae": 0.4957,
+        "rmse": 0.7087,
+        "r2": 0.9365,
+        "n_train": 10546,
+        "n_holdout": 2637
+      },
+      "DO": {
+        "mae": 0.0,
+        "rmse": 0.0,
+        "r2": -4150517359891080.5,
+        "n_train": 10546,
+        "n_holdout": 2637
+      }
+    },
+    "hour": {
+      "Temperature": {
+        "mae": 0.4619,
+        "rmse": 0.6869,
+        "r2": 0.6746,
+        "n_train": 663,
+        "n_holdout": 166
+      },
+      "pH": {
+        "mae": 0.0216,
+        "rmse": 0.0349,
+        "r2": 0.7028,
+        "n_train": 663,
+        "n_holdout": 166
+      },
+      "NH4": {
+        "mae": 2.4854,
+        "rmse": 3.2088,
+        "r2": 0.7917,
+        "n_train": 663,
+        "n_holdout": 166
+      },
+      "TSS": {
+        "mae": 1.4818,
+        "rmse": 2.1217,
+        "r2": 0.1678,
+        "n_train": 663,
+        "n_holdout": 166
+      },
+      "DO": {
+        "mae": 0.0,
+        "rmse": 0.0,
+        "r2": -3744488483526223.5,
+        "n_train": 663,
+        "n_holdout": 166
+      }
+    },
+    "day": {
+      "Temperature": {
+        "mae": 1.313,
+        "rmse": 1.3744,
+        "r2": -5.8635,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "pH": {
+        "mae": 0.0441,
+        "rmse": 0.0527,
+        "r2": 0.509,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "NH4": {
+        "mae": 7.274,
+        "rmse": 8.472,
+        "r2": 0.1452,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "TSS": {
+        "mae": 4.4445,
+        "rmse": 4.8682,
+        "r2": -6.4385,
+        "n_train": 24,
+        "n_holdout": 6
+      },
+      "DO": {
+        "mae": 0.0,
+        "rmse": 0.0,
+        "r2": 0.0,
+        "n_train": 24,
+        "n_holdout": 6
+      }
+    }
+  }
+}

@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-context_research}
+      POSTGRES_USER: ${POSTGRES_USER:-context_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    ports:
+      - "5434:5432"
+    volumes:
+      - context_postgres_v1:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-context_user} -d ${POSTGRES_DB:-context_research}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./backend-fastapi
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://context_user:change_me@postgres:5432/context_research}
+      CONTEXT_LATITUDE: ${CONTEXT_LATITUDE:-20.71894498573044}
+      CONTEXT_LONGITUDE: ${CONTEXT_LONGITUDE:-107.042635855355}
+      CONTEXT_STALE_MINUTES: ${CONTEXT_STALE_MINUTES:-90}
+      CONTEXT_BUFFER_M: ${CONTEXT_BUFFER_M:-5000}
+      GEBCO_RASTER_PATH: ${GEBCO_RASTER_PATH:-/gebco/gebco.tif}
+      COPERNICUS_BATHYMETRY_PATH: ${COPERNICUS_BATHYMETRY_PATH:-/workspace/data/depth/haiphong_copernicus_bathymetry_100m_202511.nc}
+      SENSOR_STALE_MINUTES: ${SENSOR_STALE_MINUTES:-10}
+      SENSOR_INGEST_TOKEN: ${SENSOR_INGEST_TOKEN:-}
+    ports:
+      - "8010:8000"
+    volumes:
+      - ../:/workspace:ro
+      - context_cache:/cache
+      - ${GEBCO_HOST_DIR:-./cache}:/gebco:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend-fastapi
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://context_user:change_me@postgres:5432/context_research}
+      CONTEXT_LATITUDE: ${CONTEXT_LATITUDE:-20.71894498573044}
+      CONTEXT_LONGITUDE: ${CONTEXT_LONGITUDE:-107.042635855355}
+      CONTEXT_SNAPSHOT_MINUTES: ${CONTEXT_SNAPSHOT_MINUTES:-30}
+      CONTEXT_STALE_MINUTES: ${CONTEXT_STALE_MINUTES:-90}
+      CONTEXT_BUFFER_M: ${CONTEXT_BUFFER_M:-5000}
+      COPERNICUS_USERNAME: ${COPERNICUS_USERNAME:-}
+      COPERNICUS_PASSWORD: ${COPERNICUS_PASSWORD:-}
+      COPERNICUS_PHYSICS_DATASET: ${COPERNICUS_PHYSICS_DATASET:-}
+      COPERNICUS_CURRENT_DATASET: ${COPERNICUS_CURRENT_DATASET:-}
+      COPERNICUS_SEA_LEVEL_DATASET: ${COPERNICUS_SEA_LEVEL_DATASET:-}
+      COPERNICUS_MLD_DATASET: ${COPERNICUS_MLD_DATASET:-}
+      COPERNICUS_WAVE_DATASET: ${COPERNICUS_WAVE_DATASET:-}
+      GEBCO_RASTER_PATH: ${GEBCO_RASTER_PATH:-/gebco/gebco.tif}
+      COPERNICUS_BATHYMETRY_PATH: ${COPERNICUS_BATHYMETRY_PATH:-/workspace/data/depth/haiphong_copernicus_bathymetry_100m_202511.nc}
+      GREENLAB_API_ENABLED: ${GREENLAB_API_ENABLED:-true}
+      GREENLAB_API_BASE_URL: ${GREENLAB_API_BASE_URL:-https://thegreenlab.xyz}
+      TK_DHTB: ${TK_DHTB:-}
+      MK_DHTB: ${MK_DHTB:-}
+      GREENLAB_STATION_SERIALS: ${GREENLAB_STATION_SERIALS:-06M26042804}
+      SENSOR_POLL_SECONDS: ${SENSOR_POLL_SECONDS:-60}
+      NH4_UNIT_SCALE: ${NH4_UNIT_SCALE:-0.001}
+    volumes:
+      - ../:/workspace:ro
+      - context_cache:/cache
+      - ${GEBCO_HOST_DIR:-./cache}:/gebco:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      VITE_CONTEXT_API_URL: http://localhost:8010/api/v1
+    ports:
+      - "8083:80"
+    depends_on:
+      - api
+
+volumes:
+  context_postgres_v1:
+  context_cache:

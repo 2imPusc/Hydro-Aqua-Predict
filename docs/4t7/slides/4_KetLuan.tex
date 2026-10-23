@@ -1,0 +1,17 @@
+\section{Kết luận}
+
+\begin{frame}{Kết luận}
+  \begin{itemize}
+    \item \textbf{Thời tiết quyết định độ mặn (Khi đủ dữ liệu):} Nếu hệ thống có đủ mẫu (Data-rich), các yếu tố Mưa/Gió cung cấp tín hiệu cực tốt giúp XGBoost đạt hiệu năng xuất sắc ($R^2 = 0.88$) ở Phase 1. Thuật toán tuyến tính (MICE) hoàn toàn thất bại.
+    \item \textbf{Cạm bẫy Phóng chiếu Không gian (Phase 2):} 
+      \begin{itemize}
+        \item Khi phóng chiếu từ 1 trạm gốc IoT (chỉ có 16 quý dữ liệu), tuyệt đối không lạm dụng việc thêm biến (như Thời tiết).
+        \item Hiện tượng \textbf{Overfitting} (Curse of Dimensionality) sẽ xảy ra, khiến mô hình học vẹt thời tiết cục bộ và mất khả năng tổng quát hóa sang trạm đích.
+      \end{itemize}
+    \item \textbf{Chiến lược Tối ưu:} 
+      \begin{itemize}
+        \item \textbf{Phase 1:} Dùng XGBoost + Thời tiết (Tận dụng sức mạnh phi tuyến).
+        \item \textbf{Phase 2:} Chỉ dùng mô hình Base (Kèm mã hóa chu kỳ thời gian) để bảo toàn tính ổn định khi nội suy xuyên không gian.
+      \end{itemize}
+  \end{itemize}
+\end{frame}

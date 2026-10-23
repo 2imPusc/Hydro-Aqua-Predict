@@ -1,0 +1,18 @@
+{
+  "version": "spatial-applicability-hp-p1-v1",
+  "scope": "research_shadow_only",
+  "source": "experiments/spatial_applicability.py; Hai Phong historical quarterly evaluation",
+  "water_mask": "map/water-polygons-split-4326/water_polygons.shp (OSM coastline water polygons, 2026-02-04)",
+  "candidates": [
+    {
+      "parameter": "Salinity",
+      "coverage_target": 0.9,
+      "inner_km": 5.0,
+      "outer_km": 10.0,
+      "gate_status": "shadow_candidate",
+      "reason": "Only P1 distance bin that passed both historical outer protocols under the 10 km research cap.",
+      "used_by_alerts": false,
+      "used_by_emergency": false
+    }
+  ]
+}

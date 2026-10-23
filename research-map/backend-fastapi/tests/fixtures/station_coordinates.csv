@@ -1,0 +1,15 @@
+Station,Station_Name,Lat,Lon
+NB1,"NB1 (anchor, from ingest/stations.yaml)",20.71894498573044,107.042635855355
+TEST01,Synthetic test station 01,20.66,107.05
+TEST02,Synthetic test station 02,20.66,107.12
+TEST03,Synthetic test station 03,20.66,107.19
+TEST04,Synthetic test station 04,20.72,106.98
+TEST05,Synthetic test station 05,20.72,107.05
+TEST06,Synthetic test station 06,20.72,107.12
+TEST07,Synthetic test station 07,20.72,107.19
+TEST08,Synthetic test station 08,20.78,106.98
+TEST09,Synthetic test station 09,20.78,107.05
+TEST10,Synthetic test station 10,20.78,107.12
+TEST11,Synthetic test station 11,20.78,107.19
+TEST12,Synthetic test station 12,20.84,106.98
+TEST13,Synthetic test station 13,20.84,107.05

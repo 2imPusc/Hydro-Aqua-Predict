@@ -1,0 +1,7 @@
+# Optional extras for experiments/ (not needed by core, app or tests).
+-r requirements.txt
+matplotlib
+seaborn
+optuna
+rasterio==1.4.3
+# Archive-only (heavy): torch, tabpfn — install manually if re-running experiments/archive/.

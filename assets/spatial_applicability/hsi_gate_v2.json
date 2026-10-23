@@ -1,0 +1,7 @@
+{
+  "version": "spatial-applicability-hsi-v2",
+  "scope": "research_shadow_only",
+  "distance_metric": "water_path",
+  "research_max_distance_km": 5.0,
+  "candidates": []
+}
