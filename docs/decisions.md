@@ -120,3 +120,10 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định (chủ dự án):** ngưỡng và hành động của các bậc cảnh báo được admin chỉnh ngay trong giao diện research-map (`#/settings/alerts`). Chưa làm tài khoản / phân quyền; thiết kế sau.
 - **Ngoại lệ:** API research-map vốn không ghi file nào; nay được ghi **duy nhất** vào `runtime/alert-config/`, mỗi lần lưu là một file phiên bản mới (tạo độc quyền, không ghi đè, không xóa). Mặc định nằm trong `config/alert_tiers.default.json` (theo dõi bằng git).
 - **Hệ quả:** mọi bản ghi cảnh báo shadow mang `config_version`; Docker cần mount ghi được riêng cho `runtime/alert-config/`. `MARINE_ENABLED` và task chạy tự động vẫn tắt cho tới khi chủ dự án bật. Hợp đồng: `docs/superpowers/plans/2026-10-23-phase1-parallel.md`.
+
+## #21 — 2026-10-24 · Độ sâu mặc định: GEBCO 2024 (thay #19), ETOPO để so sánh
+
+- **Quyết định:** lớp độ sâu mặc định của research-map dùng GEBCO 2024 15″ kèm lớp TID (đo trực tiếp / nội suy). ETOPO 2022 giữ làm lớp so sánh, tắt mặc định. SDB vẫn chỉ là lớp bãi triều, không lấp chỗ trống.
+- **Lý do:** GEBCO không có các hố sâu sai của ETOPO ở Cửa Lục, Vân Đồn; TID cho biết ô nào được đo.
+- **Hệ quả:** chú giải ghi "~97 % ô là nội suy", datum MSL, "không dùng cho hàng hải", ghi công GEBCO Compilation Group (2024). Thư viện tùy chọn cho dữ liệu nguy cơ (`eccodes`, `copernicusmarine`) nằm trong `requirements-hazards.txt`, không bắt buộc cho core/test.
+

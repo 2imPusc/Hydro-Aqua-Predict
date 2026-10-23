@@ -565,3 +565,38 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Hạn chế:** chưa có đo sóng/gió/dòng tại lồng; công thức SPM ngoại suy ở cấp 10–12, không tính sóng lừng; đường cong chắn gió 2-D cho núi đá vôi 3-D; kết quả nhạy với vị trí vài trăm mét (NB16 dịch 884 m vào mặt nước OSM); `stations.json` của run này còn 7 giá trị NaN (code đã sửa cho lần sau).
 - **Tài liệu:** `docs/eval/2026-10-23-site-exposure.md`.
 
+## RL-40 · 2026-10-24 · Cảnh báo shadow theo trạm, cấu hình bậc do admin chỉnh
+
+- **Thiết lập (Đợt 0–2, kế hoạch `docs/superpowers/plans/2026-10-23-phase1-parallel.md`):** cấu hình mặc định `config/alert_tiers.default.json`; phiên bản admin ghi thêm vào `runtime/alert-config/` (decisions #20); `core/alert_config.py` (kiểm tra hợp lệ, khóa cấu trúc: chỉ sửa ngưỡng, hành động, số ngày kéo dài, ghi đè theo lớp vị trí / trạm); API `/api/v1/admin/alert-config*`; trang `#/settings/alerts`. `core/hazard_runner.py` tạo bản ghi shadow theo trạm cho gió bão, sóng (theo đà gió), nắng nóng, rét, nguy cơ dịch bệnh; điều kiện "kéo dài N ngày" dùng cả ngày quan trắc (sensor NB1, nếu không có thì Open-Meteo marine các ngày trước). Gọi từ `shadow_runner` qua cờ `HAZARD_RUNNER_ENABLED` (mặc định tắt).
+- **Phát lại** (`hazard-replay-20261023`, `-20261024`; dữ liệu tái phân tích dùng như dự báo, chỉ kiểm logic): Yagi — gió tại lồng bậc tối đa 2 ở NB1, NB25, NB27, NB28; sóng bậc 3 ở NB4; các trạm kín ở bậc 0–1. Hè 2026: nắng nóng bậc 1 trong 47/77 ngày (Open-Meteo marine), bậc 2 (≥ 33 °C ≥ 3 ngày) không bao giờ đạt kể cả khi có ngày quan trắc (sensor cao nhất 31.99 °C).
+- **Sửa mặc định:** cấu hình rét bị ngược (bậc 3 không cần kéo dài, bậc 2 cần 14 ngày) → bậc 2/3 đều cần 3 ngày.
+- **Hạn chế:** chưa chạy thật (cờ tắt, chưa có task); ngưỡng 33 °C có thể quá cao cho vùng này (admin chỉnh được); nhiệt độ gieo từ sensor lồng, ngày dự báo là SST thô.
+
+## RL-41 · 2026-10-24 · Theo dõi bão thời gian thực từ ECMWF Open Data
+
+- **Thiết lập:** `core/storm_tracks.py`, `experiments/ecmwf_opendata.py`; file quỹ đạo BUFR ENS (51 thành viên) và HRES từ data.ecmwf.int (CC BY 4.0, giữ ~4 ngày), đọc bằng `eccodes` (`requirements-hazards.txt`). Gộp bản trùng `7xX` vào bão đã quan sát (cùng thành viên, bắt đầu ≤ 300 km); bão mới hình thành tính riêng, không đặt bậc.
+- **Kết quả:** lần chạy 2026-10-23 00 UTC không có bão gần NB1 (CHAMPI cách ~1600 km, đi lên đông bắc); 14 trạm bậc 0. Đối chiếu TIGGE: 414/414 cặp (lần chạy, bão) cho cùng xác suất; Yagi 2024-09-03 00Z: P(≤ 200 km, 120 h) 0.882, P(≤ 500 km) 1.0.
+- **Tiếp theo:** task chạy 6 giờ/lần (cần chủ dự án đồng ý); lỗi tải / giải mã ghi bản ghi bỏ qua có lý do.
+
+## RL-42 · 2026-10-24 · Bằng chứng dịch bệnh từ nguồn công khai
+
+- **Kết quả:** `experiments/disease_events.csv` thêm 6 sự kiện (tổng 12; 3 có tên mầm bệnh, chỉ Cái Chiên 2025 có xét nghiệm). Sổ nguồn `docs/references/disease-sources.md`. Chạy lại `disease-hindcast-20261024`: 8/11 so với kỳ vọng khí hậu 0.789 → vẫn `no_skill_over_climatology`, nay vững với ±1 °C; 3 lần bỏ sót đều là đợt rét/giao mùa và thành phần rét đều bắt được.
+- **Ghi chú quy trình:** agent đã xóa 5 bản sao trang vừa tải nhầm trong `data/references/disease/` (ngoại lệ thứ ba với quy tắc ghi một lần; không ảnh hưởng file cũ).
+
+## RL-43 · 2026-10-24 · TCVN 13997:2024 và tiêu chuẩn lồng nuôi
+
+- **Kết quả:** TCVN 13997:2024 "Lồng tròn HDPE nuôi cá biển quy mô công nghiệp — Yêu cầu kỹ thuật": phạm vi (độ sâu ≥ 20 m, dòng > 0.3 m/s, đường kính 10–40 m) và vài thông số dây/phao từ bản tóm tắt; văn bản đầy đủ phải mua, không vượt tường phí. NS 9415 (qua FAO TP 593): lớp sóng Hs 0.5/1/2/3 m — **trùng các bậc sóng mặc định**; lớp dòng 0.3/0.5/1.0/1.5 m/s. Không tiêu chuẩn đọc được nào có ngưỡng gió cho lồng. Sổ: `docs/references/cage-standards.md`.
+
+## RL-44 · 2026-10-24 · Copernicus Marine tại các trạm (GLORYS12, GLO12, MFWAM)
+
+- **Kết quả** (`cmems-sites-20261024c`): nhiệt độ so với sensor (101 ngày): GLORYS12 0.49 m bias +0.39, MAE 0.65, r 0.72, POD ≥ 31 °C 0.86, FAR 0.40 (tốt nhất); GLO12 nóng hơn ~1 °C. Độ mặn GLORYS12 không xuống dưới 28.2 psu (1993–2026); Vân Đồn 10/2025 là tháng 10 thấp nhất trong chuỗi (−2.6 psu so với khí hậu) nhưng không thấy mức 20 psu đã báo. Sóng MFWAM Yagi 2.4–3.1 m (cận ngoài khơi). Không có sản phẩm khu vực cho vịnh Bắc Bộ.
+- **Đề xuất:** yếu tố độ mặn trong chỉ số dịch bệnh dùng độ lệch so với khí hậu từng ô, không dùng ngưỡng tuyệt đối.
+
+## RL-45 · 2026-10-24 · GEBCO 2024 so với ETOPO 2022
+
+- **Kết quả:** GEBCO 2024 (15″, kèm lớp TID) không có các hố sâu sai của ETOPO (Cửa Lục 45 → 6 m, Vân Đồn 72 → 10 m); vịnh nông sâu hơn (Hạ Long trung vị 11 vs 5 m); chỉ 2.7 % ô có đo trực tiếp (TID 10–17). Đề xuất GEBCO làm mặc định (decisions #21). Tài liệu: `docs/eval/2026-10-24-gebco-vs-etopo.md`.
+
+## RL-46 · 2026-10-24 · Bản đồ: phơi nhiễm theo trạm, trạm cũ, H3 mượt
+
+- **Kết quả:** lớp phơi nhiễm (hoa hướng 16 hướng, Hs ≥ 1 m) từ `site-exposure-20261023`; điểm trạm chuyển xám gạch chéo khi khuyến nghị cũ > 90 phút (hard rule 4); H3 vẽ thành bề mặt nội suy kèm ghi chú lưới (VN ~9 km); bố cục máy tính bảng thu gọn bảng bên.
+
