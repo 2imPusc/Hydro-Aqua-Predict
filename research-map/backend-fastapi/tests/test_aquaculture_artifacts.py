@@ -20,3 +20,11 @@ def test_worker_builds_compact_live_and_mock_artifacts(tmp_path: Path):
     assert live["features"][0]["properties"]["used_by_models"] is False
     assert mock["features"][0]["properties"]["severity"] == "WATCH"
     assert mock["source"]["sensor"] == "deterministic_demo"
+
+
+def test_species_names_are_utf8_vietnamese_not_mojibake():
+    from app.aquaculture_artifacts import AQUACULTURE_THRESHOLDS
+    assert AQUACULTURE_THRESHOLDS["cobia"]["name"] == "Cá giò"
+    assert AQUACULTURE_THRESHOLDS["oyster"]["name"] == "Hàu"
+    raw = (Path(__file__).parents[1] / "app" / "aquaculture_artifacts.py").read_bytes().decode("utf-8")
+    assert "Ã" not in raw

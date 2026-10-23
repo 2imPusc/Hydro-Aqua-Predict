@@ -12,6 +12,9 @@ Không có gì ở đây phát cảnh báo hay khuyến nghị tới người nu
   - `#/zoning` H3 · bản đồ phù hợp nuôi trồng VN / HK, biến thể `N1_W_SUM` | `A_W_SUM`.
   - `#/reliability` H4 · độ tin cậy ngoại suy không gian: lớp chế độ mặn VN và kiểm chứng
     trên bộ dữ liệu nước ngoài (`#/reliability/foreign/<id>`).
+- **Cảnh báo theo trạm** (`#/alerts`): sổ shadow `runtime/hazard-shadow/hazard_*.jsonl` (`core/hazard_runner.py`,
+  `experiments/ecmwf_opendata.py`); lý thuyết, không gửi thông báo. **Cấu hình cảnh báo** (`#/settings/alerts`):
+  admin chỉnh ngưỡng / hành động, mỗi lần lưu là một phiên bản mới (decisions #20, chưa có phân quyền).
 
 Thiết kế/tiến trình: [`docs/superpowers/plans/2026-10-17-research-map-redesign.md`](../docs/superpowers/plans/2026-10-17-research-map-redesign.md),
 lộ trình cũ: [`docs/guide/23-research-map-implementation-roadmap.md`](../docs/guide/23-research-map-implementation-roadmap.md).
@@ -89,6 +92,11 @@ Nghiên cứu (`/api/v1/research`, chỉ đọc file):
 
 Khi thiếu export hay file, endpoint trả `{"status":"unavailable","reason":...}` thay vì lỗi.
 
+Cảnh báo shadow: `GET /api/v1/research/hazards/stations` (bậc hiện tại + 5 khối 24 h theo trạm; `date` = ngày địa
+phương có 12:00 nằm trong khối), `/research/storms/active` (ECMWF Open Data ENS). Cấu hình (`/api/v1/admin`, chưa
+có phân quyền): `GET /alert-config`, `/alert-config/versions`, `/alert-config/versions/{v}`,
+`POST /alert-config/preview` (không ghi), `POST /alert-config` (body ≤ 256 KB; 201 / 422 / 503 khi thư mục không ghi được).
+
 ## Nguồn dữ liệu và giấy phép
 
 - **Maryland DNR (Chesapeake, Eyes on the Bay)**: chính sách không cho phát tán lại dữ liệu thô — chỉ xuất
@@ -99,12 +107,20 @@ Khi thiếu export hay file, endpoint trả `{"status":"unavailable","reason":..
   SECOORA ERDDAP): dữ liệu công khai; ghi công đầy đủ hiển thị trên từng thẻ bộ dữ liệu.
 - Context môi trường: Open-Meteo (lưới mẫu ~1 km, mô hình dòng chảy ~8 km — không tăng độ phân giải thật);
   Copernicus / GEBCO chỉ hiện khi đã cấu hình, không bao giờ lấy giá trị từ nguồn khác bù vào.
-- Độ sâu: **ETOPO 2022 15″** (~460 m, so với geoid EGM2008 ≈ mực nước TB, không phải số 0 hải đồ) cho cả
-  Cát Bà – Hạ Long – Bái Tử Long; tải một lần bằng `python scripts/download_etopo2022_bathymetry.py`
-  (`data/depth/etopo2022-20261023/`, write-once). Worker dựng isoband/isobath/cờ tin cậy vào
-  `cache/bathymetry-etopo/<key>/` (hoặc `python -m app.bathymetry_etopo`); API `/bathymetry/etopo/manifest|isobands|isobaths|flags`.
-  Copernicus SDB 100 m chỉ còn là lớp "bãi triều" (gần như không có pixel quanh Cát Bà / Hạ Long).
-  Đánh giá: [`docs/eval/2026-10-23-bathymetry-map.md`](../docs/eval/2026-10-23-bathymetry-map.md).
+- Độ sâu mặc định: **GEBCO 2024 15″** (~460 m, so với mực nước TB, không phải số 0 hải đồ; không dùng cho hàng hải)
+  kèm lưới **TID** nên mỗi isoband có `confidence` = `direct` (TID 10–17, đo trực tiếp; vẽ đậm) | `indirect`
+  (TID 40–45, nội suy/dự đoán) | `unknown` | `coarse` | `suspect` (mờ, viền đứt). Trong vùng chỉ ~3 % ô là đo trực tiếp,
+  ~97 % là nội suy. Tải một lần bằng `python scripts/download_gebco2024_bathymetry.py`
+  (`data/depth/gebco2024-20261023/gebco2024_15s_hp_qn.nc`, write-once; đổi đường dẫn bằng `GEBCO_BATHYMETRY_PATH`).
+  Worker dựng artifact vào `cache/bathymetry-gebco/<key>/` (hoặc `python -m app.bathymetry_gebco`); lỗi chỉ ghi log,
+  API trả `building` / `unavailable`. API `/bathymetry/gebco/manifest|isobands|isobaths|flags?lod=`;
+  `/bathymetry/sample` có khoá `gebco` (độ sâu + lớp TID) bên cạnh `etopo`. GEBCO không bao giờ lấp chỗ trống của SDB.
+  Ghi công: GEBCO Compilation Group (2024) GEBCO 2024 Grid.
+- **ETOPO 2022 15″** vẫn còn như lớp so sánh (tắt mặc định, bật "So sánh: ETOPO 2022" trong Độ sâu):
+  `data/depth/etopo2022-20261023/`, `cache/bathymetry-etopo/<key>/`, API `/bathymetry/etopo/...`. Có hố sâu giả ở Cửa Lục / Vân Đồn
+  (cờ `suspect`). Copernicus SDB 100 m chỉ còn là lớp "bãi triều" (gần như không có pixel quanh Cát Bà / Hạ Long).
+  Đánh giá: [`docs/eval/2026-10-23-bathymetry-map.md`](../docs/eval/2026-10-23-bathymetry-map.md),
+  [`docs/eval/2026-10-24-gebco-vs-etopo.md`](../docs/eval/2026-10-24-gebco-vs-etopo.md).
 - Dữ liệu cảm biến GreenLab là append-only; đơn vị NH4 vẫn chờ xác nhận nhà cung cấp.
 
 Credit/licence của từng bộ nằm trong `FOREIGN` của `scripts/export_research_map_artifacts.py` (lấy từ
@@ -128,4 +144,5 @@ riêng cho `[data-theme="dark"]`. Dữ liệu mock luôn mang tông `--mock` và
 - Database riêng `context_research`; worker lưu snapshot bất biến mỗi 30 phút và bảng `sensor_observations`
   append-only (insert idempotent, không ghi đè). Lỗi provider giữ giá trị tốt cuối và hiện là `stale`.
 - `stale` = đang phục vụ snapshot cũ quá hạn, không phải giá trị hiện tại.
-- API không bao giờ ghi vào `artifacts/`, `runtime/` hay `data/`.
+- API không bao giờ ghi vào `artifacts/`, `runtime/` hay `data/`, trừ một ngoại lệ (decisions #20): tạo file phiên bản
+  mới (tạo độc quyền, không ghi đè, không xóa) trong `runtime/alert-config/`. Docker mount riêng thư mục này ghi được.

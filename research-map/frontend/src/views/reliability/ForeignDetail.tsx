@@ -190,7 +190,7 @@ export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
                 <p className="m-0"><span className="font-semibold">Giấy phép:</span> {detail.licence}</p>
                 {!detail.redistributable && <p className="m-0">Chỉ hiển thị thống kê tổng hợp theo cặp/bán kính; không có chuỗi số liệu thô.</p>}
                 <p className="m-0">{detail.region} · {detail.country} · {detail.period} · {detail.climate} {detail.research_log && <RefChips refs={[detail.research_log]} />}</p>
-                <p className="m-0 text-[11.5px] text-fg-subtle">Run nguồn <span className="font-mono">{detail.source_run}</span> · export {detail.export_version}{detail.stations?.regime_class_rule ? ` · ${detail.stations.regime_class_rule}` : ''}</p>
+                <p className="m-0 text-[11.5px] text-fg-subtle">Lần chạy <span className="font-mono">{detail.source_run}</span> · bản xuất {detail.export_version}{detail.stations?.regime_class_rule ? ` · ${detail.stations.regime_class_rule}` : ''}</p>
               </Disclosure>
             </div>
           </>

@@ -46,7 +46,7 @@ export function TopBarStatus() {
     : { tone: 'danger' as Tone, label: 'Live · không có cảm biến', title: 'Chế độ live nhưng không có dữ liệu cảm biến' }
 
   const sensorTitle = `Cảm biến: ${stateMeta(sensorState).label}${sensorAge != null ? ` (${formatAge(sensorAge)})` : ''} · trạm ${pilotStation}${sensor?.latest_observed_at ? ` · đo lúc ${new Date(sensor.latest_observed_at).toLocaleString('vi-VN')}` : ''}${sensor?.reason ? ` · ${researchReason(sensor.reason)}` : ''}`
-  const contextTitle = `Context: ${stateMeta(contextState).label}${contextAge != null ? ` (${formatAge(contextAge)})` : ''}${context?.snapshot_id ? ` · snapshot ${context.snapshot_id.slice(0, 8)}` : context?.reason ? ` · ${researchReason(context.reason)}` : ''}`
+  const contextTitle = `Thời tiết vùng (bản tin context): ${stateMeta(contextState).label}${contextAge != null ? ` (${formatAge(contextAge)})` : ''}${context?.snapshot_id ? ` · snapshot ${context.snapshot_id.slice(0, 8)}` : context?.reason ? ` · ${researchReason(context.reason)}` : ''}`
   const worst = [stateMeta(sensorState).tone, stateMeta(contextState).tone, modeChip.tone].sort((a, b) => RANK[b] - RANK[a])[0]
   const summaryLabel = mode === 'mock' ? 'Mô phỏng' : worst === 'danger' ? 'Thiếu dữ liệu' : worst === 'warn' ? 'Dữ liệu cũ' : sensorState === 'loading' ? 'Đang tải' : 'Trực tiếp'
   const summaryTitle = [offline ? describeApiError(status.error) : null, sensorTitle, contextTitle, modeChip.label].filter(Boolean).join(' · ')
@@ -63,7 +63,7 @@ export function TopBarStatus() {
           </Chip>
         )}
         <StateChip prefix="Cảm biến" state={sensorState} suffix={sensorAge != null ? formatAge(sensorAge) : undefined} title={sensorTitle} />
-        <span className="hidden lg:inline-flex"><StateChip prefix="Context" state={contextState} suffix={contextAge != null ? formatAge(contextAge) : undefined} title={contextTitle} /></span>
+        <span className="hidden lg:inline-flex"><StateChip prefix="Thời tiết vùng" state={contextState} suffix={contextAge != null ? formatAge(contextAge) : undefined} title={contextTitle} /></span>
         {data && (
           <span className="hidden 2xl:inline-flex">
             <Chip tone={exportVersion ? 'neutral' : 'warn'} icon={<Archive size={12} />} title={exportVersion ? 'Bản export nghiên cứu đang dùng (artifacts/research-map/)' : researchReason('research_export_missing')}>

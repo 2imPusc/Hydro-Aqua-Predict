@@ -194,8 +194,8 @@ export function LiveShadow({ poll }: { poll: PollState<LongForecast> }) {
           {data.ledger_state !== 'active' && (
             <p className="m-0 flex items-start gap-2 text-[13px] text-fg">
               <Layers3 size={15} className="mt-0.5 flex-none text-info" aria-hidden />
-              <span>{data.ledger_state === 'empty' ? 'Sổ ghi đang rỗng' : 'Runner chưa ghi bản dự báo dài hạn nào'}: không hiển thị số cũ hay giả lập.
-                <span className="text-fg-muted"> {activeBundles} bundle đã cấu hình sẽ hiện số khi runner bắt đầu ghi.</span></span>
+              <span>{data.ledger_state === 'empty' ? 'Sổ ghi đang rỗng' : 'Bộ chạy shadow chưa ghi bản dự báo dài hạn nào'}: không hiển thị số cũ hay giả lập.
+                <span className="text-fg-muted"> {activeBundles} mô hình đã cấu hình sẽ hiện số khi bộ chạy bắt đầu ghi.</span></span>
             </p>
           )}
 
@@ -208,14 +208,14 @@ export function LiveShadow({ poll }: { poll: PollState<LongForecast> }) {
 
           <div className="flex flex-col gap-1.5">
             {data.ledger_state !== 'active' && groups.length > 0 && (
-              <Disclosure summary="Đội hình đã cấu hình" hint={`(${activeBundles} bundle)`}>
+              <Disclosure summary="Đội hình đã cấu hình" hint={`(${activeBundles} mô hình)`}>
                 <p className="m-0">Có pH = shadow chính, không pH = shadow song song (A1).</p>
                 <LineupTable bundles={data.bundles ?? []} />
               </Disclosure>
             )}
             {!groups.length && data.ledger_state !== 'active' && <p className="m-0 text-[12px] text-fg-subtle">Không đọc được manifest mô hình: không có đội hình để hiển thị.</p>}
             {(data.withdrawn?.length ?? 0) > 0 && (
-              <Disclosure summary="Bundle pH đã rút" hint={`(${data.withdrawn!.length})`}><Withdrawn data={data} /></Disclosure>
+              <Disclosure summary="Mô hình pH đã rút" hint={`(${data.withdrawn!.length})`}><Withdrawn data={data} /></Disclosure>
             )}
             {data.ledger_state === 'active' && (
               <Disclosure summary="Chấm điểm trực tiếp" hint={`(${data.scoring?.length ?? 0})`}><Scoring data={data} /></Disclosure>

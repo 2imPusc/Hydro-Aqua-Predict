@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import L from 'leaflet'
 import { FlaskConical, Target } from 'lucide-react'
 import { getSuitability, getResearchOverview } from '../../api/research'
 import { CiBar } from '../../components/charts'
-import { CanvasLayer, ResearchMap, boxOfPoints, squareBounds, type LonLatBox } from '../../components/map/ResearchMap'
+import { useMap } from 'react-leaflet'
+import { CanvasLayer, ResearchMap, boxOfPoints, type LonLatBox } from '../../components/map/ResearchMap'
+import { SmoothCellField, type FieldCell } from '../../components/map/overlays/SmoothCellField'
 import { escapeHtml } from '../../components/map/mapConfig'
 import { Chip, Disclosure, GradientLegend, Segmented, Skeleton, Toggle, type VerdictStatus } from '../../components/ui'
 import type { Theme } from '../../hooks/useTheme'
@@ -14,6 +16,26 @@ import { FindingList, RefChips, Unavailable, useResearch } from '../shared/resea
 import { MapPanel, MapVerdict, mapInset, mapPanelStyle, useNarrow } from '../shared/MapPanel'
 
 const PANEL_W = 360
+/** Tablets (768–1024 px): a narrower side panel so the map keeps most of the width. */
+const PANEL_W_TABLET = 268
+const TABLET = '(min-width: 768px) and (max-width: 1024px)'
+function useTablet(): boolean {
+  const [tablet, setTablet] = useState(() => typeof window !== 'undefined' && window.matchMedia(TABLET).matches)
+  useEffect(() => {
+    const query = window.matchMedia(TABLET)
+    const onChange = () => setTablet(query.matches)
+    query.addEventListener('change', onChange)
+    return () => query.removeEventListener('change', onChange)
+  }, [])
+  return tablet
+}
+
+const hexRgb = (hex: string): [number, number, number] => {
+  const value = parseInt(hex.slice(1), 16)
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+}
+/** "0,083° (~9 km)" for the resolution note. */
+export const cellSizeLabel = (deg: number) => `${deg.toFixed(3).replace('.', ',')}° (~${Math.round(deg * 111)} km)`
 const VARIANT_LABEL: Record<SuitabilityVariant, string> = { A_W_SUM: 'Ghaderi (xa bờ)', N1_W_SUM: 'Gần bờ (N1)' }
 const LAYER_LABEL: Record<string, string> = {
   SWH: 'Sóng (SWH)', SCS: 'Dòng chảy', SCS_near: 'Dòng chảy (gần bờ)', SST: 'Nhiệt độ mặt', CSCD: 'Chl-a', WS: 'Gió', DEP: 'Độ sâu',
@@ -27,18 +49,23 @@ function cellPopup(props: { id: string; score: number | null; percentile: number
 }
 
 function SuitabilityLayers({ data, theme, showFarms, range }: { data: Suitability; theme: Theme; showFarms: boolean; range: [number, number] }) {
+  const map = useMap()
   const size = data.cells?.cell_size_deg ?? 0.05
   const variant = data.variant ?? 'N1_W_SUM'
+  const features = useMemo(() => data.cells?.features ?? [], [data.cells])
+  const cells = useMemo<FieldCell[]>(() => features.map(feature => {
+    const [lon, lat] = feature.geometry.coordinates as [number, number]
+    return { lon, lat, value: feature.properties.score }
+  }), [features])
+  const color = useCallback((score: number) => hexRgb(sequentialColor((score - range[0]) / (range[1] - range[0] || 1), theme)), [range, theme])
+  const onCellClick = useCallback((index: number, latlng: L.LatLng) => {
+    const feature = features[index]
+    if (feature) L.popup({ maxWidth: 260 }).setLatLng(latlng).setContent(cellPopup(feature.properties, variant)).openOn(map)
+  }, [features, map, variant])
   return (
     <>
-      <CanvasLayer deps={[data, theme, range[0], range[1]]} build={renderer => (data.cells?.features ?? []).map(feature => {
-        const [lon, lat] = feature.geometry.coordinates as [number, number]
-        const score = feature.properties.score
-        return L.rectangle(squareBounds(lon, lat, size), {
-          renderer, weight: 0.5, color: theme === 'dark' ? '#0a1220' : '#ffffff', opacity: 0.6,
-          fillColor: score == null ? '#98a2b3' : sequentialColor((score - range[0]) / (range[1] - range[0] || 1), theme), fillOpacity: 0.78,
-        }).bindPopup(cellPopup(feature.properties, variant), { maxWidth: 260 })
-      })} />
+      <SmoothCellField cells={cells} cellSizeDeg={size} color={color} onCellClick={onCellClick}
+        dataKey={`${data.region}-${data.variant}-${data.export_version}-${theme}-${range[0]}-${range[1]}`} />
       {showFarms && (
         <CanvasLayer deps={[data.farms, theme]} build={renderer => L.geoJSON(data.farms, {
           pointToLayer: (_feature, latlng) => L.circleMarker(latlng, { renderer, radius: 5, weight: 2, color: theme === 'dark' ? '#fde68a' : '#7a2e0e', fillColor: theme === 'dark' ? '#0a1220' : '#ffffff', fillOpacity: 0.9 }),
@@ -67,6 +94,8 @@ export default function ZoningView({ theme }: { theme: Theme }) {
   const [variant, setVariant] = useState<SuitabilityVariant>('N1_W_SUM')
   const [showFarms, setShowFarms] = useState(true)
   const narrow = useNarrow()
+  const tablet = useTablet()
+  const panelWidth = tablet ? PANEL_W_TABLET : PANEL_W
   const ghaderi = useResearch(signal => getSuitability('A_W_SUM', region, signal), [region], { keepPreviousData: false })
   const nearshore = useResearch(signal => getSuitability('N1_W_SUM', region, signal), [region], { keepPreviousData: false })
   const overview = useResearch(getResearchOverview)
@@ -101,13 +130,13 @@ export default function ZoningView({ theme }: { theme: Theme }) {
   )
 
   return (
-    <div className="map-with-panel absolute inset-0 overflow-hidden" style={mapPanelStyle(narrow, PANEL_W)}>
-      <ResearchMap theme={theme} box={box} inset={mapInset(narrow, PANEL_W)} ariaLabel="Bản đồ phù hợp nuôi trồng (nghiên cứu)">
+    <div className="map-with-panel absolute inset-0 overflow-hidden" style={mapPanelStyle(narrow, panelWidth)}>
+      <ResearchMap theme={theme} box={box} inset={mapInset(narrow, panelWidth)} ariaLabel="Bản đồ phù hợp nuôi trồng (nghiên cứu)">
         {data && scoreRange && <SuitabilityLayers data={data} theme={theme} showFarms={showFarms} range={scoreRange} />}
       </ResearchMap>
       {poll.status === 'loading' && <span className="glass absolute left-3 top-3 z-[800] rounded-[var(--radius-md)] px-3 py-1.5 text-[12px] text-fg-muted">Đang tải lớp…</span>}
 
-      <MapPanel label="Điều khiển và kết quả phân vùng" header={header} width={PANEL_W}>
+      <MapPanel label="Điều khiển và kết quả phân vùng" header={header} width={panelWidth}>
         <div className="grid gap-2">
           <Segmented label="Vùng" value={region} onChange={setRegion} options={[{ value: 'vn', label: 'Hải Phòng + QN' }, { value: 'hk', label: 'Hong Kong' }]} />
           <Segmented label="Bộ tiêu chí" value={variant} onChange={setVariant} options={[{ value: 'N1_W_SUM', label: 'Gần bờ' }, { value: 'A_W_SUM', label: 'Ghaderi (xa bờ)' }]} />
@@ -118,7 +147,9 @@ export default function ZoningView({ theme }: { theme: Theme }) {
         <div className="rounded-[var(--radius-md)] border border-line bg-surface p-3">
           <GradientLegend title="Điểm phù hợp (thấp → cao)" gradient={sequentialGradient(theme)}
             ticks={scoreRange ? [0, 0.5, 1].map(t => num(scoreRange[0] + t * (scoreRange[1] - scoreRange[0]), 2)) : ['—']}
-            note="Cùng thang cho cả hai bộ tiêu chí. Bấm một ô để xem điểm từng lớp." />
+            note={<>Cùng thang cho cả hai bộ tiêu chí. Bấm vào vùng màu để xem điểm từng lớp.<br />
+              Lưới mô hình {data?.cells?.cell_size_deg ? cellSizeLabel(data.cells.cell_size_deg) : '—'}: tô mượt giữa tâm ô, không thêm chi tiết.
+              Biên theo phạm vi ô lưới, không theo đường bờ, nên có chỗ tràn lên đất.</>} />
           <div className="mt-2 flex items-center gap-2 text-[12px] text-fg-muted">
             <svg width="14" height="14" aria-hidden><circle cx="7" cy="7" r="4.5" fill="var(--surface)" stroke={theme === 'dark' ? '#fde68a' : '#7a2e0e'} strokeWidth="2" /></svg>
             Vùng nuôi thật {region === 'hk' ? '(đa giác AFCD)' : '(điểm OSM)'}
@@ -151,7 +182,7 @@ export default function ZoningView({ theme }: { theme: Theme }) {
             <p className="m-0">Bản đồ nháp nghiên cứu: xếp hạng rất nhạy với lựa chọn tiêu chí; không dùng để cấp phép hay khuyến cáo vị trí nuôi.</p>
             <p className="m-0 text-[11.5px] text-fg-subtle">
               <Target size={11} className="mr-1 inline align-[-1px]" aria-hidden />
-              Bộ đang xem {layerRange ? `${num(layerRange[0], 2)}–${num(layerRange[1], 2)}` : '—'} · ô {data.cells?.cell_size_deg ? `${(data.cells.cell_size_deg * 60).toFixed(0)}′` : '—'} · {data.cells?.features.length ?? 0} ô · run <span className="font-mono">{data.source_run}</span> · export {data.export_version}
+              Bộ đang xem {layerRange ? `${num(layerRange[0], 2)}–${num(layerRange[1], 2)}` : '—'} · ô {data.cells?.cell_size_deg ? `${(data.cells.cell_size_deg * 60).toFixed(0)}′` : '—'} · {data.cells?.features.length ?? 0} ô · lần chạy <span className="font-mono">{data.source_run}</span> · bản xuất {data.export_version}
             </p>
           </Disclosure>
         )}

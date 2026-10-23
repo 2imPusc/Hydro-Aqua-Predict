@@ -114,3 +114,22 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Lý do:** SDB không có dữ liệu ở Cát Bà / Hạ Long; ETOPO phủ đều nhưng thô và có lỗi nguồn ở vài cửa sông.
 - **Hệ quả:** chú giải ghi lưới, datum (EGM2008) và "không dùng cho hàng hải". Nâng cấp tiếp theo: GEBCO 2024 (kèm TID) hoặc hải đồ / đo sâu tại lồng.
 
+
+## #20 — 2026-10-23 · Bậc cảnh báo do admin cấu hình; ngoại lệ ghi duy nhất của API
+
+- **Quyết định (chủ dự án):** ngưỡng và hành động của các bậc cảnh báo được admin chỉnh ngay trong giao diện research-map (`#/settings/alerts`). Chưa làm tài khoản / phân quyền; thiết kế sau.
+- **Ngoại lệ:** API research-map vốn không ghi file nào; nay được ghi **duy nhất** vào `runtime/alert-config/`, mỗi lần lưu là một file phiên bản mới (tạo độc quyền, không ghi đè, không xóa). Mặc định nằm trong `config/alert_tiers.default.json` (theo dõi bằng git).
+- **Hệ quả:** mọi bản ghi cảnh báo shadow mang `config_version`; Docker cần mount ghi được riêng cho `runtime/alert-config/`. `MARINE_ENABLED` và task chạy tự động vẫn tắt cho tới khi chủ dự án bật. Hợp đồng: `docs/superpowers/plans/2026-10-23-phase1-parallel.md`.
+
+## #21 — 2026-10-24 · Độ sâu mặc định: GEBCO 2024 (thay #19), ETOPO để so sánh
+
+- **Quyết định:** lớp độ sâu mặc định của research-map dùng GEBCO 2024 15″ kèm lớp TID (đo trực tiếp / nội suy). ETOPO 2022 giữ làm lớp so sánh, tắt mặc định. SDB vẫn chỉ là lớp bãi triều, không lấp chỗ trống.
+- **Lý do:** GEBCO không có các hố sâu sai của ETOPO ở Cửa Lục, Vân Đồn; TID cho biết ô nào được đo.
+- **Hệ quả:** chú giải ghi "~97 % ô là nội suy", datum MSL, "không dùng cho hàng hải", ghi công GEBCO Compilation Group (2024). Thư viện tùy chọn cho dữ liệu nguy cơ (`eccodes`, `copernicusmarine`) nằm trong `requirements-hazards.txt`, không bắt buộc cho core/test.
+
+
+## #22 — 2026-10-24 · Ngưỡng mặc định nguy cơ dịch bệnh 0.85 / 0.95
+
+- **Quyết định (chủ dự án đồng ý đề xuất):** `disease_env` bậc 1/2 đổi từ 0.4/0.75 sang 0.85/0.95 trong `config/alert_tiers.default.json`.
+- **Lý do:** chạy thật (RL-47) ngưỡng cũ đưa cả 14 trạm lên bậc 2 ở SST ~29.7 °C; chỉ số chưa có kỹ năng so với khí hậu (RL-34, RL-42), nên ngưỡng thấp chỉ tạo báo động bão hòa.
+- **Hệ quả:** admin vẫn chỉnh được trong `#/settings/alerts`; xem lại khi có DO / độ mặn / sự kiện có tên mầm bệnh.

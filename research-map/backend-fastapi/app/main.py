@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -20,9 +21,12 @@ from app.network import building_station_network, ensure_station_network_cache, 
 from app.hsi_cache import load_hsi_cache
 from app.flow_artifacts import load_flow_artifact
 from app.bathymetry_artifacts import LODS, load_geojson as load_bathymetry_geojson, load_manifest as load_bathymetry_manifest, sample as sample_bathymetry
-from app import bathymetry_etopo
+from app import bathymetry_etopo, bathymetry_gebco
 from app.aquaculture_artifacts import MODES as AQUACULTURE_MODES, SCENARIOS as AQUACULTURE_SCENARIOS, load_aquaculture_artifact
 from app.research import latest_export_version, router as research_router
+from app.admin_config import router as admin_config_router
+from app.hazard_api import router as hazard_router
+from app.site_exposure_layer import router as site_exposure_router
 
 
 app = FastAPI(title="Environmental Context Research API", version="0.1.0")
@@ -31,6 +35,9 @@ app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_allow_origin
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 repository = SnapshotRepository(settings.database_url)
 app.include_router(research_router)
+app.include_router(hazard_router)
+app.include_router(admin_config_router)
+app.include_router(site_exposure_router)
 logger = logging.getLogger(__name__)
 
 
@@ -297,6 +304,8 @@ def bathymetry_sample(lon: float, lat: float) -> dict:
     result = sample_bathymetry(settings.cache_dir, _bathymetry_manifest(), lon, lat)
     # Separate source, separate key: ETOPO never fills a Copernicus gap in place.
     result["etopo"] = bathymetry_etopo.sample(settings.cache_dir, bathymetry_etopo.load_manifest(settings.cache_dir), lon, lat)
+    # GEBCO 2024 (default depth layer) also under its own key; it never fills SDB/Copernicus gaps.
+    result["gebco"] = bathymetry_gebco.sample(settings.cache_dir, bathymetry_gebco.load_manifest(settings.cache_dir), lon, lat)
     return result
 
 
@@ -324,6 +333,35 @@ def bathymetry_etopo_layer(kind: str, lod: str = "low") -> dict:
     geojson = bathymetry_etopo.load_geojson(settings.cache_dir, manifest, kind, lod)
     if geojson is None:
         return {"status": "building", "reason_code": "etopo_lod_not_ready", "lod": lod}
+    return {**geojson, "status": "ready", "lod": lod, "artifact_version": manifest["artifact_version"], "depth_source": manifest["depth_source"]}
+
+
+def _gebco_manifest() -> dict:
+    return bathymetry_gebco.load_manifest(settings.cache_dir) or {
+        "status": "building" if Path(settings.gebco_bathymetry_path).is_file() else "unavailable",
+        "reason_code": "gebco_artifact_not_ready" if Path(settings.gebco_bathymetry_path).is_file() else "gebco_bathymetry_file_missing",
+        "artifact_version": bathymetry_gebco.GEBCO_ARTIFACT_VERSION,
+    }
+
+
+@app.get("/api/v1/bathymetry/gebco/manifest")
+def bathymetry_gebco_manifest() -> dict:
+    return _gebco_manifest()
+
+
+@app.get("/api/v1/bathymetry/gebco/{kind}")
+def bathymetry_gebco_layer(kind: str, lod: str = "low") -> dict:
+    """GEBCO 2024 isobands (with TID confidence) / isobaths / flags (worker-built, read-only here)."""
+    if kind not in ("isobands", "isobaths", "flags"):
+        raise HTTPException(status_code=404, detail={"reason_code": "unknown_layer", "allowed": ["isobands", "isobaths", "flags"]})
+    if lod not in bathymetry_gebco.LOD_TOLERANCE:
+        raise HTTPException(status_code=422, detail={"reason_code": "invalid_lod", "allowed": list(bathymetry_gebco.LOD_TOLERANCE)})
+    manifest = _gebco_manifest()
+    if manifest.get("status") != "ready":
+        return manifest
+    geojson = bathymetry_gebco.load_geojson(settings.cache_dir, manifest, kind, lod)
+    if geojson is None:
+        return {"status": "building", "reason_code": "gebco_lod_not_ready", "lod": lod}
     return {**geojson, "status": "ready", "lod": lod, "artifact_version": manifest["artifact_version"], "depth_source": manifest["depth_source"]}
 
 

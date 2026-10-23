@@ -58,14 +58,14 @@ def _emerson_nh3(nh4_raw: float | None, ph: float | None, temperature_c: float |
 
 AQUACULTURE_THRESHOLDS = {
     "cobia": {
-        "name": "CÃ¡ giÃ²",
+        "name": "Cá giò",
         "NH3_limit": 0.05,
         "Temp_limit": 32,
         "rain_limit": 15,
         "wind_limit": 40
     },
     "oyster": {
-        "name": "HÃ u",
+        "name": "Hàu",
         "NH3_limit": 0.02,
         "Temp_limit": 30,
         "rain_limit": 8,

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChartLine, FlaskRound, Scale, Target } from 'lucide-react'
 import { ChartLegend, HollowMarkerNote, LineChart, type ChartBand, type ChartSeries } from '../../components/charts'
 import { Chip, Disclosure, Note, Panel, Segmented, SectionLabel, StatusWord } from '../../components/ui'
-import { baseFeatureSet, featureSetLabel, horizonLabel, horizonShort, methodLabel, num, pct, pValue, signedPct } from '../../lib/format'
+import { baseFeatureSet, featureSetLabel, horizonLabel, horizonShort, methodLabel, num, pct, pValue, signedPct, viDecimal } from '../../lib/format'
 import type { BenchmarkRow, ConformalRow, ForecastBenchmark } from '../../types/research'
 import { FindingList, GateChip, RefChips } from '../shared/research'
 
@@ -52,12 +52,12 @@ export function TemperatureSkill({ rows }: { rows: BenchmarkRow[] }) {
   series.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
   return (
     <div>
-      <ChartLegend series={series} markerNote={<HollowMarkerNote filled="đạt gate" hollow="không đạt" />} />
+      <ChartLegend series={series} markerNote={<HollowMarkerNote filled="đạt kiểm định" hollow="không đạt" />} />
       <LineChart xs={xs} xFormat={horizonShort} series={series} yFormat={v => `${v.toFixed(0)} %`} yTitle="skill (%)" include={[0]} height={220}
         ariaLabel="Skill nhiệt độ so với persistence theo horizon, mỗi đường một bộ đặc trưng" tooltipExtra={rowTooltip(h12)} hollowLabel="không đạt" />
       <Disclosure summary="Đọc biểu đồ thế nào?">
         <p className="m-0">Skill = mức giảm sai số so với cách đoán “giữ nguyên giá trị hiện tại” (1 − MAE/MAE persistence, trên lockbox). Cao hơn là tốt hơn; dưới 0 là thua cách đoán đơn giản.</p>
-        <p className="m-0">Điểm đặc = đạt gate #16, điểm rỗng = không đạt. B0 (chỉ trễ) không có kiểm định DM nên luôn rỗng. Dữ liệu H1.2, có pH.</p>
+        <p className="m-0">Điểm đặc = đạt kiểm định (gate #16), điểm rỗng = không đạt. B0 (chỉ trễ) không có kiểm định DM nên luôn rỗng. Dữ liệu H1.2, có pH.</p>
       </Disclosure>
     </div>
   )
@@ -79,7 +79,7 @@ function NoPhComparison({ rows }: { rows: BenchmarkRow[] }) {
     <div>
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
         <span className="text-[12px] text-fg-muted">Đường liền = có pH, đứt = không pH</span>
-        <Chip size="xs" tone={passed === a1.length ? 'ok' : 'warn'}>{passed}/{a1.length} đạt gate</Chip>
+        <Chip size="xs" tone={passed === a1.length ? 'ok' : 'warn'}>{passed}/{a1.length} đạt kiểm định</Chip>
         <RefChips refs={['RL-18']} />
       </div>
       <ChartLegend series={series} />
@@ -87,7 +87,7 @@ function NoPhComparison({ rows }: { rows: BenchmarkRow[] }) {
         ariaLabel="So sánh skill nhiệt độ có và không có đặc trưng pH" tooltipExtra={rowTooltip(a1)} hollowLabel="không đạt" />
       <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] text-fg-muted">
         <span className="text-fg-subtle">B5 bỏ pH, chênh skill:</span>
-        {deltas.map(d => <span key={d.h} className="rounded bg-surface-2 px-1.5 py-0.5 tabular">{horizonShort(d.h)} {d.delta != null ? `${d.delta > 0 ? '+' : ''}${d.delta.toFixed(1)} điểm` : '—'}</span>)}
+        {deltas.map(d => <span key={d.h} className="rounded bg-surface-2 px-1.5 py-0.5 tabular">{horizonShort(d.h)} {d.delta != null ? `${d.delta > 0 ? '+' : ''}${viDecimal(d.delta.toFixed(1))} điểm` : '—'}</span>)}
       </div>
     </div>
   )
@@ -101,12 +101,12 @@ function PhClean({ rows }: { rows: BenchmarkRow[] }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <span className="text-[12px] text-fg-muted">A3 · dữ liệu sạch, trước khi đầu dò pH trôi</span>
+        <span className="text-[12px] text-fg-muted">Dữ liệu sạch, trước khi đầu dò pH trôi</span>
         <RefChips refs={['RL-13', 'RL-18']} />
       </div>
       <div className="mb-2 flex items-center gap-2 text-[12.5px] text-fg">
         <StatusWord status={{ tone: 'danger', label: `${longPass}/${long.length} đạt ở 3–12 h` }} />
-        <span className="text-fg-muted">→ bundle pH dài hạn đã rút khỏi shadow</span>
+        <span className="text-fg-muted">→ mô hình pH dài hạn đã rút khỏi shadow</span>
       </div>
       <div className="scroll-thin overflow-x-auto rounded-[var(--radius-sm)] border border-line">
         <table className="data-table" aria-label="Gate pH theo bộ đặc trưng và horizon">
@@ -196,9 +196,9 @@ export function SkillPanel({ data }: { data: ForecastBenchmark }) {
   const { tempPassed, tempTotal } = benchmarkSummary(data)
   return (
     <Panel title="Nhiệt độ nước · tốt hơn cách đoán đơn giản bao nhiêu?" icon={<ChartLine size={15} />}
-      actions={<Chip size="xs" tone={tempPassed === tempTotal ? 'ok' : 'warn'} title={data.gate_rule}>{tempPassed}/{tempTotal} đạt gate #16</Chip>}>
+      actions={<Chip size="xs" tone={tempPassed === tempTotal ? 'ok' : 'warn'} title={data.gate_rule}>{tempPassed}/{tempTotal} đạt kiểm định</Chip>}>
       <TemperatureSkill rows={data.temperature ?? []} />
-      <Disclosure summary="Gate #16 là gì?">
+      <Disclosure summary="Kiểm định (gate #16) là gì?">
         <p className="m-0"><Scale size={12} className="mr-1 inline align-[-2px]" aria-hidden />{data.gate_rule}</p>
       </Disclosure>
     </Panel>

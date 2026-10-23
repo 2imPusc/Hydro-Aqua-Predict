@@ -6,7 +6,7 @@ import { HeatStrip, type HeatRow } from '../../components/charts'
 import { Chip, Disclosure, KeyValue, Panel, Skeleton, Stat, Verdict, type VerdictStatus } from '../../components/ui'
 import { formatAge } from '../../hooks/useNow'
 import type { PollState } from '../../hooks/usePolling'
-import { pct, pValue } from '../../lib/format'
+import { num, pct, pValue } from '../../lib/format'
 import type { WeatherHour, WeatherStatus } from '../../types/research'
 import { DirectionPanel, FindingList, PageScroll, ResearchHeader, Unavailable, useDirection, useResearch } from '../shared/research'
 import { HazardCard } from './HazardCard'
@@ -119,7 +119,7 @@ export default function WeatherView() {
           <>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-1.5">
               {gains.map(gain => (
-                <Stat key={gain.hours} label={`Trước ${gain.hours} giờ`} value={`+${gain.gain.toFixed(1)}`} unit="% sai số giảm" hint={`DM p = ${pValue(gain.p)}`} />
+                <Stat key={gain.hours} label={`Trước ${gain.hours} giờ`} value={`+${num(gain.gain, 1)}`} unit="% sai số giảm" hint={`DM p = ${pValue(gain.p)}`} />
               ))}
             </div>
             <Disclosure summary="Số này từ đâu?" className="mt-2">

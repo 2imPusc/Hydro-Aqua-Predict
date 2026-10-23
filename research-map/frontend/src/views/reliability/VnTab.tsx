@@ -172,7 +172,7 @@ export function VnTab({ theme }: { theme: Theme }) {
             <Disclosure summary="Ghi chú" hint={`(${(data.notes?.length ?? 0) + 1})`}>
               <p className="m-0"><b>Vùng HSI lịch sử</b> (bản đồ giám sát) <Chip size="xs" tone="neutral">chưa kiểm chứng</Chip>: chỉ số legacy dựa trên độ mặn mô hình ở HP, không phải lớp tin cậy.</p>
               <FindingList items={data.notes} />
-              <p className="m-0 text-[11.5px] text-fg-subtle">Run nguồn <span className="font-mono">{data.source_run}</span> · export {data.export_version}</p>
+              <p className="m-0 text-[11.5px] text-fg-subtle">Lần chạy <span className="font-mono">{data.source_run}</span> · bản xuất {data.export_version}</p>
             </Disclosure>
           </>
         )}

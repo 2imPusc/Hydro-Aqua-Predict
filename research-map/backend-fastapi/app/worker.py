@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -17,8 +18,11 @@ from app.flow_artifacts import FLOW_ARTIFACT_VERSION, build_flow_artifact, load_
 from app.hsi_cache import build_hsi_cache
 from app.bathymetry_artifacts import ensure_bathymetry_artifact
 from app.bathymetry_etopo import ensure_etopo_artifact
+from app.bathymetry_gebco import ensure_gebco_artifact
 from app.sensor_provider import fetch_station, normalize_readings
 from app.aquaculture_artifacts import build_aquaculture_artifacts
+
+logger = logging.getLogger(__name__)
 
 
 def _snapshot(layers: list[dict], domain: dict) -> dict:
@@ -128,6 +132,14 @@ async def serve() -> None:
     )
     # Regional ETOPO depth (Cat Ba / Ha Long / Bai Tu Long), where SDB has no pixels.
     await asyncio.to_thread(ensure_etopo_artifact, settings.cache_dir, settings.etopo_bathymetry_path)
+    # GEBCO 2024 + TID confidence: the default depth layer. A failure must not stop the loop;
+    # the API then reports building/unavailable for this layer.
+    try:
+        gebco_result = await asyncio.to_thread(ensure_gebco_artifact, settings.cache_dir, settings.gebco_bathymetry_path)
+        if gebco_result.get("status") != "ready":
+            logger.warning("GEBCO artifact not built: %s", gebco_result.get("reason_code"))
+    except Exception:
+        logger.exception("GEBCO artifact build failed; layer stays unavailable")
     if not __import__("pathlib").Path(hsi_cache_path).exists():
         # This is intentionally outside FastAPI request handling. It may take
         # several minutes on a cold cache because it builds water-path zones.

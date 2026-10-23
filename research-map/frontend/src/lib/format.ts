@@ -1,35 +1,38 @@
 /** Display helpers shared by the research views (Vietnamese labels, tabular numbers). */
 
+/** Vietnamese decimal comma: "0.58" → "0,58". Display only; never parse the result. */
+export const viDecimal = (text: string) => text.replace('.', ',')
+
 export function horizonLabel(minutes: number | null | undefined): string {
   if (minutes == null) return '—'
   if (minutes < 60) return `${minutes} phút`
   const hours = minutes / 60
-  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} giờ`
+  return `${Number.isInteger(hours) ? hours : viDecimal(hours.toFixed(1))} giờ`
 }
 export const horizonShort = (minutes: number) => (minutes < 60 ? `${minutes}′` : `${minutes / 60} h`)
 
 /** 0–1 fraction → "52 %". */
 export function pct(value: number | null | undefined, digits = 0): string {
   if (value == null || !Number.isFinite(value)) return '—'
-  return `${(value * 100).toFixed(digits)} %`
+  return `${viDecimal((value * 100).toFixed(digits))} %`
 }
 /** Already-percent value (e.g. skill 20.1) → "+20,1 %". */
 export function signedPct(value: number | null | undefined, digits = 1): string {
   if (value == null || !Number.isFinite(value)) return '—'
-  return `${value > 0 ? '+' : ''}${value.toFixed(digits)} %`
+  return `${value > 0 ? '+' : ''}${viDecimal(value.toFixed(digits))} %`
 }
 export function num(value: number | null | undefined, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return '—'
-  return value.toFixed(digits)
+  return viDecimal(value.toFixed(digits))
 }
 export function pValue(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return '—'
   if (value < 1e-3) {
     const [mantissa, exponent] = value.toExponential(1).split('e')
     const sup = exponent.replace('+', '').replace(/[-0-9]/g, char => '⁻⁰¹²³⁴⁵⁶⁷⁸⁹'['-0123456789'.indexOf(char)])
-    return `${mantissa}·10${sup}`
+    return `${viDecimal(mantissa)}·10${sup}`
   }
-  return value.toPrecision(2)
+  return viDecimal(value.toPrecision(2))
 }
 
 const FEATURE_SET: Record<string, string> = {
@@ -92,4 +95,36 @@ export function splitRefs(text: string): { text: string; refs: string[] } {
     return ''
   })
   return { text: stripped, refs }
+}
+
+const PROVIDER: Record<string, string> = { open_meteo: 'Open-Meteo', openmeteo: 'Open-Meteo', copernicus: 'Copernicus Marine', cmems: 'Copernicus Marine', ecmwf: 'ECMWF', noaa: 'NOAA' }
+/** Data provider id → display name ("open_meteo" → "Open-Meteo"). */
+export const providerLabel = (provider?: string | null) => (provider ? PROVIDER[provider.toLowerCase()] ?? provider : 'nguồn chưa rõ')
+
+/**
+ * Backend `reason_code` → short Vietnamese phrase for a layer toggle or card.
+ * The raw code stays available to callers (title / "Nguồn" disclosure); it is never the only text a user reads.
+ */
+export function layerReason(code?: string | null): string {
+  if (!code) return 'không khả dụng'
+  if (/_not_configured$/.test(code)) return 'chưa cấu hình nguồn dữ liệu'
+  if (/_(artifact|lod)_not_ready$|_building$/.test(code)) return 'đang dựng lớp…'
+  if (/_file_missing$/.test(code)) return 'chưa có file dữ liệu'
+  if (/^outside_/.test(code)) return 'ngoài vùng có dữ liệu'
+  if (/run_missing$|_missing/.test(code)) return 'chưa có dữ liệu'
+  return 'không khả dụng'
+}
+
+const SENSOR_METRIC: Record<string, string> = { Temperature: 'Nhiệt độ', Temp: 'Nhiệt độ', Salinity: 'Độ mặn', DO: 'DO', pH: 'pH', NH4: 'NH4', COD: 'COD', TSS: 'TSS' }
+export const sensorMetricLabel = (metric: string) => SENSOR_METRIC[metric] ?? metric
+const UNIT: Record<string, string> = { degC: '°C', degc: '°C', celsius: '°C', vendor_unit_unknown: 'đơn vị ?', psu: 'psu', 'mg/l': 'mg/L' }
+export const unitLabel = (unit?: string | null) => (unit ? UNIT[unit] ?? UNIT[unit.toLowerCase()] ?? unit : '')
+const QC: Record<string, string> = { UNCHECKED: 'Chưa kiểm', PASS: 'Hợp lệ', OK: 'Hợp lệ', VALID: 'Hợp lệ', SUSPECT: 'Nghi ngờ', FAIL: 'Lỗi', INVALID: 'Lỗi', RAIL: 'Kịch thang', STUCK: 'Đứng giá trị' }
+/** QC status code → Vietnamese chip text ("UNCHECKED" → "Chưa kiểm"). */
+export const qcLabel = (status: string) => QC[status.toUpperCase()] ?? status
+
+/** Pulls a short grid size ("~8 km", "1.2 km", "460 m") out of a provenance string; null when there is none. */
+export function gridSize(text?: string | null): string | null {
+  const match = text ? /~?\s?\d+(?:[.,]\d+)?\s?(?:km|m)\b/.exec(text) : null
+  return match ? viDecimal(match[0].replace(/\s+/g, ' ').replace('~ ', '~')) : null
 }

@@ -3,7 +3,7 @@ import { GeoJSON } from 'react-leaflet'
 import type { HsiZones } from '../../../types/monitor'
 
 /** RL-25: HP salinity/temperature are model-gridded (CMEMS/GLORYS), not measured. */
-export const HSI_LEGACY_LABEL = 'Legacy · chưa kiểm chứng (độ mặn HP là dữ liệu mô hình)'
+export const HSI_LEGACY_LABEL = 'Kết quả luận văn · chưa kiểm chứng (độ mặn HP là dữ liệu mô hình)'
 
 export const HSI_CLASSES = [
   { id: 'very_suitable', label: 'Rất phù hợp', color: '#22c55e' },

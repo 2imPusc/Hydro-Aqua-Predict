@@ -4,6 +4,8 @@ import { useLiveData } from '../../app/LiveDataContext'
 import { getBathymetrySample } from '../../api/monitor'
 import { API_BASE, describeApiError, isAbortError } from '../../api/client'
 import { IconButton } from '../../components/ui'
+import { advisoryAgeSeconds, isAdvisoryStale } from '../../components/map/overlays/StationMarkers'
+import { useNow } from '../../hooks/useNow'
 import { lodForZoom, MAP_ZOOM, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import type { BathymetrySample } from '../../types/monitor'
 import type { Theme } from '../../hooks/useTheme'
@@ -26,6 +28,10 @@ export default function MonitorView({ theme }: { theme: Theme }) {
   const sampleController = useRef<AbortController | null>(null)
 
   const data = useMonitorData({ enabled, lod, mode, scenario })
+  // Re-evaluated every minute so markers turn "cũ" at 90 min without waiting for a refetch.
+  const now = useNow(60_000)
+  const advisoryStale = isAdvisoryStale(data.aquaculture.data, now)
+  const advisoryAge = advisoryAgeSeconds(data.aquaculture.data, now)
   const snapshot = context.data?.snapshot ?? null
   const flow = context.data?.flow ?? null
 
@@ -65,9 +71,9 @@ export default function MonitorView({ theme }: { theme: Theme }) {
       <MonitorMap
         theme={theme} basemap={basemap} enabled={enabled} snapshotId={snapshot?.snapshot_id ?? null}
         environmentLayers={environmentLayers} currentLayer={currentLayer} windLayer={windLayer} flow={flow}
-        stations={data.stations.data} aquacultureMap={data.aquaculture.data} domain={data.domain.data} network={data.network.data}
+        stations={data.stations.data} aquacultureMap={data.aquaculture.data} advisoryStale={advisoryStale} advisoryAgeSeconds={advisoryAge} exposure={data.exposure.data} domain={data.domain.data} network={data.network.data}
         zones={data.zones.data} bands={data.bands.data} contours={data.contours.data}
-        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data}
+        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data} etopoBands={data.etopoBands.data} etopoFlags={data.etopoFlags.data}
         lod={lod} onLod={setLod} onSample={onSample}
       />
 
@@ -75,8 +81,8 @@ export default function MonitorView({ theme }: { theme: Theme }) {
       <div className="pointer-events-none absolute bottom-3 left-3 top-3 z-[800] flex flex-col justify-between gap-3">
         <LayerControl enabled={enabled} onToggle={onToggle} environmentLayers={environmentLayers} snapshotLoaded={!!snapshot}
           flow={flow} currentLayer={currentLayer} windLayer={windLayer} network={data.network.data} zones={data.zones.data}
-          bathymetry={data.bathymetry.data} bathymetryError={data.bathymetry.error} etopo={data.etopo.data} lod={lod} basemap={basemap} onBasemap={onBasemap} />
-        <MapLegends enabled={enabled} environmentLayers={environmentLayers} mockMode={mode === 'mock'} theme={theme} etopo={data.etopo.data} />
+          bathymetry={data.bathymetry.data} bathymetryError={data.bathymetry.error} gebco={data.gebco.data} etopo={data.etopo.data} exposure={data.exposure.data} exposureError={data.exposure.error} lod={lod} basemap={basemap} onBasemap={onBasemap} />
+        <MapLegends enabled={enabled} environmentLayers={environmentLayers} mockMode={mode === 'mock'} theme={theme} gebco={data.gebco.data} etopo={data.etopo.data} advisoryStale={advisoryStale} exposure={data.exposure.data} />
       </div>
 
       {backendDown && (
@@ -103,6 +109,7 @@ export default function MonitorView({ theme }: { theme: Theme }) {
               snapshot={snapshot} contextError={context.error} layers={allLayers} enabled={enabled} flow={flow}
               bathymetry={data.bathymetry.data} network={data.network.data} zones={data.zones.data}
               sample={sample} onCloseSample={closeSample}
+              advisoryStale={advisoryStale} advisoryAgeSeconds={advisoryAge} exposure={data.exposure.data} theme={theme}
             />
           </div>
         )}
