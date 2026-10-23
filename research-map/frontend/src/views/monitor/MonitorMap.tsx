@@ -42,6 +42,9 @@ type Props = {
   isobands: BathymetryVectorLayer | null
   isobaths: BathymetryVectorLayer | null
   depthFlags: BathymetryVectorLayer | null
+  /** ETOPO 2022 comparison bands + flags (optional). */
+  etopoBands: BathymetryVectorLayer | null
+  etopoFlags: BathymetryVectorLayer | null
   lod: Lod
   onLod: (lod: Lod) => void
   onSample: (latitude: number, longitude: number) => void
@@ -52,7 +55,7 @@ type Props = {
  * the parent never re-renders this subtree unless map inputs change.
  */
 export const MonitorMap = memo(function MonitorMap(props: Props) {
-  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, network, zones, bands, contours, isobands, isobaths, depthFlags, lod, onLod, onSample } = props
+  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, network, zones, bands, contours, isobands, isobaths, depthFlags, etopoBands, etopoFlags, lod, onLod, onSample } = props
   const tiles = basemapTiles(basemap, theme)
   const waterGeometry = useMemo(() => domain?.features.find(feature => feature.properties?.kind === 'context_domain_water')?.geometry, [domain])
   const particleColors = PARTICLE_COLORS[theme]
@@ -69,7 +72,8 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
       <TileLayer key={tiles.base} attribution={ESRI_ATTRIBUTION} url={tiles.base} />
       {tiles.labels && <TileLayer key={tiles.labels} url={tiles.labels} className="basemap-labels" zIndex={2} />}
 
-      <EtopoDepthOverlay theme={theme} lod={lod} isobands={isobands} isobaths={isobaths} flags={depthFlags} showBands={enabled.depth_isobands} showIsobaths={enabled.depth_isobaths} onSample={onSample} />
+      {enabled.depth_etopo && <EtopoDepthOverlay source="etopo" theme={theme} lod={lod} isobands={etopoBands} isobaths={null} flags={etopoFlags} showBands showIsobaths={false} onSample={onSample} />}
+      <EtopoDepthOverlay source="gebco" theme={theme} lod={lod} isobands={isobands} isobaths={isobaths} flags={depthFlags} showBands={enabled.depth_isobands} showIsobaths={enabled.depth_isobaths} onSample={onSample} />
       {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} outlineOnly={enabled.depth_isobands} />}
       {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} />}
       <BathymetryOverlay bands={bands} contours={contours} showBands={enabled.bathymetry_bands || enabled.bathymetry_slope} showContours={enabled.bathymetry_contours} showSlope={enabled.bathymetry_slope} onSample={onSample} />

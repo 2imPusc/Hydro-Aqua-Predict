@@ -12,14 +12,22 @@ export const DEPTH_BAND_LABELS = ['0–2', '2–5', '5–10', '10–20', '20–3
 /** Single-hue sequential ramp (validated SEQUENTIAL palette): shallow light → deep dark. */
 export const depthBandColor = (band: number, theme: Theme) => ramp(SEQUENTIAL[theme], band / (DEPTH_BAND_LABELS.length - 1))
 
+export type DepthSource = 'gebco' | 'etopo'
+
 export const FLAG_STYLE = {
   suspect: { color: '#c2410c', label: 'Nghi lỗi nguồn (hố sâu kín)' },
-  coarse: { color: '#64748b', label: 'Lưới quá thô (ETOPO coi là đất)' },
+  coarse: { color: '#64748b', label: 'Lưới quá thô (nguồn coi là đất)' },
 } as const
 
-const CONFIDENCE_OPACITY = { ok: 0.62, coarse: 0.32, suspect: 0.12 } as const
+/** Band fill opacity per confidence. GEBCO uses the TID classes; ETOPO only ok / coarse / suspect. */
+const CONFIDENCE_OPACITY: Record<string, number> = { direct: 0.88, indirect: 0.58, unknown: 0.4, ok: 0.62, coarse: 0.3, suspect: 0.12 }
+const SOURCE_NAME: Record<DepthSource, string> = { gebco: 'GEBCO 2024', etopo: 'ETOPO 2022' }
+/** Confidence classes whose band outline is dashed (faded / not trustworthy as solid data). */
+const FADED = new Set(['coarse', 'suspect'])
+export const TID_LABEL: Record<string, string> = { direct: 'đo trực tiếp (TID)', indirect: 'nội suy / dự đoán (TID)', unknown: 'không rõ nguồn (TID)' }
 
 type Props = {
+  source?: DepthSource
   theme: Theme
   lod: Lod
   isobands: BathymetryVectorLayer | null
@@ -69,17 +77,20 @@ function isobathLabels(lines: BathymetryVectorLayer, lod: Lod) {
 }
 
 /**
- * ETOPO 2022 depth: filled isobands clipped to the OSM water mask, labelled
- * isobaths, and the two confidence flags (always drawn with the bands).
+ * Regional depth (GEBCO 2024 by default, ETOPO 2022 for comparison): filled isobands
+ * clipped to the OSM water mask, labelled isobaths, and the confidence flags (drawn with the bands).
+ * GEBCO bands carry a TID confidence: direct = solid, indirect = normal, unknown/coarse/suspect = faded.
  */
-export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ theme, lod, isobands, isobaths, flags, showBands, showIsobaths, onSample }: Props) {
+export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ source = 'etopo', theme, lod, isobands, isobaths, flags, showBands, showIsobaths, onSample }: Props) {
   const bands = ready(isobands), lines = ready(isobaths), flagged = ready(flags)
   const bandStyle = useCallback((feature?: GeoJSON.Feature) => {
     const color = depthBandColor(Number(feature?.properties?.band ?? 0), theme)
     // Opacity by confidence: coarse-grid and suspect parts fade so they never read as solid data.
-    const alpha = CONFIDENCE_OPACITY[feature?.properties?.confidence as keyof typeof CONFIDENCE_OPACITY] ?? CONFIDENCE_OPACITY.ok
-    // Same-colour hairline hides canvas anti-alias seams between adjacent bands.
-    return { color, weight: 0.6, opacity: alpha, fillColor: color, fillOpacity: alpha }
+    const confidence = String(feature?.properties?.confidence ?? 'ok')
+    const alpha = CONFIDENCE_OPACITY[confidence] ?? CONFIDENCE_OPACITY.ok
+    // Same-colour hairline hides canvas anti-alias seams between adjacent bands; faded classes get a dashed outline.
+    if (FADED.has(confidence)) return { color: FLAG_STYLE[confidence as 'coarse' | 'suspect'].color, weight: 0.8, opacity: 0.55, dashArray: '3 3', fillColor: color, fillOpacity: alpha }
+    return { color, weight: confidence === 'direct' ? 1 : 0.6, opacity: Math.max(alpha, 0.5), fillColor: color, fillOpacity: alpha }
   }, [theme])
   const lineColor = theme === 'dark' ? '#cde2fb' : '#1d3f6e'
   const lineStyle = useCallback((feature?: GeoJSON.Feature) => {
@@ -95,17 +106,19 @@ export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ theme, lod, i
   const halo = theme === 'dark' ? '#0b1220' : '#ffffff'
 
   return <>
-    {showBands && bands && <GeoJSON key={`etopo-bands-${bands.lod}-${theme}`} data={bands} style={bandStyle}
+    {showBands && bands && <GeoJSON key={`${source}-bands-${bands.lod}-${theme}`} data={bands} style={bandStyle}
       onEachFeature={(feature, layer) => {
-        layer.bindTooltip(`Độ sâu ${feature.properties?.label ?? ''} · ETOPO ~460 m${feature.properties?.confidence === 'suspect' ? ' · nghi lỗi nguồn' : feature.properties?.confidence === 'coarse' ? ' · lưới thô' : ''}`, { sticky: true })
+        const confidence = String(feature.properties?.confidence ?? '')
+        const note = confidence === 'suspect' ? ' · nghi lỗi nguồn' : confidence === 'coarse' ? ' · lưới thô' : TID_LABEL[confidence] ? ` · ${TID_LABEL[confidence]}` : ''
+        layer.bindTooltip(`Độ sâu ${feature.properties?.label ?? ''} · ${SOURCE_NAME[source]} ~460 m${note}`, { sticky: true })
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
       }} />}
-    {showBands && flagged && <GeoJSON key={`etopo-flags-${flagged.lod}`} data={flagged} style={flagStyle}
+    {showBands && flagged && <GeoJSON key={`${source}-flags-${flagged.lod}`} data={flagged} style={flagStyle}
       onEachFeature={(feature, layer) => {
         layer.bindTooltip(FLAG_STYLE[feature.properties?.flag === 'suspect' ? 'suspect' : 'coarse'].label, { sticky: true })
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
       }} />}
-    {showIsobaths && lines && <GeoJSON key={`etopo-lines-${lines.lod}-${theme}`} data={lines} style={lineStyle} interactive={false} />}
+    {showIsobaths && lines && <GeoJSON key={`${source}-lines-${lines.lod}-${theme}`} data={lines} style={lineStyle} interactive={false} />}
     {labels.length > 0 && <LayerGroup>
       {labels.map(label => <Marker key={label.key} position={label.at} interactive={false} keyboard={false}
         icon={L.divIcon({ className: '', iconSize: [0, 0], html: `<span style="position:absolute;transform:translate(-50%,-50%);font:600 10px/1 system-ui,sans-serif;color:${lineColor};text-shadow:0 0 2px ${halo},0 0 2px ${halo},0 0 3px ${halo};white-space:nowrap">${label.depth} m</span>` })} />)}

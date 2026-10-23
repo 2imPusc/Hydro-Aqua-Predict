@@ -1,5 +1,5 @@
 import { getJson } from './client'
-import type { AquacultureMap, BathymetryManifest, BathymetrySample, BathymetryVectorLayer, ContextDomain, EtopoManifest, DataMode, FlowArtifact, FlowLatest, FlowScenarios, HsiZones, SensorLatest, Snapshot, StationNetwork, Stations } from '../types/monitor'
+import type { AquacultureMap, BathymetryManifest, BathymetrySample, BathymetryVectorLayer, ContextDomain, EtopoManifest, GebcoManifest, DataMode, FlowArtifact, FlowLatest, FlowScenarios, HsiZones, SensorLatest, Snapshot, StationNetwork, Stations } from '../types/monitor'
 
 type Signal = AbortSignal | undefined
 const q = encodeURIComponent
@@ -16,6 +16,8 @@ export const getSensorLatest = (station: string, signal?: Signal) => getJson<Sen
 export const getBathymetryManifest = (signal?: Signal) => getJson<BathymetryManifest>('/bathymetry/manifest', signal)
 export const getBathymetryDepthBands = (lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/depth-bands?lod=${q(lod)}`, signal)
 export const getBathymetryContours = (lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/contours?lod=${q(lod)}`, signal)
+export const getGebcoManifest = (signal?: Signal) => getJson<GebcoManifest>('/bathymetry/gebco/manifest', signal)
+export const getGebcoLayer = (kind: 'isobands' | 'isobaths' | 'flags', lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/gebco/${kind}?lod=${q(lod)}`, signal)
 export const getEtopoManifest = (signal?: Signal) => getJson<EtopoManifest>('/bathymetry/etopo/manifest', signal)
 export const getEtopoLayer = (kind: 'isobands' | 'isobaths' | 'flags', lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/etopo/${kind}?lod=${q(lod)}`, signal)
 export const getBathymetrySample = (longitude: number, latitude: number, signal?: Signal) => getJson<BathymetrySample>(`/bathymetry/sample?lon=${q(longitude)}&lat=${q(latitude)}`, signal)

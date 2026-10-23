@@ -1,6 +1,6 @@
 import { memo, useState } from 'react'
 import { ChevronDown, Compass, Layers, MapPin, Mountain, Waves, Wind } from 'lucide-react'
-import type { BathymetryManifest, EtopoManifest, FlowArtifact, HsiZones, Layer, StationNetwork } from '../../types/monitor'
+import type { BathymetryManifest, EtopoManifest, GebcoManifest, FlowArtifact, HsiZones, Layer, StationNetwork } from '../../types/monitor'
 import { LABEL, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { Chip, SectionLabel, Segmented, StateChip, Toggle } from '../../components/ui'
 import { HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
@@ -29,6 +29,7 @@ type Props = {
   zones: HsiZones | null
   bathymetry: BathymetryManifest | null
   bathymetryError: string | null
+  gebco: GebcoManifest | null
   etopo: EtopoManifest | null
   exposure: SiteExposure | null
   exposureError: string | null
@@ -41,15 +42,17 @@ const LOD_LABEL: Record<Lod, string> = { low: 'LOD thấp', medium: 'LOD vừa',
 
 /** Floating, grouped layer control (Bối cảnh · Dòng chảy & gió · Độ sâu · Mạng trạm · Bản đồ nền). */
 export const LayerControl = memo(function LayerControl(props: Props) {
-  const { enabled, onToggle, environmentLayers, snapshotLoaded, flow, currentLayer, windLayer, network, zones, bathymetry, bathymetryError, etopo, exposure, exposureError, lod, basemap, onBasemap } = props
+  const { enabled, onToggle, environmentLayers, snapshotLoaded, flow, currentLayer, windLayer, network, zones, bathymetry, bathymetryError, gebco, etopo, exposure, exposureError, lod, basemap, onBasemap } = props
   // Phones and tablets: start collapsed so the map stays usable; the header still names the area and layer count.
   const [open, setOpen] = useState(() => !isCompactScreen())
   const bathyReady = bathymetry?.status === 'ready'
   const bathyHint = bathyReady
     ? `${bathymetry?.source_resolution ?? 'Copernicus SDB'} · ${LOD_LABEL[lod]}`
     : bathymetry?.reason_code ?? (bathymetry?.status === 'building' ? 'đang dựng artifact…' : bathymetryError ? 'không tải được manifest' : 'đang tải…')
+  const gebcoReady = gebco?.status === 'ready'
+  const gebcoHint = gebcoReady ? `GEBCO 2024 · lưới ${gebco?.source_resolution ?? '~460 m'} · ~97 % nội suy` : gebco?.reason_code ?? 'đang tải…'
   const etopoReady = etopo?.status === 'ready'
-  const etopoHint = etopoReady ? `ETOPO 2022 · lưới ${etopo?.source_resolution ?? '~460 m'}` : etopo?.reason_code ?? 'đang tải…'
+  const etopoHint = !enabled.depth_etopo ? 'bật để so sánh với GEBCO' : etopoReady ? `ETOPO 2022 · ${etopo?.source_resolution ?? '~460 m'} · hố sâu giả ở Cửa Lục / Vân Đồn` : etopo?.reason_code ?? 'đang tải…'
   const exposureReady = exposure?.status === 'ready'
   const exposureHint = exposureReady
     ? `${exposure?.stations?.length ?? 0} trạm · hoa hướng sóng gió cấp 10 · ${exposure?.run_name ?? ''}`
@@ -94,8 +97,9 @@ export const LayerControl = memo(function LayerControl(props: Props) {
             label="Vệt gió" description={windLayer ? `${windLayer.provenance?.provider ?? 'provider'} · hạt canvas (quan sát)` : 'chưa có lớp gió'} />
 
           <SectionLabel icon={<Mountain size={12} />} trailing={bathyReady ? <Chip size="xs" tone="neutral">{LOD_LABEL[lod]}</Chip> : undefined}>Độ sâu</SectionLabel>
-          <Toggle checked={enabled.depth_isobands} disabled={!etopoReady} onChange={value => onToggle('depth_isobands', value)} label="Độ sâu vùng biển" description={etopoHint} />
-          <Toggle checked={enabled.depth_isobaths} disabled={!etopoReady} onChange={value => onToggle('depth_isobaths', value)} label="Đường đẳng sâu" description="2 / 5 / 10 / 20 / 30 m" />
+          <Toggle checked={enabled.depth_isobands} disabled={!gebcoReady} onChange={value => onToggle('depth_isobands', value)} label="Độ sâu vùng biển (GEBCO)" description={gebcoHint} />
+          <Toggle checked={enabled.depth_isobaths} disabled={!gebcoReady} onChange={value => onToggle('depth_isobaths', value)} label="Đường đẳng sâu" description="2 / 5 / 10 / 20 / 30 m" />
+          <Toggle checked={enabled.depth_etopo} disabled={etopo?.status === 'unavailable'} onChange={value => onToggle('depth_etopo', value)} label="So sánh: ETOPO 2022" description={etopoHint} />
           <Toggle checked={enabled.bathymetry_bands} disabled={!bathyReady} onChange={value => onToggle('bathymetry_bands', value)} label="Bãi triều (SDB vệ tinh)" description={bathyHint} />
           <Toggle checked={enabled.bathymetry_contours} disabled={!bathyReady} onChange={value => onToggle('bathymetry_contours', value)} label="Đường đồng mức đáy" description="0,25 / 0,5 / 0,75 / 1 m; mức sâu hơn khi có" />
           <Toggle checked={enabled.bathymetry_slope} disabled={!bathyReady} onChange={value => onToggle('bathymetry_slope', value)} label="Độ dốc đáy" description="tính từ depth đã qua quality mask" />
