@@ -600,3 +600,10 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 
 - **Kết quả:** lớp phơi nhiễm (hoa hướng 16 hướng, Hs ≥ 1 m) từ `site-exposure-20261023`; điểm trạm chuyển xám gạch chéo khi khuyến nghị cũ > 90 phút (hard rule 4); H3 vẽ thành bề mặt nội suy kèm ghi chú lưới (VN ~9 km); bố cục máy tính bảng thu gọn bảng bên.
 
+
+## RL-47 · 2026-10-24 · Kiểm thử đầu-cuối Phase 1 (shadow)
+
+- **Chạy thật trên runtime tạm:** ECMWF Open Data 2026-10-23 00Z — 5 bão toàn cầu, không bão gần NB1, 14 bản ghi theo dõi bão bậc 0. `run_once` với Open-Meteo trực tiếp (marine chỉ bật trong phiên kiểm thử): 280 bản ghi/lượt, mọi bản ghi có cờ shadow; gió và nắng nóng bậc 0; sóng bậc 1 ở NB4/NB27/NB28 hai lượt đầu; **nguy cơ dịch bệnh bậc 2 ở cả 14 trạm** (chỉ số 0.80–0.86 ở SST ~29.7 °C) → ngưỡng mặc định 0.4/0.75 bão hòa, cần quyết định.
+- **Quy trình admin:** sửa → xem trước → lưu (v0001: gió bậc 2 8→7) → lượt chạy sau dùng v0001; v0002, khôi phục, v0003; chỉ ghi vào runtime tạm. Thử truy cập ngoài thư mục, JSON lồng sâu, thân yêu cầu lớn: đều bị chặn (đã thêm giới hạn kích thước và độ dài trường).
+- **Đã sửa:** chip theo dõi bão trung tính trên trạm dữ liệu cũ; nhãn "Hôm nay" chỉ khi đúng ngày; ngày triển vọng theo quy tắc trưa địa phương; chặn mất chỉnh sửa chưa lưu khi quay lại/tiến tới; ETOPO luôn nằm dưới GEBCO; mount ghi được `runtime/alert-config` trong docker-compose (chưa thử vì Docker tắt); bộ chạy nguy cơ chạy trong luồng nền để không chặn vòng đọc sensor.
+- **Còn mở:** ngưỡng dịch bệnh bão hòa; `RESEARCH_RUNTIME_DIR` và `HAP_RUNTIME_DIR` có thể trỏ khác nhau; mặc định đường dẫn độ sâu chưa theo `HAP_DATA_DIR`; khung đường thời tiết bị cắt nhãn ở 1440 px.
