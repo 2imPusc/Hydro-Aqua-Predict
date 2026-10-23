@@ -535,3 +535,33 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Sửa:** NOAA ETOPO 2022 15″ (~460 m, `data/depth/etopo2022-20261023/`), vẽ dải độ sâu + đường đẳng sâu 2/5/10/20/30 m cắt theo mặt nước OSM, cờ "thô" và "nghi ngờ" (hố > 30 m tách khỏi biển mở); lớp vô hướng thành bề mặt nội suy, chú giải ghi độ phân giải nguồn. Độ sâu trung vị: NB1 6 m, Lan Hạ 11.5, Hạ Long 5, Bái Tử Long 6.
 - **Hạn chế:** sai nguồn ở Cửa Lục, Vân Đồn/Cửa Ông (60–149 m, đã đánh dấu); không thấy luồng hẹp; cần GEBCO 2024 (TID) hoặc hải đồ / đo sâu tại lồng.
 - **Tài liệu:** `docs/eval/2026-10-23-bathymetry-map.md`; giao diện: `docs/eval/2026-10-23-ui-ux.md`.
+
+## RL-37 · 2026-10-23 · Cảnh báo bão nhìn toàn vùng (Tây Thái Bình Dương – Biển Đông)
+
+- **Câu hỏi:** theo dõi tâm bão từ khi còn ở Thái Bình Dương / Philippines / Biển Đông có báo sớm hơn cách chỉ đọc gió dự báo tại lồng không?
+- **Thiết lập:** `experiments/storm_basin.py`, `experiments/tigge_tracks.py`, chạy `storm-basin-20261023b`. IBTrACS 1980–2026 (1511 hệ thống). Mô hình xác suất P(tâm bão ≤ 200 / 500 km NB1 trong 24–120 h) từ vị trí, hướng di chuyển 12 h, cường độ, tháng; kiểm định chéo để riêng từng mùa. Quỹ đạo dự báo thật: ECMWF ensemble từ TIGGE (NCAR d330003, tải không cần đăng nhập), 531 lần chạy 2024–2026.
+- **Khí hậu:** 2.5 cơn/năm vào ≤ 200 km NB1; 43 % hình thành ngay trên Biển Đông, 24 % biển Philippines, 33 % xa hơn 135°E; 42 % đi qua đất liền Philippines. Thời gian trung vị tới ≤ 200 km: từ 130°E 123 h, 125°E 95 h, 120°E 72 h, 115°E 45 h; bão sinh trên Biển Đông trung vị 72 h từ khi hình thành.
+- **Mô hình thống kê:** Brier skill 0.21–0.28, AUC 0.87–0.905 (200 km, 120 h); báo trước trung vị 57 h ở ngưỡng 0.3, đổi lại 1.8 báo nhầm/mùa (không vào 500 km) và 2.4 lần/mùa chỉ vào 200–500 km.
+- **ECMWF ensemble:** cùng thời điểm, skill 0.78, AUC 0.99; 7/7 cơn vào 200 km được báo, trung vị 93 h, 2 báo nhầm + 3 suýt trúng trên 60 cơn. Sai số quỹ đạo deterministic gần Việt Nam: 40/76/102/147/215 km ở 24/48/72/96/120 h.
+- **So với đường gió tại lồng (2024–2026):** bão mạnh từ xa (Yagi, Wipha, Kajiki, Bualoi) hai cách ngang nhau (4–5 ngày). Lợi ích chính: bắt được các cơn đường gió bỏ sót hoặc muộn (Prapiroon 69–93 h, Matmo 102 h, Trami). Bão sinh trên Biển Đông (Maysak, Wutip, Nongfa): tối đa ~2.5 ngày với mọi cách; Narra sinh cách NB1 157 km, không báo trước được.
+- **Kết luận:** đề xuất hai bước (chưa vận hành): "theo dõi" theo ECMWF ensemble P(≤ 500 km, 120 h) ≥ 0.3; "cảnh báo" theo gió tại lồng. Mô hình thống kê chỉ dự phòng.
+- **Hạn chế:** best track là phân tích lại; "≤ 200 km" là khoảng cách, không phải mức gió (Ragasa 128 km chỉ cấp 4); ensemble chỉ 3 mùa, 7 cơn; ghép bão với quỹ đạo theo vị trí ban đầu.
+- **Thay thế:** `storm-basin-20261023`. **Tài liệu:** `docs/eval/2026-10-23-storm-basin.md`.
+
+## RL-38 · 2026-10-23 · Bằng chứng thiệt hại lồng bè do bão và ngưỡng gió gây hại
+
+- **Thiết lập:** `experiments/storm_damage.py`, chạy `storm-damage-20261023b`. 34 sự kiện có nguồn (20 Quảng Ninh/Hải Phòng, 8 miền Trung, 6 vùng tương tự), mỗi dòng có trích nguyên văn đối chiếu với bản lưu cục bộ (`data/references/storm_damage/`, sha256) và Wayback nếu có sẵn (25/34). 10 nguồn kỹ thuật. Sổ nguồn: `docs/references/storm-damage-sources.md`.
+- **Kết quả (22 dòng phân tích, 16 cơn):** lồng gỗ/hỗn hợp không thiệt hại ở gió tại lồng ≤ cấp 7; thiệt hại bắt đầu từ cấp 8; từ cấp 10 mọi trường hợp thiệt hại nặng/mất trắng. Đường cong thiệt hại (logistic, thăm dò): P(thiệt hại nặng) = 50 % ở cấp 9.0 (bootstrap 90 %: 7.8–10.4); P(có thiệt hại) = 50 % ở cấp 8.4.
+- **Kỹ thuật:** FAO/NACA 1989 tiêu chí đặt lồng nổi: gió < 10 kn, sóng < 1 m; FAO: lồng nổi đơn giản chịu sóng ~2 m, trong bão gần như không vị trí nào an toàn. "HDPE chịu cấp 12" chỉ là tuyên bố của người bán. TCVN 13997:2024 có nhưng chưa mở được văn bản.
+- **Đề xuất (chưa sửa code):** đưa "thu hoạch sớm" xuống bậc cấp 8, kích hoạt khi dự báo cấp 8 trong 48–72 h; cân nhắc "người rời lồng" từ cấp 9.
+- **Hạn chế:** nguồn báo chí; 6/8 trường hợp "không thiệt hại" chỉ là tìm không thấy tin; gió tại lồng phần lớn là cận dưới; 5/22 dòng cùng cơn Yagi; thiên lệch đưa tin.
+- **Thay thế:** `storm-damage-20261023` (không có bootstrap). **Tài liệu:** `docs/eval/2026-10-23-storm-damage.md`.
+
+## RL-39 · 2026-10-23 · Mức phơi nhiễm theo từng điểm nuôi (đà gió, che chắn, sóng, dòng chảy)
+
+- **Thiết lập:** `core/site_exposure.py`, `experiments/site_exposure.py`, chạy `site-exposure-20261023`. Đà gió 16 hướng trên mặt nước OSM (bước 100 m, tới 200 km); che chắn từ DEM Copernicus GLO-30 (DSM, ~30 m, `data/terrain/copernicus-glo30-20261023/`) theo đường cong chắn gió EC1763 (sàn 0.5 là giả định); sóng giới hạn theo đà gió và độ sâu theo SPM 1984 (thời gian gió 3 h giả định); lớp sóng/dòng chảy theo NS 9415; dòng chảy Open-Meteo SMOC ~8 km.
+- **Kết quả 14 trạm:** 9 trạm hở (NB1, NB4, NB5, NB6, NB16, NB19, NB25, NB27, NB28), 2 bán kín (NB15, NB3), 3 kín (NB2, NB17, NB26). Gió cấp 10 từ hướng xấu nhất: trạm hở Hs ~3 m (NB16 ~1.6 m), trạm kín 0.4–0.7 m. NB1 nguy hiểm nhất với gió tây nam (đà gió 66 km); trong Yagi gió tại NB1 chuyển từ 319° sang 200° sau khi mắt bão qua. Dòng chảy p95 ≤ 0.47 m/s ở cả 14 trạm (mô hình 8 km không thấy dòng siết; Delft3D công bố: Cửa Lục > 1 m/s khi triều rút). Trại nuôi OSM (33): 12 kín, 17 bán kín, 4 hở.
+- **Yagi:** thiệt hại gần như mất trắng ở mọi nơi nên không kiểm chứng được thứ hạng phơi nhiễm (n = 1); bảng hướng nguy hiểm theo trạm là sản phẩm dùng được.
+- **Hạn chế:** chưa có đo sóng/gió/dòng tại lồng; công thức SPM ngoại suy ở cấp 10–12, không tính sóng lừng; đường cong chắn gió 2-D cho núi đá vôi 3-D; kết quả nhạy với vị trí vài trăm mét (NB16 dịch 884 m vào mặt nước OSM); `stations.json` của run này còn 7 giá trị NaN (code đã sửa cho lần sau).
+- **Tài liệu:** `docs/eval/2026-10-23-site-exposure.md`.
+
