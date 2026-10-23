@@ -82,7 +82,19 @@ def test_latest_run_wins_and_builds_current_and_outlook(env):
     heat = next(c for c in nb1["current"] if c["hazard"] == "heat")
     assert heat["tier"] is None and heat["skip_reason"] == "marine_disabled" and heat["data_status"] == "unavailable"
     assert [d["max_tier"] for d in nb1["outlook"]] == [2, 1, 0, 3, 3]  # 72-120 h window fills days 4 and 5
-    assert nb1["outlook"][0]["date"] == "2026-10-23" and nb1["outlook"][4]["date"] == "2026-10-27"
+    # issued 15:00 local: block 0 (15:00 23/10 -> 15:00 24/10) holds the noon of 24/10, the runner's day for it
+    assert nb1["outlook"][0]["date"] == "2026-10-24" and nb1["outlook"][4]["date"] == "2026-10-28"
+
+
+@pytest.mark.parametrize("start_utc,expected", [
+    ("2026-10-23T00:00:00", "2026-10-23"),  # 07:00 local: today's noon is inside the block
+    ("2026-10-23T05:00:00", "2026-10-23"),  # 12:00 local exactly
+    ("2026-10-23T06:00:00", "2026-10-24"),  # 13:00 local: today's noon already passed
+    ("2026-10-23T17:00:00", "2026-10-24"),  # 00:00 local next day
+])
+def test_outlook_date_is_local_day_whose_noon_is_in_block(start_utc, expected):
+    start = datetime.fromisoformat(start_utc).replace(tzinfo=timezone.utc)
+    assert hazard_api._block_local_date(start) == expected
 
 
 def test_old_run_is_stale_and_shows_no_tier(env):
