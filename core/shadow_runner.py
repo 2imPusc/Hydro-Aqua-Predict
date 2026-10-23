@@ -1,7 +1,15 @@
-"""Lightweight one-minute runner for the sensor-first shadow ledger."""
+"""Lightweight one-minute runner for the sensor-first shadow ledger.
+
+Optional, opt-in hazard shadow (default OFF): set ``HAZARD_RUNNER_ENABLED=true`` and the loop in ``main``
+also calls ``core.hazard_runner.run_once`` (per-station storm/wave/heat/cold/disease records into
+``paths.HAZARD_SHADOW_DIR``), at most once every ``HAZARD_RUNNER_INTERVAL_MINUTES`` (default 60).
+It is independent of sensor freshness and never raises into the sensor loop.  Marine inputs still need
+``MARINE_ENABLED``; without it the temperature hazards are written as skip records.
+"""
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 import json
@@ -21,6 +29,31 @@ from core.weather_advisory import evaluate_weather_advisory
 from core.realtime_guards import assess_sensor_freshness, blocked_forecast
 
 RISK_LOG = STORE_DIR / "risk_decisions.jsonl"
+_last_hazard_run: datetime | None = None
+
+
+def hazard_runner_enabled() -> bool:
+    return os.getenv("HAZARD_RUNNER_ENABLED", "false").strip().lower() in ("1", "true", "yes")
+
+
+def maybe_run_hazards(now: datetime | None = None) -> dict | None:
+    """Opt-in hazard shadow run, throttled; returns the run summary, an error dict, or None when skipped."""
+    global _last_hazard_run
+    if not hazard_runner_enabled():
+        return None
+    now = now or datetime.now(timezone.utc)
+    try:
+        every = float(os.getenv("HAZARD_RUNNER_INTERVAL_MINUTES", "60"))
+    except ValueError:
+        every = 60.0
+    if _last_hazard_run is not None and (now - _last_hazard_run).total_seconds() < every * 60:
+        return None
+    _last_hazard_run = now
+    try:
+        from core import hazard_runner
+        return hazard_runner.run_once(now)
+    except Exception as exc:  # the sensor loop must survive any hazard-runner failure
+        return {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
 
 def record_risk_decision(station_serial: str, future: dict, weather_adv: dict, water_adv: dict) -> int:
     issued_at = future.get("base_timestamp", datetime.now(timezone.utc).isoformat())
@@ -151,6 +184,9 @@ def main() -> None:
         if "long_horizon" in result:
             printable["long_horizon"] = {key: value for key, value in result["long_horizon"].items() if key != "skips"}
         print(printable)
+        hazards = maybe_run_hazards()
+        if hazards is not None:
+            print({"hazard_runner": hazards})
         if args.once:
             return
         time.sleep(max(10, args.interval_seconds))

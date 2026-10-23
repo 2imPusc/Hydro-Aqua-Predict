@@ -380,6 +380,18 @@ def storm_list(tracks: pd.DataFrame) -> pd.DataFrame:
                          "max_hour": tracks.groupby("storm_id")["hour"].max()}).fillna({"ens_members": 0})
 
 
+def _fail(cmd: str, kind: str, exc: Exception) -> int:
+    """Report a download/decode error; ``run`` also leaves per-station skip records (reason names the error)."""
+    reason = f"{kind}: {type(exc).__name__}"
+    print(f"{kind}: {type(exc).__name__}: {exc}")
+    if cmd == "run":
+        try:
+            record_skip(load_stations(), reason)
+        except Exception as exc2:  # the ledger itself is unwritable: say so, still do not raise
+            print(f"could not write skip records: {type(exc2).__name__}: {exc2}")
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -390,7 +402,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("run")
     args = ap.parse_args(argv)
     if args.cmd in ("fetch", "run"):
-        got = fetch()
+        try:
+            got = fetch()
+        except Exception as exc:  # network / listing / disk errors: never raise out of a scheduled run
+            return _fail(args.cmd, "download_failed", exc)
         if got is None:
             print("no ECMWF Open Data run with an ENS tf file found")
             if args.cmd == "run":
@@ -405,12 +420,18 @@ def main(argv: list[str] | None = None) -> int:
         if run is None:
             print("no local ENS tf file; run `fetch` first")
             return 1
-    tracks, source = decode_run(run)
+    try:
+        tracks, source = decode_run(run)
+    except Exception as exc:  # missing eccodes, corrupt BUFR, missing file
+        return _fail(args.cmd, "decode_failed", exc)
     if args.cmd == "list":
         pd.set_option("display.width", 200)
         print(storm_list(tracks).to_string())
         return 0
-    res = summarize(tracks, run, source=source)
+    try:
+        res = summarize(tracks, run, source=source)
+    except Exception as exc:
+        return _fail(args.cmd, "summarize_failed", exc)
     body = res.get("body")
     print(f"{res['storms_file']} created={res['storms_file_created']} ledger_records={res['ledger_written']}")
     if body:

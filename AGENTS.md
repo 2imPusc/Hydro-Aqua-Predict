@@ -40,6 +40,7 @@ Two virtualenvs on purpose: streamlit 1.64 pins a starlette that breaks fastapi 
 
 ```powershell
 py -3.11 -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install -r requirements-hazards.txt   # optional: eccodes, copernicusmarine (ECMWF BUFR storm tracks, CMEMS)
 cd research-map\backend-fastapi; py -3.11 -m venv .venv; .venv\Scripts\python -m pip install -r requirements.txt
 cd ..\frontend; npm ci
 cd ..\..\ingest; npm ci          # GreenLab fetchers (fetch_api.js)
