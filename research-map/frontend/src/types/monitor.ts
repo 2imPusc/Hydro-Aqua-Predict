@@ -4,6 +4,7 @@ export type Snapshot = { snapshot_id: string; status: 'fresh' | 'stale' | 'unava
 export type HsiZones = { observed_at: string | null; mode: string; status?: 'building' | 'ready'; features: GeoJSON.Feature[] }
 export type Stations = GeoJSON.FeatureCollection
 export type ContextDomain = GeoJSON.FeatureCollection
+export type ContextRegion = GeoJSON.FeatureCollection & { step_deg: number; water_clipped: boolean }
 export type StationNetwork = GeoJSON.FeatureCollection & { edge_count: number; flow_streamline_count?: number; network_status: 'ready' | 'building'; influence_status: 'exploratory' | 'unavailable'; influence_reason?: string; influenced_edge_count?: number }
 export type FlowArtifact = GeoJSON.FeatureCollection & { artifact_id: string; algorithm_version: string; snapshot_id: string; payload_hash: string; geometry_hash?: string; retrieved_at: string; valid_at?: string | null; status: 'fresh' | 'stale' | 'unavailable'; provenance?: Record<string, unknown>; mode: string; streamline_count: number; ray_count?: number; current_supported_station_edge_count: number }
 export type FlowLatest = { flow_id?: string; status: 'fresh' | 'stale' | 'unavailable'; mode: string; streamline_count: number; station_route_count: number; geometry_hash?: string; provenance?: Record<string, unknown> }
@@ -17,7 +18,7 @@ export type BathymetrySample = { status: 'available' | 'unavailable'; copernicus
 export type EtopoSample = { status: 'available' | 'unavailable'; etopo_depth_m?: number; nearest_cell_is_sea?: boolean; suspect?: boolean; source_resolution?: string; vertical_datum?: string; reason_code?: string }
 export type TidConfidence = 'direct' | 'indirect' | 'unknown'
 export type GebcoSample = { status: 'available' | 'unavailable'; gebco_depth_m?: number; nearest_cell_is_sea?: boolean; suspect?: boolean; tid?: number; tid_confidence?: TidConfidence; source_resolution?: string; vertical_datum?: string; reason_code?: string }
-export type GebcoManifest = EtopoManifest & { direct_cell_count?: number; indirect_cell_count?: number; unknown_cell_count?: number; depth_cell_count?: number; confidence_classes?: Record<string, string> }
+export type GebcoManifest = EtopoManifest & { files?: Record<string, string>; slope_edges_deg?: number[]; slope_max_deg?: number; direct_cell_count?: number; indirect_cell_count?: number; unknown_cell_count?: number; depth_cell_count?: number; confidence_classes?: Record<string, string> }
 export type EtopoManifest = { status: 'ready' | 'building' | 'unavailable'; artifact_version?: string; source?: string; citation?: string; source_resolution?: string; vertical_datum?: string; band_edges_m?: number[]; isobaths_m?: number[]; coarse_cell_count?: number; suspect_cell_count?: number; water_cell_count?: number; disclaimer?: string; reason_code?: string }
 
 export type DataMode = 'live' | 'mock'

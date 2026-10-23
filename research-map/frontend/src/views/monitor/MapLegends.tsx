@@ -1,32 +1,36 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useState } from 'react'
 import { ChevronDown, Palette } from 'lucide-react'
 import type { EtopoManifest, GebcoManifest, Layer } from '../../types/monitor'
 import type { Theme } from '../../hooks/useTheme'
 import { DEPTH_BAND_LABELS, depthBandColor, FLAG_STYLE } from '../../components/map/overlays/EtopoDepthOverlay'
-import { scalarColor } from '../../components/map/overlays/ScalarGridOverlay'
 import { GradientLegend, SwatchLegend } from '../../components/ui'
 import { HSI_CLASSES, HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
 import { SEVERITY_STYLE, STALE_STYLE } from '../../components/map/overlays/StationMarkers'
 import { EXPOSURE_INK } from '../../components/map/overlays/SiteExposureOverlay'
 import { wedgePath, type SiteExposure } from '../../components/map/siteExposure'
 import type { EnabledLayers } from './useMonitorData'
+import { PALETTES, paletteGradient } from '../../components/map/fieldPalettes'
+import { GEBCO_SLOPE_CLASSES } from '../../components/map/overlays/GebcoSlopeOverlay'
+import { activeField, ADVISORY_RAIN_MM, ADVISORY_WIND_KMH } from './RegionalFields'
 import { num } from '../../lib/format'
 import { isCompactScreen, LEFT_PANEL_WIDTH, SCROLL_FADE } from './LayerControl'
 
-const SCALAR_TITLE: Record<string, string> = { rain: 'Mưa', sea_level: 'Mực nước', mixed_layer_depth: 'Mixed-layer depth' }
-
-/** Smooth scalar field legend; states the model grid so the smoothness is not read as fine detail. */
-function ScalarLegend({ layer }: { layer: Layer }) {
-  const range = useMemo(() => {
-    const values = layer.geojson?.features.map(feature => Number(feature.properties?.value)).filter(Number.isFinite) ?? []
-    return values.length ? [Math.min(...values), Math.max(...values)] : null
-  }, [layer])
-  if (!range) return null
-  const unit = String(layer.geojson?.features[0]?.properties?.unit ?? '')
-  const grid = layer.provenance?.source_grid_resolution ?? layer.provenance?.grid_resolution
-  return <GradientLegend title={SCALAR_TITLE[layer.layer] ?? layer.layer} gradient={`linear-gradient(90deg, ${scalarColor(0)}, ${scalarColor(1)})`}
-    ticks={[`${num(range[0], 2)} ${unit}`, `${num(range[1], 2)} ${unit}`]}
-    note={`Nội suy mượt giữa điểm mẫu${grid ? ` · lưới nguồn ${grid}` : ''}`} />
+/** Fixed-scale colour key of the active regional field; states the model grid so smoothness is not read as detail. */
+function FieldLegend({ id, layer }: { id: keyof typeof PALETTES; layer?: Layer }) {
+  const palette = PALETTES[id]
+  const step = Number((layer?.raster as { step_deg?: number } | undefined)?.step_deg)
+  const grid = Number.isFinite(step) ? `điểm lưới ~${Math.round(step * 111)} km` : 'lưới mô hình'
+  const notes: Record<string, string> = {
+    rain: 'Màu trong suốt = không mưa.',
+    rain6h: `Vòng cam: mưa ≥ ${ADVISORY_RAIN_MM} mm hoặc (tô kín) gió ≥ ${ADVISORY_WIND_KMH} km/h trong 6 giờ tới — ngưỡng cá giò của khuyến nghị nuôi (hàu: 8 mm, 30 km/h).`,
+    wind: 'Hạt trắng chạy theo hướng gió.',
+    wave: 'Hạt trắng chạy theo hướng sóng; chỉ trên mặt nước.',
+    current: 'Hạt trắng theo hướng dòng; mô hình ~8 km không thấy dòng siết ở luồng hẹp.',
+    sea_level: 'Dương = cao hơn mực nước trung bình (triều + nước dâng).',
+  }
+  return <GradientLegend title={`${palette.title} (${palette.unit})`} gradient={paletteGradient(palette)}
+    ticks={palette.ticks.map(v => num(v, 2).replace(/,00$/, '').replace(/(,\d)0$/, '$1'))}
+    note={`${notes[id]} Open-Meteo, ${grid}; tô mượt giữa các điểm, không thêm chi tiết.`} />
 }
 
 /** Stepped (one colour per band) depth legend; hard stops match the isobands. */
@@ -69,7 +73,8 @@ function ExposureLegend({ theme, exposure }: { theme: Theme; exposure: SiteExpos
 /** Bottom-left legends for whatever is switched on. */
 export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, gebco, etopo, advisoryStale, exposure }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; gebco: GebcoManifest | null; etopo: EtopoManifest | null; advisoryStale: boolean; exposure: SiteExposure | null }) {
   const [open, setOpen] = useState(() => !isCompactScreen())
-  const scalar = environmentLayers.find(layer => layer.kind === 'scalar_grid' && enabled[layer.layer as keyof EnabledLayers])
+  const field = activeField(enabled)
+  const fieldLayer = environmentLayers.find(layer => layer.layer === ({ rain: 'rain', rain6h: 'advisory_forecast', wind: 'wind', wave: 'wave', current: 'current', sea_level: 'sea_level' } as const)[field ?? 'rain'])
   const bathyBands = enabled.bathymetry_bands && !enabled.bathymetry_slope
   return (
     <section aria-label="Chú giải" className={`glass pointer-events-auto ${LEFT_PANEL_WIDTH} flex-none overflow-hidden rounded-[var(--radius-lg)]`}>
@@ -89,11 +94,10 @@ export const MapLegends = memo(function MapLegends({ enabled, environmentLayers,
           {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} gebco={gebco} showEtopo={enabled.depth_etopo && etopo?.status === 'ready'} />}
           {enabled.site_exposure && exposure?.status === 'ready' && <ExposureLegend theme={theme} exposure={exposure} />}
           {enabled.hsi_zones && <SwatchLegend title="HSI lịch sử" note={HSI_LEGACY_LABEL} items={HSI_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} />}
-          {scalar && <ScalarLegend layer={scalar} />}
-          {enabled.flow_streamlines && <SwatchLegend title="Tia dòng chảy" items={[{ color: '#0b5fc1', label: 'Tia nội suy theo nước (+ hạt minh hoạ)', shape: 'line' }, { color: '#ea580c', label: 'Tương thích dòng–trạm (research only)', shape: 'line' }]} />}
-          {enabled.wind_particles && <SwatchLegend title="Vệt gió (10 m)" items={[{ color: 'var(--fg-subtle)', label: 'Hạt canvas một màu — chỉ hướng, không mã hoá tốc độ', shape: 'line' }]} note="Chỉ quan sát · không kích hoạt cảnh báo" />}
-          {bathyBands && <GradientLegend title="Bãi triều (SDB vệ tinh ~100 m)" gradient="linear-gradient(to right, hsl(195 78% 76%), hsl(210 78% 55%), hsl(225 78% 33%))" ticks={['0 m', '0.6 m', '≥ 1.2 m']} note="Chỉ nghiên cứu; không dùng cho hàng hải" />}
-          {enabled.bathymetry_slope && <SwatchLegend title="Độ dốc đáy" items={[{ color: '#0ea5e9', label: '< 4°' }, { color: '#facc15', label: '4–9°' }, { color: '#ea580c', label: '9–18°' }, { color: '#991b1b', label: '≥ 18°' }]} columns={2} />}
+          {field && <FieldLegend id={field} layer={fieldLayer} />}
+          {enabled.flow_streamlines && <SwatchLegend title="Tia dòng chảy quanh trạm" items={[{ color: '#0b5fc1', label: 'Tia nội suy theo mặt nước', shape: 'line' }, { color: '#ea580c', label: 'Tương thích dòng–trạm (chỉ nghiên cứu)', shape: 'line' }]} />}
+          {bathyBands && <GradientLegend title="Bãi triều (vệ tinh SDB ~100 m)" gradient="linear-gradient(to right, hsl(195 78% 76%), hsl(210 78% 55%), hsl(225 78% 33%))" ticks={['0 m', '1 m', '≥ 2 m']} note="Chỉ có ở bãi triều ven bờ Hải Phòng · không dùng cho hàng hải" />}
+          {enabled.depth_slope && <SwatchLegend title="Độ dốc đáy (GEBCO ~460 m)" items={GEBCO_SLOPE_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} note="Lưới thô: chỉ thấy sườn dốc lớn quanh đảo, không thấy rãnh hẹp." />}
           {enabled.station_network && <SwatchLegend title="Mạng trạm" items={[{ color: '#64748b', label: 'Kết nối mặt nước tĩnh (không phải hướng dòng)', shape: 'dash' }]} />}
           {enabled.context_buffer && <SwatchLegend title="Phạm vi" items={[{ color: '#38bdf8', label: 'Context 5 km trên mặt nước' }, { color: '#2563eb', label: 'Biên buffer', shape: 'dash' }]} />}
         </div>
