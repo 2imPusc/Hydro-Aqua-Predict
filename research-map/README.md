@@ -12,6 +12,9 @@ Không có gì ở đây phát cảnh báo hay khuyến nghị tới người nu
   - `#/zoning` H3 · bản đồ phù hợp nuôi trồng VN / HK, biến thể `N1_W_SUM` | `A_W_SUM`.
   - `#/reliability` H4 · độ tin cậy ngoại suy không gian: lớp chế độ mặn VN và kiểm chứng
     trên bộ dữ liệu nước ngoài (`#/reliability/foreign/<id>`).
+- **Cảnh báo theo trạm** (`#/alerts`): sổ shadow `runtime/hazard-shadow/hazard_*.jsonl` (`core/hazard_runner.py`,
+  `experiments/ecmwf_opendata.py`); lý thuyết, không gửi thông báo. **Cấu hình cảnh báo** (`#/settings/alerts`):
+  admin chỉnh ngưỡng / hành động, mỗi lần lưu là một phiên bản mới (decisions #20, chưa có phân quyền).
 
 Thiết kế/tiến trình: [`docs/superpowers/plans/2026-10-17-research-map-redesign.md`](../docs/superpowers/plans/2026-10-17-research-map-redesign.md),
 lộ trình cũ: [`docs/guide/23-research-map-implementation-roadmap.md`](../docs/guide/23-research-map-implementation-roadmap.md).
@@ -89,6 +92,11 @@ Nghiên cứu (`/api/v1/research`, chỉ đọc file):
 
 Khi thiếu export hay file, endpoint trả `{"status":"unavailable","reason":...}` thay vì lỗi.
 
+Cảnh báo shadow: `GET /api/v1/research/hazards/stations` (bậc hiện tại + 5 khối 24 h theo trạm; `date` = ngày địa
+phương có 12:00 nằm trong khối), `/research/storms/active` (ECMWF Open Data ENS). Cấu hình (`/api/v1/admin`, chưa
+có phân quyền): `GET /alert-config`, `/alert-config/versions`, `/alert-config/versions/{v}`,
+`POST /alert-config/preview` (không ghi), `POST /alert-config` (body ≤ 256 KB; 201 / 422 / 503 khi thư mục không ghi được).
+
 ## Nguồn dữ liệu và giấy phép
 
 - **Maryland DNR (Chesapeake, Eyes on the Bay)**: chính sách không cho phát tán lại dữ liệu thô — chỉ xuất
@@ -136,4 +144,5 @@ riêng cho `[data-theme="dark"]`. Dữ liệu mock luôn mang tông `--mock` và
 - Database riêng `context_research`; worker lưu snapshot bất biến mỗi 30 phút và bảng `sensor_observations`
   append-only (insert idempotent, không ghi đè). Lỗi provider giữ giá trị tốt cuối và hiện là `stale`.
 - `stale` = đang phục vụ snapshot cũ quá hạn, không phải giá trị hiện tại.
-- API không bao giờ ghi vào `artifacts/`, `runtime/` hay `data/`.
+- API không bao giờ ghi vào `artifacts/`, `runtime/` hay `data/`, trừ một ngoại lệ (decisions #20): tạo file phiên bản
+  mới (tạo độc quyền, không ghi đè, không xóa) trong `runtime/alert-config/`. Docker mount riêng thư mục này ghi được.
