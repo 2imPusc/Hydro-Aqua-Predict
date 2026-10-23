@@ -8,10 +8,11 @@ import type { AlertConfig, AlertConfigChange, EditableField, ExposureClass, Haza
 export type Scope = { kind: 'default' } | { kind: 'class'; id: ExposureClass } | { kind: 'station'; id: string }
 export const EDITABLE: EditableField[] = ['thresholds', 'persistence_days', 'actions_vi']
 export const CLASSES: ExposureClass[] = ['sheltered', 'semi', 'exposed']
-export const CLASS_LABEL: Record<ExposureClass, string> = { sheltered: 'Kín gió', semi: 'Bán kín', exposed: 'Hở' }
-export const FIELD_LABEL: Record<EditableField, string> = { thresholds: 'ngưỡng', persistence_days: 'số ngày liên tục', actions_vi: 'hành động' }
+export const CLASS_LABEL: Record<ExposureClass, string> = { sheltered: 'KÃ­n giÃ³', semi: 'BÃ¡n kÃ­n', exposed: 'Há»Ÿ' }
+export const FIELD_LABEL: Record<EditableField, string> = { thresholds: 'ngÆ°á»¡ng', persistence_days: 'sá»‘ ngÃ y liÃªn tá»¥c', actions_vi: 'hÃ nh Ä‘á»™ng' }
 
-export const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
+/** structuredClone keeps NaN (an in-progress invalid number) so validation still sees it. */
+export const clone = <T,>(value: T): T => structuredClone(value)
 const sortTiers = (keys: string[]) => [...keys].sort((a, b) => Number(a) - Number(b))
 export const tierKeys = (hazard: HazardConfig) => sortTiers(Object.keys(hazard.thresholds))
 
@@ -42,8 +43,6 @@ const same = (a: unknown, b: unknown) => (typeof a === 'number' && typeof b === 
  */
 export function setLeaf(config: AlertConfig, scope: Scope, id: string, field: EditableField, tier: string, value: number | string | undefined): AlertConfig {
   const next = clone(config)
-  // JSON round-trip turns NaN into null; restore the in-progress invalid marker.
-  restoreNaN(config, next)
   if (scope.kind === 'default') {
     const hazard = next.hazards[id] as unknown as Record<string, Record<string, unknown> | undefined>
     const dict = { ...(hazard[field] ?? {}) }
@@ -76,26 +75,10 @@ export function setLeaf(config: AlertConfig, scope: Scope, id: string, field: Ed
 /** Clear every override of one hazard in a scope. */
 export function resetHazardOverride(config: AlertConfig, scope: Scope, id: string): AlertConfig {
   const next = clone(config)
-  restoreNaN(config, next)
   const overrides = scopeOverrides(next, scope)
   if (overrides) delete overrides[id]
   if (scope.kind === 'station' && overrides && !Object.keys(overrides).length) delete next.scopes.station[scope.id]
   return next
-}
-
-function restoreNaN(source: AlertConfig, target: AlertConfig) {
-  for (const [id, hazard] of Object.entries(source.hazards)) {
-    for (const [tier, value] of Object.entries(hazard.thresholds)) if (Number.isNaN(value)) target.hazards[id].thresholds[tier] = NaN
-  }
-  for (const kind of ['exposure_class', 'station'] as const) {
-    for (const [scopeId, overrides] of Object.entries((source.scopes?.[kind] ?? {}) as Record<string, ScopeOverrides>)) {
-      for (const [id, override] of Object.entries(overrides ?? {})) {
-        for (const [tier, value] of Object.entries(override.thresholds ?? {})) {
-          if (Number.isNaN(value)) ((target.scopes[kind] as Record<string, ScopeOverrides>)[scopeId][id].thresholds as Record<string, number>)[tier] = NaN
-        }
-      }
-    }
-  }
 }
 
 /** Is this leaf overridden in the scope (shown as a diff vs the base)? */
@@ -133,17 +116,17 @@ export function diffConfig(before: AlertConfig, after: AlertConfig): AlertConfig
   return paths.filter(path => !same(a.get(path), b.get(path))).map(path => ({ path, old: a.get(path) ?? null, new: b.get(path) ?? null }))
 }
 
-/** "hazards.storm_wind.thresholds.2" → readable Vietnamese. */
+/** "hazards.storm_wind.thresholds.2" â†’ readable Vietnamese. */
 export function describePath(path: string, config: AlertConfig | null, stationName?: (id: string) => string): { scope: string; hazard: string; field: string } {
   const parts = path.split('.')
-  let scope = 'Mặc định', rest = parts.slice(1)
+  let scope = 'Máº·c Ä‘á»‹nh', rest = parts.slice(1)
   if (parts[0] === 'scopes') {
-    scope = parts[1] === 'exposure_class' ? `Lớp ${CLASS_LABEL[parts[2] as ExposureClass] ?? parts[2]}` : `Trạm ${stationName?.(parts[2]) ?? parts[2]}`
+    scope = parts[1] === 'exposure_class' ? `Lá»›p ${CLASS_LABEL[parts[2] as ExposureClass] ?? parts[2]}` : `Tráº¡m ${stationName?.(parts[2]) ?? parts[2]}`
     rest = parts.slice(3)
   }
   const [hazardId, field, tier] = rest
   const hazard = config?.hazards[hazardId]?.label_vi ?? hazardId
-  return { scope, hazard, field: `${FIELD_LABEL[field as EditableField] ?? field}${tier ? ` bậc ${tier}` : ''}` }
+  return { scope, hazard, field: `${FIELD_LABEL[field as EditableField] ?? field}${tier ? ` báº­c ${tier}` : ''}` }
 }
 
 /* ---------------------------------------------------------- validation */
@@ -151,7 +134,7 @@ export function describePath(path: string, config: AlertConfig | null, stationNa
 export type FieldErrors = Record<string, string>
 const leafKey = (field: EditableField, tier: string) => `${field}.${tier}`
 
-/** Errors per leaf for one (merged) hazard: number, guardrails, strict monotonic order, persistence ≥ 1 day. */
+/** Errors per leaf for one (merged) hazard: number, guardrails, strict monotonic order, persistence â‰¥ 1 day. */
 export function validateHazard(hazard: HazardConfig): FieldErrors {
   const errors: FieldErrors = {}
   const tiers = tierKeys(hazard)
@@ -160,17 +143,17 @@ export function validateHazard(hazard: HazardConfig): FieldErrors {
   for (const tier of tiers) {
     const value = hazard.thresholds[tier]
     const key = leafKey('thresholds', tier)
-    if (typeof value !== 'number' || !Number.isFinite(value)) { errors[key] = 'Nhập một số'; continue }
+    if (typeof value !== 'number' || !Number.isFinite(value)) { errors[key] = 'Nháº­p má»™t sá»‘'; continue }
     const min = hazard.guardrails?.min?.[tier], max = hazard.guardrails?.max?.[tier]
-    if (min != null && value < min) errors[key] = `Thấp hơn giới hạn cho phép (${fmt(min)})`
-    else if (max != null && value > max) errors[key] = `Cao hơn giới hạn cho phép (${fmt(max)})`
-    else if (previous && (up ? value <= previous.value : value >= previous.value)) errors[key] = `Phải ${up ? 'lớn' : 'nhỏ'} hơn bậc ${previous.tier} (${fmt(previous.value)})`
+    if (min != null && value < min) errors[key] = `Tháº¥p hÆ¡n giá»›i háº¡n cho phÃ©p (${fmt(min)})`
+    else if (max != null && value > max) errors[key] = `Cao hÆ¡n giá»›i háº¡n cho phÃ©p (${fmt(max)})`
+    else if (previous && (up ? value <= previous.value : value >= previous.value)) errors[key] = `Pháº£i ${up ? 'lá»›n' : 'nhá»'} hÆ¡n báº­c ${previous.tier} (${fmt(previous.value)})`
     previous = { tier, value }
   }
   for (const [tier, days] of Object.entries(hazard.persistence_days ?? {})) {
-    if (!Number.isInteger(days) || days < 1) errors[leafKey('persistence_days', tier)] = 'Số ngày nguyên ≥ 1'
+    if (!Number.isInteger(days) || days < 1) errors[leafKey('persistence_days', tier)] = 'Sá»‘ ngÃ y nguyÃªn â‰¥ 1'
   }
-  for (const tier of tiers) if (!String(hazard.actions_vi?.[tier] ?? '').trim()) errors[leafKey('actions_vi', tier)] = 'Không để trống'
+  for (const tier of tiers) if (!String(hazard.actions_vi?.[tier] ?? '').trim()) errors[leafKey('actions_vi', tier)] = 'KhÃ´ng Ä‘á»ƒ trá»‘ng'
   return errors
 }
 
@@ -192,15 +175,15 @@ export function validateConfig(config: AlertConfig): ScopeIssue[] {
 
 export const sameScope = (a: Scope, b: Scope) => a.kind === b.kind && (a.kind === 'default' || (a as { id: string }).id === (b as { id: string }).id)
 export const scopeName = (scope: Scope, stationName?: (id: string) => string) =>
-  scope.kind === 'default' ? 'Mặc định' : scope.kind === 'class' ? `Lớp ${CLASS_LABEL[scope.id]}` : `Trạm ${stationName?.(scope.id) ?? scope.id}`
+  scope.kind === 'default' ? 'Máº·c Ä‘á»‹nh' : scope.kind === 'class' ? `Lá»›p ${CLASS_LABEL[scope.id]}` : `Tráº¡m ${stationName?.(scope.id) ?? scope.id}`
 
 export function fmt(value: unknown): string {
-  if (value === null || value === undefined) return '—'
-  if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('vi-VN', { maximumFractionDigits: 3 }) : '—'
+  if (value === null || value === undefined) return 'â€”'
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('vi-VN', { maximumFractionDigits: 3 }) : 'â€”'
   return String(value)
 }
 
-/** Copy only editable fields of a saved version onto the current effective config (restore → new draft). */
+/** Copy only editable fields of a saved version onto the current effective config (restore â†’ new draft). */
 export function restoreFrom(current: AlertConfig, version: AlertConfig): AlertConfig {
   const next = clone(current)
   for (const [id, hazard] of Object.entries(next.hazards)) {
@@ -230,4 +213,4 @@ export function restoreFrom(current: AlertConfig, version: AlertConfig): AlertCo
 }
 
 /** Draft as sent to the server: NaN never leaves the client (validation blocks it anyway). */
-export const toPayload = (config: AlertConfig): AlertConfig => clone(config)
+export const toPayload = (config: AlertConfig): AlertConfig => JSON.parse(JSON.stringify(config)) as AlertConfig

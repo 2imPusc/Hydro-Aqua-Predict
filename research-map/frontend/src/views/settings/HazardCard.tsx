@@ -85,7 +85,7 @@ function TierScale({ hazard, tiers, overridden, errors }: { hazard: HazardConfig
 function NumberInput({ value, onChange, label, invalid, describedBy, integer, placeholder, className = '' }: {
   value: number | undefined; onChange: (value: number | undefined) => void; label: string; invalid?: boolean; describedBy?: string; integer?: boolean; placeholder?: string; className?: string
 }) {
-  const toText = (number: number | undefined) => (number === undefined || Number.isNaN(number) ? '' : String(number).replace('.', ','))
+  const toText = (number: number | null | undefined) => (number == null || Number.isNaN(number) ? '' : String(number).replace('.', ','))
   const [text, setText] = useState(() => toText(value))
   // Resync only when the value changed from outside (restore, reset, scope switch), not while typing.
   useEffect(() => {
