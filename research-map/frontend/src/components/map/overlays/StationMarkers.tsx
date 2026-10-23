@@ -11,7 +11,7 @@ export type Severity = 'WARNING' | 'WATCH' | 'UNKNOWN' | 'NORMAL'
 export const SEVERITY_STYLE: Record<Severity, { color: string; label: string; tone: 'danger' | 'warn' | 'neutral' | 'ok' }> = {
   WARNING: { color: '#dc2626', label: 'Cảnh báo', tone: 'danger' },
   WATCH: { color: '#f59e0b', label: 'Cần theo dõi', tone: 'warn' },
-  UNKNOWN: { color: '#94a3b8', label: 'Không rõ', tone: 'neutral' },
+  UNKNOWN: { color: '#94a3b8', label: 'Thiếu dữ liệu', tone: 'neutral' },
   NORMAL: { color: '#16a34a', label: 'Bình thường', tone: 'ok' },
 }
 export const toSeverity = (value: unknown): Severity => {

@@ -607,3 +607,18 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Quy trình admin:** sửa → xem trước → lưu (v0001: gió bậc 2 8→7) → lượt chạy sau dùng v0001; v0002, khôi phục, v0003; chỉ ghi vào runtime tạm. Thử truy cập ngoài thư mục, JSON lồng sâu, thân yêu cầu lớn: đều bị chặn (đã thêm giới hạn kích thước và độ dài trường).
 - **Đã sửa:** chip theo dõi bão trung tính trên trạm dữ liệu cũ; nhãn "Hôm nay" chỉ khi đúng ngày; ngày triển vọng theo quy tắc trưa địa phương; chặn mất chỉnh sửa chưa lưu khi quay lại/tiến tới; ETOPO luôn nằm dưới GEBCO; mount ghi được `runtime/alert-config` trong docker-compose (chưa thử vì Docker tắt); bộ chạy nguy cơ chạy trong luồng nền để không chặn vòng đọc sensor.
 - **Còn mở:** ngưỡng dịch bệnh bão hòa; `RESEARCH_RUNTIME_DIR` và `HAP_RUNTIME_DIR` có thể trỏ khác nhau; mặc định đường dẫn độ sâu chưa theo `HAP_DATA_DIR`; khung đường thời tiết bị cắt nhãn ở 1440 px.
+
+## RL-48 · 2026-10-24 · Giao diện: làm rõ chữ theo skill UI/UX (ui-ux-pro-max, Impeccable)
+
+- **Nguồn tham khảo:** skill `ui-ux-pro-max` (nextlevelbuilder/ui-ux-pro-max-skill @d14efff, cài ở `~/.claude/skills`, chỉ Python và dữ liệu cục bộ); Impeccable (pbakaus/impeccable @7e51b1e) chỉ đọc `operate.md`, `clarify.md`, không chạy launcher (launcher tự tải binary). Không áp dụng gợi ý phong cách mới của skill (glassmorphism, nền tối): đây là trang vận hành, nên sửa theo hướng rõ chữ, không đổi theme.
+- **Đánh giá trên Docker đầy đủ** (api 8010, giao diện 8083, Postgres, worker; lớp GEBCO dựng xong): mã nội bộ lộ ra người dùng (`scalar_grid · 358 ô · open_meteo`, `copernicus_not_configured`, `UNCHECKED`, `degC`, `vendor_unit_unknown`, `captured_live`, `lockbox`, `A3`, `bundle`, `export`, `Legacy`, `Context`); nhãn bị cắt (`Temp…`, ngày trên lưới thời tiết ở 1440 px, thanh điều hướng điện thoại); dấu thập phân lẫn `0.15` / `0,5`; chip "Không rõ" ở mọi trạm; trang Cảnh báo trống chỉ in đường dẫn file; badge H1–H4 đè icon; nhãn lớp vị trí chồng nhau.
+- **Đã sửa:**
+  - `lib/format.ts`: nhãn nguồn dữ liệu, lý do không khả dụng, tên chỉ số, đơn vị, trạng thái QC, kích thước lưới mô hình (không dùng lưới hiển thị ~1,2 km); mọi số hiển thị dùng dấu phẩy thập phân.
+  - Thẻ cảm biến: ghi một lần "Chưa kiểm tra chất lượng" thay cho chip `UNCHECKED` trên từng ô; "Temperature / degC" → "Nhiệt độ / °C"; "đv. chưa rõ" → "đơn vị ?".
+  - "Không rõ" → "Thiếu dữ liệu"; "Context" → "Thời tiết vùng"; "Legacy" → "Lưu trữ".
+  - Trang Cảnh báo trống: nói trang sẽ hiện gì, bật bằng cờ nào, liên kết tới Cấu hình cảnh báo.
+  - H1: "gate #16 / bundle / lockbox / A3" → "kiểm định / mô hình / tập kiểm tra giữ riêng / dữ liệu trước khi đầu dò pH trôi" (giữ "gate #16" trong phần giải thích). Chip export → "Kết quả 24/10 03:27".
+  - Lưới thời tiết không cắt nhãn ngày; nhãn điều hướng điện thoại xuống dòng thay vì cắt; badge H1–H4 dời khỏi icon; ngưỡng chống chồng nhãn lớp vị trí 20 → 34 px; sửa lỗi mã hóa có từ Track B trong `views/settings/model.ts` (12 dòng: nhãn Mặc định / Lớp / Trạm trong lịch sử phiên bản, thông báo lỗi khi nhập ngưỡng, dấu —).
+  - Chạy lại export (`artifacts/research-map/20261024-0330`) để đổi chữ giai đoạn H2 và câu kết luận H1.
+- **Kiểm tra:** `npm run build`; test backend 94 đạt, test lõi 766 đạt; ảnh 1440 và 390 px trước / sau.
+- **Còn mở:** điện thoại có 7 mục điều hướng (khuyến nghị ≤ 5), cần quyết định gộp mục; trang H1 vẫn nhiều thuật ngữ nghiên cứu trong phần mở rộng; trang Cảnh báo trên Docker trống vì `runtime/hazard-shadow` chưa có (bộ chạy chưa bật).

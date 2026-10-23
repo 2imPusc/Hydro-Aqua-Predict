@@ -14,7 +14,7 @@ export function HeatStrip({ rows, columns, ariaLabel }: { rows: HeatRow[]; colum
   const [active, setActive] = useState<HeatCell | null>(null)
   return (
     <div>
-      <div role="grid" aria-label={ariaLabel} className="grid gap-[2px]" style={{ gridTemplateColumns: `72px repeat(${columns.length}, minmax(0, 1fr))` }}>
+      <div role="grid" aria-label={ariaLabel} className="grid gap-[2px]" style={{ gridTemplateColumns: `max-content repeat(${columns.length}, minmax(0, 1fr))` }}>
         <div role="row" className="contents">
           <span role="columnheader" />
           {columns.map((column, index) => (
@@ -23,7 +23,7 @@ export function HeatStrip({ rows, columns, ariaLabel }: { rows: HeatRow[]; colum
         </div>
         {rows.map(row => (
           <div key={row.key} role="row" className="contents">
-            <span role="rowheader" className="truncate pr-2 text-right text-[11px] leading-[18px] text-fg-muted tabular">{row.label}</span>
+            <span role="rowheader" className="whitespace-nowrap pr-2 text-right text-[11px] leading-[18px] text-fg-muted tabular">{row.label}</span>
             {row.cells.map(cell => (
               <span key={cell.key} role="gridcell" tabIndex={cell.state === 'outside' ? -1 : 0} aria-label={cell.label}
                 onMouseEnter={() => setActive(cell)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(cell)} onBlur={() => setActive(null)}

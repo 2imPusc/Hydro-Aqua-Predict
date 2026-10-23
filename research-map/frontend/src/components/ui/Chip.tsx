@@ -26,7 +26,7 @@ export const STATE_META: Record<string, { tone: Tone; label: string }> = {
   exploratory: { tone: 'info', label: 'Thăm dò' },
   research_only: { tone: 'info', label: 'Chỉ nghiên cứu' },
   mock: { tone: 'mock', label: 'Mô phỏng' },
-  legacy: { tone: 'neutral', label: 'Legacy' },
+  legacy: { tone: 'neutral', label: 'Lưu trữ' },
   withdrawn: { tone: 'neutral', label: 'Đã rút' },
   unavailable: { tone: 'danger', label: 'Không khả dụng' },
   offline: { tone: 'danger', label: 'Mất kết nối' },

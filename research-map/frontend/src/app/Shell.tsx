@@ -22,9 +22,9 @@ function NavLink({ item, active, compact }: { item: (typeof NAV)[number]; active
       {active && !compact && <span className="absolute -left-[6px] top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-sky-400" aria-hidden />}
       <span className="relative">
         {ICON[item.view]}
-        {item.code && <span className={`absolute -right-2.5 -top-1.5 rounded px-[3px] text-[9px] font-bold leading-[12px] ${active ? 'bg-sky-600 text-white dark:bg-sky-400 dark:text-slate-900' : 'bg-white/10 text-[var(--rail-fg)] group-hover:text-white'}`}>{item.code}</span>}
+        {item.code && <span className={`absolute -right-[19px] -top-1 rounded px-[3px] text-[9px] font-bold leading-[12px] ${active ? 'bg-sky-600 text-white dark:bg-sky-400 dark:text-slate-900' : 'bg-white/10 text-[var(--rail-fg)] group-hover:text-white'}`}>{item.code}</span>}
       </span>
-      <span className={`max-w-full font-semibold leading-tight ${compact ? 'truncate text-[11px]' : 'text-[10.5px]'}`}>{item.short}</span>
+      <span className={`max-w-full font-semibold leading-tight ${compact ? 'text-[10px] [overflow-wrap:anywhere]' : 'text-[10.5px]'}`}>{item.short}</span>
     </a>
   )
 }

@@ -8,8 +8,8 @@ import type { AlertConfig, AlertConfigChange, EditableField, ExposureClass, Haza
 export type Scope = { kind: 'default' } | { kind: 'class'; id: ExposureClass } | { kind: 'station'; id: string }
 export const EDITABLE: EditableField[] = ['thresholds', 'persistence_days', 'actions_vi']
 export const CLASSES: ExposureClass[] = ['sheltered', 'semi', 'exposed']
-export const CLASS_LABEL: Record<ExposureClass, string> = { sheltered: 'KÃ­n giÃ³', semi: 'BÃ¡n kÃ­n', exposed: 'Há»Ÿ' }
-export const FIELD_LABEL: Record<EditableField, string> = { thresholds: 'ngÆ°á»¡ng', persistence_days: 'sá»‘ ngÃ y liÃªn tá»¥c', actions_vi: 'hÃ nh Ä‘á»™ng' }
+export const CLASS_LABEL: Record<ExposureClass, string> = { sheltered: 'Kín gió', semi: 'Bán kín', exposed: 'Hở' }
+export const FIELD_LABEL: Record<EditableField, string> = { thresholds: 'ngưỡng', persistence_days: 'số ngày liên tục', actions_vi: 'hành động' }
 
 /** structuredClone keeps NaN (an in-progress invalid number) so validation still sees it. */
 export const clone = <T,>(value: T): T => structuredClone(value)
@@ -119,14 +119,14 @@ export function diffConfig(before: AlertConfig, after: AlertConfig): AlertConfig
 /** "hazards.storm_wind.thresholds.2" â†’ readable Vietnamese. */
 export function describePath(path: string, config: AlertConfig | null, stationName?: (id: string) => string): { scope: string; hazard: string; field: string } {
   const parts = path.split('.')
-  let scope = 'Máº·c Ä‘á»‹nh', rest = parts.slice(1)
+  let scope = 'Mặc định', rest = parts.slice(1)
   if (parts[0] === 'scopes') {
-    scope = parts[1] === 'exposure_class' ? `Lá»›p ${CLASS_LABEL[parts[2] as ExposureClass] ?? parts[2]}` : `Tráº¡m ${stationName?.(parts[2]) ?? parts[2]}`
+    scope = parts[1] === 'exposure_class' ? `Lớp ${CLASS_LABEL[parts[2] as ExposureClass] ?? parts[2]}` : `Trạm ${stationName?.(parts[2]) ?? parts[2]}`
     rest = parts.slice(3)
   }
   const [hazardId, field, tier] = rest
   const hazard = config?.hazards[hazardId]?.label_vi ?? hazardId
-  return { scope, hazard, field: `${FIELD_LABEL[field as EditableField] ?? field}${tier ? ` báº­c ${tier}` : ''}` }
+  return { scope, hazard, field: `${FIELD_LABEL[field as EditableField] ?? field}${tier ? ` bậc ${tier}` : ''}` }
 }
 
 /* ---------------------------------------------------------- validation */
@@ -143,17 +143,17 @@ export function validateHazard(hazard: HazardConfig): FieldErrors {
   for (const tier of tiers) {
     const value = hazard.thresholds[tier]
     const key = leafKey('thresholds', tier)
-    if (typeof value !== 'number' || !Number.isFinite(value)) { errors[key] = 'Nháº­p má»™t sá»‘'; continue }
+    if (typeof value !== 'number' || !Number.isFinite(value)) { errors[key] = 'Nhập một số'; continue }
     const min = hazard.guardrails?.min?.[tier], max = hazard.guardrails?.max?.[tier]
-    if (min != null && value < min) errors[key] = `Tháº¥p hÆ¡n giá»›i háº¡n cho phÃ©p (${fmt(min)})`
-    else if (max != null && value > max) errors[key] = `Cao hÆ¡n giá»›i háº¡n cho phÃ©p (${fmt(max)})`
-    else if (previous && (up ? value <= previous.value : value >= previous.value)) errors[key] = `Pháº£i ${up ? 'lá»›n' : 'nhá»'} hÆ¡n báº­c ${previous.tier} (${fmt(previous.value)})`
+    if (min != null && value < min) errors[key] = `Thấp hơn giới hạn cho phép (${fmt(min)})`
+    else if (max != null && value > max) errors[key] = `Cao hơn giới hạn cho phép (${fmt(max)})`
+    else if (previous && (up ? value <= previous.value : value >= previous.value)) errors[key] = `Phải ${up ? 'lớn' : 'nhỏ'} hơn bậc ${previous.tier} (${fmt(previous.value)})`
     previous = { tier, value }
   }
   for (const [tier, days] of Object.entries(hazard.persistence_days ?? {})) {
-    if (!Number.isInteger(days) || days < 1) errors[leafKey('persistence_days', tier)] = 'Sá»‘ ngÃ y nguyÃªn â‰¥ 1'
+    if (!Number.isInteger(days) || days < 1) errors[leafKey('persistence_days', tier)] = 'Số ngày nguyên â‰¥ 1'
   }
-  for (const tier of tiers) if (!String(hazard.actions_vi?.[tier] ?? '').trim()) errors[leafKey('actions_vi', tier)] = 'KhÃ´ng Ä‘á»ƒ trá»‘ng'
+  for (const tier of tiers) if (!String(hazard.actions_vi?.[tier] ?? '').trim()) errors[leafKey('actions_vi', tier)] = 'Không để trống'
   return errors
 }
 
@@ -175,11 +175,11 @@ export function validateConfig(config: AlertConfig): ScopeIssue[] {
 
 export const sameScope = (a: Scope, b: Scope) => a.kind === b.kind && (a.kind === 'default' || (a as { id: string }).id === (b as { id: string }).id)
 export const scopeName = (scope: Scope, stationName?: (id: string) => string) =>
-  scope.kind === 'default' ? 'Máº·c Ä‘á»‹nh' : scope.kind === 'class' ? `Lá»›p ${CLASS_LABEL[scope.id]}` : `Tráº¡m ${stationName?.(scope.id) ?? scope.id}`
+  scope.kind === 'default' ? 'Mặc định' : scope.kind === 'class' ? `Lớp ${CLASS_LABEL[scope.id]}` : `Trạm ${stationName?.(scope.id) ?? scope.id}`
 
 export function fmt(value: unknown): string {
-  if (value === null || value === undefined) return 'â€”'
-  if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('vi-VN', { maximumFractionDigits: 3 }) : 'â€”'
+  if (value === null || value === undefined) return '—'
+  if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('vi-VN', { maximumFractionDigits: 3 }) : '—'
   return String(value)
 }
 

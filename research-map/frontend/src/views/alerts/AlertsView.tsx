@@ -10,8 +10,8 @@ import { DEFAULT_TIERS, bucketOf, localTime, shortName, sortStations, tierClass,
 import { HATCH, ShadowChip, StationCard, TierIcon } from './parts'
 
 const REASON: Record<string, string> = {
-  no_hazard_ledger: 'Chưa có sổ cảnh báo shadow: bộ chạy hazard chưa ghi lần nào (runtime/hazard-shadow).',
-  empty_hazard_ledger: 'Sổ cảnh báo shadow trống hoặc không đọc được.',
+  no_hazard_ledger: 'Bộ chạy cảnh báo (shadow) chưa ghi lượt nào. Khi bật, trang này hiện bậc nguy cơ 5 ngày tới của 14 điểm nuôi: gió bão, sóng, nắng nóng, rét, dịch bệnh.',
+  empty_hazard_ledger: 'Sổ cảnh báo có nhưng chưa có bản ghi đọc được.',
 }
 const cardId = (station: StationAlerts) => `alert-station-${station.id}`
 
@@ -117,7 +117,11 @@ export default function AlertsView() {
         </EmptyState>
       : <><Skeleton className="h-36" /><Skeleton className="h-64" /></>
   } else if (data.status !== 'ready') {
-    body = <EmptyState icon={<BellRing size={22} />} title="Chưa có cảnh báo theo trạm" description={REASON[data.reason ?? ''] ?? data.reason ?? 'Không khả dụng'} />
+    body = (
+      <EmptyState icon={<BellRing size={22} />} title="Chưa bật cảnh báo theo trạm" description={REASON[data.reason ?? ''] ?? 'Không đọc được sổ cảnh báo.'}>
+        <p className="m-0 mt-2 max-w-md text-[12px] text-fg-subtle">Bật bằng cờ <code className="font-mono">HAZARD_RUNNER_ENABLED</code> trên máy chạy shadow. Ngưỡng các bậc chỉnh ở <a className="font-semibold text-accent underline-offset-2 hover:underline" href="#/settings/alerts">Cấu hình cảnh báo</a>.</p>
+      </EmptyState>
+    )
   } else {
     body = (
       <>

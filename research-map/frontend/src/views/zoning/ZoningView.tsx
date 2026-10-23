@@ -182,7 +182,7 @@ export default function ZoningView({ theme }: { theme: Theme }) {
             <p className="m-0">Bản đồ nháp nghiên cứu: xếp hạng rất nhạy với lựa chọn tiêu chí; không dùng để cấp phép hay khuyến cáo vị trí nuôi.</p>
             <p className="m-0 text-[11.5px] text-fg-subtle">
               <Target size={11} className="mr-1 inline align-[-1px]" aria-hidden />
-              Bộ đang xem {layerRange ? `${num(layerRange[0], 2)}–${num(layerRange[1], 2)}` : '—'} · ô {data.cells?.cell_size_deg ? `${(data.cells.cell_size_deg * 60).toFixed(0)}′` : '—'} · {data.cells?.features.length ?? 0} ô · run <span className="font-mono">{data.source_run}</span> · export {data.export_version}
+              Bộ đang xem {layerRange ? `${num(layerRange[0], 2)}–${num(layerRange[1], 2)}` : '—'} · ô {data.cells?.cell_size_deg ? `${(data.cells.cell_size_deg * 60).toFixed(0)}′` : '—'} · {data.cells?.features.length ?? 0} ô · lần chạy <span className="font-mono">{data.source_run}</span> · bản xuất {data.export_version}
             </p>
           </Disclosure>
         )}

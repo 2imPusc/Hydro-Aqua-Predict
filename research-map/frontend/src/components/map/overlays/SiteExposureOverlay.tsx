@@ -66,7 +66,7 @@ export const SiteExposureOverlay = memo(function SiteExposureOverlay({ exposure,
     const labelled = new Set<string>()
     for (const item of order) {
       const p = map.project(item.position, zoom)
-      if (kept.some(q => Math.abs(q.x - p.x) < 44 && Math.abs(q.y - p.y) < 20)) continue
+      if (kept.some(q => Math.abs(q.x - p.x) < 44 && Math.abs(q.y - p.y) < 34)) continue
       kept.push(p); labelled.add(item.station.id)
     }
     return placed.map(item => ({ ...item, icon: exposureIcon(item.station, theme, labelled.has(item.station.id)) }))

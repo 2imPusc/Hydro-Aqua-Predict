@@ -11,6 +11,7 @@ import { EXPOSURE_LABEL, type ExposureStation, type SiteExposure } from '../../c
 import type { Theme } from '../../hooks/useTheme'
 import { formatAge, formatTime } from '../../hooks/useNow'
 import { describeApiError } from '../../api/client'
+import { qcLabel, sensorMetricLabel, unitLabel } from '../../lib/format'
 import { scenarioLabel } from '../../app/TopBarStatus'
 import type { PollState } from '../../hooks/usePolling'
 import type { EnabledLayers } from './useMonitorData'
@@ -36,6 +37,8 @@ function SensorCard({ sensor, station }: { sensor: PollState<SensorLatest>; stat
     return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.metric.localeCompare(b.metric)
   }), [data])
   const unknownUnits = observations.some(item => item.unit === 'vendor_unit_unknown')
+  // One shared QC state is said once under the grid instead of on every tile.
+  const sharedQc = observations.length > 0 && observations.every(item => item.qc_status === observations[0].qc_status) ? observations[0].qc_status : null
 
   return (
     <Panel variant="glass" icon={<Radio size={15} />} title={<>Cảm biến <span className="font-mono text-[11.5px] font-medium text-fg-subtle">{station}</span></>}
@@ -50,12 +53,13 @@ function SensorCard({ sensor, station }: { sensor: PollState<SensorLatest>; stat
           </div>
           {data.status === 'unavailable' || !observations.length
             ? <EmptyState compact icon={<Database size={15} />} title="Chưa có quan trắc" description={data.reason_code ?? 'Backend chưa nhận bản ghi nào cho trạm này.'} />
-            : <div className="grid grid-cols-2 gap-1.5">{observations.map(item => <ObservationStat key={item.observation_id ?? item.metric} item={item} />)}</div>}
+            : <div className="grid grid-cols-2 gap-1.5">{observations.map(item => <ObservationStat key={item.observation_id ?? item.metric} item={item} showQc={!sharedQc} />)}</div>}
           {data.status === 'stale' && <div className="mt-2"><Note tone="warn">Giá trị cũ: số hợp lệ cuối cùng, không phải hiện tại.</Note></div>}
           <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
             <Chip size="xs" tone="neutral" title="Chỉ hiển thị, chưa dùng để kích hoạt thông báo">Chỉ hiển thị</Chip>
+            {sharedQc && <Chip size="xs" tone={qcTone(sharedQc)} title={`Trạng thái kiểm tra chất lượng: ${sharedQc}`}>{sharedQc.toUpperCase() === 'UNCHECKED' ? 'Chưa kiểm tra chất lượng' : `QC: ${qcLabel(sharedQc)}`}</Chip>}
             {unknownUnits && (
-              <Disclosure summary="Đơn vị chưa rõ">
+              <Disclosure summary="Vì sao “đơn vị ?”">
                 <p className="m-0">Đơn vị hoá chất <code className="font-mono">vendor_unit_unknown</code>: chưa có tài liệu hiệu chuẩn GreenLab, không quy đổi ngầm (đặc biệt NH4).</p>
               </Disclosure>
             )}
@@ -66,12 +70,12 @@ function SensorCard({ sensor, station }: { sensor: PollState<SensorLatest>; stat
   )
 }
 
-function ObservationStat({ item }: { item: SensorObservation }) {
+function ObservationStat({ item, showQc }: { item: SensorObservation; showQc: boolean }) {
   const tone = qcTone(item.qc_status)
   return (
-    <Stat label={item.metric} value={Number.isFinite(item.value) ? formatValue(item.value) : '—'} unit={item.unit === 'vendor_unit_unknown' ? 'đv. chưa rõ' : item.unit}
+    <Stat label={sensorMetricLabel(item.metric)} value={Number.isFinite(item.value) ? formatValue(item.value).replace('.', ',') : '—'} unit={unitLabel(item.unit)}
       muted={tone === 'danger'}
-      status={<Chip size="xs" tone={tone} title={item.qc_reason ?? undefined}>{item.qc_status}</Chip>}
+      status={showQc ? <Chip size="xs" tone={tone} title={item.qc_reason ?? item.qc_status}>{qcLabel(item.qc_status)}</Chip> : undefined}
       hint={item.qc_reason ?? undefined} />
   )
 }

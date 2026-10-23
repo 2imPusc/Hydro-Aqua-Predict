@@ -10,6 +10,7 @@ import { SEVERITY_STYLE, STALE_STYLE } from '../../components/map/overlays/Stati
 import { EXPOSURE_INK } from '../../components/map/overlays/SiteExposureOverlay'
 import { wedgePath, type SiteExposure } from '../../components/map/siteExposure'
 import type { EnabledLayers } from './useMonitorData'
+import { num } from '../../lib/format'
 import { isCompactScreen, LEFT_PANEL_WIDTH, SCROLL_FADE } from './LayerControl'
 
 const SCALAR_TITLE: Record<string, string> = { rain: 'Mưa', sea_level: 'Mực nước', mixed_layer_depth: 'Mixed-layer depth' }
@@ -24,7 +25,7 @@ function ScalarLegend({ layer }: { layer: Layer }) {
   const unit = String(layer.geojson?.features[0]?.properties?.unit ?? '')
   const grid = layer.provenance?.source_grid_resolution ?? layer.provenance?.grid_resolution
   return <GradientLegend title={SCALAR_TITLE[layer.layer] ?? layer.layer} gradient={`linear-gradient(90deg, ${scalarColor(0)}, ${scalarColor(1)})`}
-    ticks={[`${range[0].toFixed(2)} ${unit}`, `${range[1].toFixed(2)} ${unit}`]}
+    ticks={[`${num(range[0], 2)} ${unit}`, `${num(range[1], 2)} ${unit}`]}
     note={`Nội suy mượt giữa điểm mẫu${grid ? ` · lưới nguồn ${grid}` : ''}`} />
 }
 

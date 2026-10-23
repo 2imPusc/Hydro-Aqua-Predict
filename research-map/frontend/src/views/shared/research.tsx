@@ -46,6 +46,12 @@ export function FindingList({ items, icon, empty = 'Không có mục nào.' }: {
  * The answer itself lives in the view's Verdict card, so the export headline
  * is not repeated here as prose.
  */
+/** Export stamp "20261023-0332" → "23/10 03:32"; any other shape is shown as is. */
+const exportStamp = (version: string) => {
+  const match = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(version)
+  return match ? `${match[3]}/${match[2]} ${match[4]}:${match[5]}` : version
+}
+
 export function ResearchHeader({ code, title, direction, exportVersion, children }: { code: string; title: string; direction: Direction | null; exportVersion?: string | null; children?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -56,8 +62,8 @@ export function ResearchHeader({ code, title, direction, exportVersion, children
         {direction?.stage && <Chip size="xs" tone="neutral" title="Giai đoạn nghiên cứu">{direction.stage}</Chip>}
         {children}
         {exportVersion !== undefined && (
-          <Chip size="xs" tone={exportVersion ? 'neutral' : 'warn'} icon={<Archive size={11} />} title="Bản export nghiên cứu (artifacts/research-map/<stamp>)">
-            {exportVersion ? `export ${exportVersion}` : 'chưa có export'}
+          <Chip size="xs" tone={exportVersion ? 'neutral' : 'warn'} icon={<Archive size={11} />} title={`Bản xuất kết quả nghiên cứu ${exportVersion ?? ''} (artifacts/research-map/)`}>
+            {exportVersion ? `Kết quả ${exportStamp(exportVersion)}` : 'chưa có bản xuất'}
           </Chip>
         )}
       </div>

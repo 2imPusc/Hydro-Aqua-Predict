@@ -868,7 +868,7 @@ def build_overview(ctx: Ctx, bench: dict | None, suitability: dict[str, dict], f
     titles = _rl_titles(ctx)
     h1 = ["Bundle pH dài hạn đã rút khỏi shadow: B4/B6 không đạt gate ở 3–12 h trên dữ liệu sạch [RL-18].",
           "aci_amp đạt độ phủ PI80 18/18, PI90 18/18 nhưng gần in-sample; mặc định chưa đổi [RL-19]."]
-    h1_head = "Nhiệt độ nước dự báo được tới 12 h (đạt gate #16); pH dài hạn không đạt trên dữ liệu sạch."
+    h1_head = "Nhiệt độ nước dự báo được tới 12 h (đạt kiểm định gate #16); pH dài hạn không đạt trên dữ liệu sạch."
     if bench:
         b5 = sorted((r["horizon_min"], r["skill"]) for r in bench["temperature"]
                     if r["source"] == "A1" and r["feature_set"] == "B5_external_as_issued")
@@ -909,7 +909,7 @@ def build_overview(ctx: Ctx, bench: dict | None, suitability: dict[str, dict], f
                          "Đầu dò pH trôi từ 19/09; dữ liệu pH sau đó không đáng tin [RL-13]."],
          "next": ["Tích lũy ≥ 4 tuần sổ ghi shadow rồi so độ phủ khoảng tin cậy [RL-15].",
                   "Nối aci_amp vào bundle + ledger [RL-19]."]},
-        {"id": "H2", "title": "Khuyến cáo theo thời tiết (H2)", "stage": "nghiên cứu — thu thập bản tin captured_live",
+        {"id": "H2", "title": "Khuyến cáo theo thời tiết (H2)", "stage": "nghiên cứu — thu bản tin thời tiết mỗi giờ",
          "headline": "Thời tiết giúp dự báo nhiệt độ nước 3–12 h (sơ bộ); chưa giúp NH4/TSS. Thời tiết chỉ để quan sát, không kích hoạt cảnh báo.",
          "findings": h2,
          "limitations": ["Độ phủ bản tin tự thu thấp trước 15/10 (~29 % số giờ từ 26/09) [RL-15]."],

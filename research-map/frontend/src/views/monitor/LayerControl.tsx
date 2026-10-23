@@ -5,6 +5,7 @@ import { LABEL, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { Chip, SectionLabel, Segmented, StateChip, Toggle } from '../../components/ui'
 import { HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
 import { ENVIRONMENT_LAYERS, type EnabledLayers, type LayerKey } from './useMonitorData'
+import { gridSize, layerReason, providerLabel } from '../../lib/format'
 import type { SiteExposure } from '../../components/map/siteExposure'
 
 /**
@@ -38,7 +39,7 @@ type Props = {
   onBasemap: (basemap: BasemapId) => void
 }
 
-const LOD_LABEL: Record<Lod, string> = { low: 'LOD thấp', medium: 'LOD vừa', high: 'LOD cao' }
+const LOD_LABEL: Record<Lod, string> = { low: 'Chi tiết thấp', medium: 'Chi tiết vừa', high: 'Chi tiết cao' }
 
 /** Floating, grouped layer control (Bối cảnh · Dòng chảy & gió · Độ sâu · Mạng trạm · Bản đồ nền). */
 export const LayerControl = memo(function LayerControl(props: Props) {
@@ -48,15 +49,15 @@ export const LayerControl = memo(function LayerControl(props: Props) {
   const bathyReady = bathymetry?.status === 'ready'
   const bathyHint = bathyReady
     ? `${bathymetry?.source_resolution ?? 'Copernicus SDB'} · ${LOD_LABEL[lod]}`
-    : bathymetry?.reason_code ?? (bathymetry?.status === 'building' ? 'đang dựng artifact…' : bathymetryError ? 'không tải được manifest' : 'đang tải…')
+    : bathymetry?.reason_code ? layerReason(bathymetry.reason_code) : bathymetry?.status === 'building' ? 'đang dựng lớp…' : bathymetryError ? 'không tải được' : 'đang tải…'
   const gebcoReady = gebco?.status === 'ready'
-  const gebcoHint = gebcoReady ? `GEBCO 2024 · lưới ${gebco?.source_resolution ?? '~460 m'} · ~97 % nội suy` : gebco?.reason_code ?? 'đang tải…'
+  const gebcoHint = gebcoReady ? `GEBCO 2024 · lưới ${gebco?.source_resolution ?? '~460 m'} · ~97 % nội suy` : gebco?.reason_code ? layerReason(gebco.reason_code) : 'đang tải…'
   const etopoReady = etopo?.status === 'ready'
-  const etopoHint = !enabled.depth_etopo ? 'bật để so sánh với GEBCO' : etopoReady ? `ETOPO 2022 · ${etopo?.source_resolution ?? '~460 m'} · hố sâu giả ở Cửa Lục / Vân Đồn` : etopo?.reason_code ?? 'đang tải…'
+  const etopoHint = !enabled.depth_etopo ? 'bật để so sánh với GEBCO' : etopoReady ? `ETOPO 2022 · ${etopo?.source_resolution ?? '~460 m'} · hố sâu giả ở Cửa Lục / Vân Đồn` : etopo?.reason_code ? layerReason(etopo.reason_code) : 'đang tải…'
   const exposureReady = exposure?.status === 'ready'
   const exposureHint = exposureReady
-    ? `${exposure?.stations?.length ?? 0} trạm · hoa hướng sóng gió cấp 10 · ${exposure?.run_name ?? ''}`
-    : exposure?.reason ?? (exposureError ? 'không tải được' : 'đang tải…')
+    ? `${exposure?.stations?.length ?? 0} trạm · hướng sóng lớn khi gió cấp 10`
+    : exposure?.reason ? layerReason(exposure.reason) : exposureError ? 'không tải được' : 'đang tải…'
   const activeCount = Object.values(enabled).filter(Boolean).length
 
   return (
@@ -77,14 +78,16 @@ export const LayerControl = memo(function LayerControl(props: Props) {
           <SectionLabel icon={<MapPin size={12} />}>Bối cảnh</SectionLabel>
           <Toggle checked={enabled.hsi_zones} onChange={value => onToggle('hsi_zones', value)} label="Vùng HSI lịch sử"
             description={`${HSI_LEGACY_LABEL}${enabled.hsi_zones && !zones ? ' · đang tải…' : ''}`} badge={<StateChip size="xs" state="legacy" title={HSI_LEGACY_LABEL} />} />
-          <Toggle checked={enabled.context_buffer} onChange={value => onToggle('context_buffer', value)} label="Phạm vi context 5 km" description="buffer quanh mạng trạm · cắt theo mặt nước" />
+          <Toggle checked={enabled.context_buffer} onChange={value => onToggle('context_buffer', value)} label="Vùng quanh trạm (5 km)" description="chỉ tính phần mặt nước" />
           {environmentLayers.map(layer => {
             const unavailable = layer.status === 'unavailable'
-            const description = unavailable ? (layer.reason_code ?? 'không khả dụng') : `${layer.kind} · ${layer.geojson?.features.length ?? 0} ${layer.kind === 'scalar_grid' ? 'ô' : 'vector'}${layer.provenance?.provider ? ` · ${layer.provenance.provider}` : ''}`
+            // Model grid only: the ~1.2 km display grid is interpolation and would read as finer data.
+            const grid = gridSize(layer.provenance?.source_grid_resolution)
+            const description = unavailable ? layerReason(layer.reason_code) : `${providerLabel(layer.provenance?.provider)}${grid ? ` · lưới ${grid}` : ''}`
             return <Toggle key={layer.layer} checked={!!enabled[layer.layer as LayerKey]} disabled={unavailable} onChange={value => onToggle(layer.layer as LayerKey, value)}
               label={LABEL[layer.layer]} description={description} badge={layer.status === 'stale' ? <StateChip size="xs" state="stale" /> : undefined} />
           })}
-          {!environmentLayers.length && <p className="m-0 px-2 py-1 text-[11.5px] text-fg-subtle">{snapshotLoaded ? 'Snapshot không có lớp mưa/sóng/mực nước.' : 'Chưa có snapshot context — lớp mưa, sóng, mực nước sẽ hiện khi backend phản hồi.'}</p>}
+          {!environmentLayers.length && <p className="m-0 px-2 py-1 text-[11.5px] text-fg-subtle">{snapshotLoaded ? 'Bản tin hiện tại không có lớp mưa / sóng / mực nước.' : 'Chưa có bản tin thời tiết vùng — lớp mưa, sóng, mực nước sẽ hiện khi máy chủ phản hồi.'}</p>}
 
           <SectionLabel icon={<Compass size={12} />}>Phơi nhiễm sóng gió</SectionLabel>
           <Toggle checked={enabled.site_exposure} disabled={!exposureReady} onChange={value => onToggle('site_exposure', value)} label="Lớp hở / bán kín / kín"
@@ -92,9 +95,9 @@ export const LayerControl = memo(function LayerControl(props: Props) {
 
           <SectionLabel icon={<Wind size={12} />}>Dòng chảy & gió</SectionLabel>
           <Toggle checked={enabled.flow_streamlines} onChange={value => onToggle('flow_streamlines', value)} disabled={!flow && !currentLayer}
-            label="Tia & hạt dòng chảy" description={flow ? `nội suy theo nước · ${flow.ray_count ?? 0} tia${currentLayer ? ' · hạt canvas' : ''}` : currentLayer ? 'chỉ hạt canvas · chưa có artifact tia' : 'chưa có artifact dòng chảy'} />
+            label="Tia & hạt dòng chảy" description={flow ? `${flow.ray_count ?? 0} tia theo mặt nước${currentLayer ? ' · hạt chuyển động' : ''}` : currentLayer ? 'chỉ có hạt chuyển động' : 'chưa có dữ liệu dòng chảy'} />
           <Toggle checked={enabled.wind_particles} onChange={value => onToggle('wind_particles', value)} disabled={!windLayer || windLayer.status === 'unavailable'}
-            label="Vệt gió" description={windLayer ? `${windLayer.provenance?.provider ?? 'provider'} · hạt canvas (quan sát)` : 'chưa có lớp gió'} />
+            label="Vệt gió" description={windLayer ? `${providerLabel(windLayer.provenance?.provider)} · chỉ quan sát` : 'chưa có lớp gió'} />
 
           <SectionLabel icon={<Mountain size={12} />} trailing={bathyReady ? <Chip size="xs" tone="neutral">{LOD_LABEL[lod]}</Chip> : undefined}>Độ sâu</SectionLabel>
           <Toggle checked={enabled.depth_isobands} disabled={!gebcoReady} onChange={value => onToggle('depth_isobands', value)} label="Độ sâu vùng biển (GEBCO)" description={gebcoHint} />
@@ -102,11 +105,11 @@ export const LayerControl = memo(function LayerControl(props: Props) {
           <Toggle checked={enabled.depth_etopo} disabled={etopo?.status === 'unavailable'} onChange={value => onToggle('depth_etopo', value)} label="So sánh: ETOPO 2022" description={etopoHint} />
           <Toggle checked={enabled.bathymetry_bands} disabled={!bathyReady} onChange={value => onToggle('bathymetry_bands', value)} label="Bãi triều (SDB vệ tinh)" description={bathyHint} />
           <Toggle checked={enabled.bathymetry_contours} disabled={!bathyReady} onChange={value => onToggle('bathymetry_contours', value)} label="Đường đồng mức đáy" description="0,25 / 0,5 / 0,75 / 1 m; mức sâu hơn khi có" />
-          <Toggle checked={enabled.bathymetry_slope} disabled={!bathyReady} onChange={value => onToggle('bathymetry_slope', value)} label="Độ dốc đáy" description="tính từ depth đã qua quality mask" />
+          <Toggle checked={enabled.bathymetry_slope} disabled={!bathyReady} onChange={value => onToggle('bathymetry_slope', value)} label="Độ dốc đáy" description="tính từ độ sâu đã lọc ô lỗi" />
 
           <SectionLabel icon={<Waves size={12} />}>Mạng trạm</SectionLabel>
           <Toggle checked={enabled.station_network} onChange={value => onToggle('station_network', value)} label="Kết nối mặt nước giữa các trạm"
-            description={network?.network_status === 'building' ? 'đang dựng water-path…' : network ? `tĩnh · ${network.edge_count} cạnh · không biểu diễn hướng dòng chảy` : 'đang tải…'} />
+            description={network?.network_status === 'building' ? 'đang dựng…' : network ? `${network.edge_count} đường nối · không phải hướng dòng chảy` : 'đang tải…'} />
 
           <SectionLabel>Bản đồ nền</SectionLabel>
           <div className="px-2">
