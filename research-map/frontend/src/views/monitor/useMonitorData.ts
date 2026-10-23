@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { getAquacultureMap, getBathymetryContours, getBathymetryDepthBands, getBathymetryManifest, getContextDomain, getEtopoLayer, getEtopoManifest, getHsiZones, getStationNetwork, getStations } from '../../api/monitor'
 import { usePolling } from '../../hooks/usePolling'
+import { getSiteExposure } from '../../components/map/siteExposure'
 import type { DataMode } from '../../types/monitor'
 import type { Lod } from '../../components/map/mapConfig'
 
@@ -10,6 +11,7 @@ export type LayerKey =
   | 'rain' | 'wave' | 'sea_level' | 'mixed_layer_depth'
   | 'depth_isobands' | 'depth_isobaths'
   | 'bathymetry_bands' | 'bathymetry_contours' | 'bathymetry_slope'
+  | 'site_exposure'
 export type EnabledLayers = Record<LayerKey, boolean>
 
 export const DEFAULT_LAYERS: EnabledLayers = {
@@ -21,6 +23,8 @@ export const DEFAULT_LAYERS: EnabledLayers = {
   // ETOPO depth covers Cat Ba / Ha Long / Bai Tu Long; Copernicus SDB only the HP tidal flats.
   depth_isobands: true, depth_isobaths: true,
   bathymetry_bands: false, bathymetry_contours: false, bathymetry_slope: false,
+  // Theory-only wind/wave exposure per station (site-exposure run); labelled "lý thuyết" everywhere.
+  site_exposure: true,
 }
 /** Scalar/vector environmental layers are mutually exclusive to keep the map legible. */
 export const ENVIRONMENT_LAYERS = ['rain', 'wave', 'sea_level', 'mixed_layer_depth'] as const
@@ -33,6 +37,8 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
   const domain = usePolling(getContextDomain, ONE_SHOT)
   const network = usePolling(getStationNetwork, { ...ONE_SHOT, isBuilding: value => value.network_status === 'building', buildingIntervalMs: 8_000, maxBuildingRetries: 60 })
   const zones = usePolling(getHsiZones, { ...ONE_SHOT, enabled: enabled.hsi_zones, isBuilding: value => value.status === 'building', buildingIntervalMs: 10_000, maxBuildingRetries: 30 })
+  // Read-only research artifact (no Postgres); fetched once so the inspector can show it even when the layer is off.
+  const exposure = usePolling(getSiteExposure, ONE_SHOT)
   const bathymetry = usePolling(getBathymetryManifest, { ...ONE_SHOT, isBuilding: value => value.status === 'building', buildingIntervalMs: 10_000, maxBuildingRetries: 60 })
 
   const bathymetryReady = bathymetry.data?.status === 'ready'
@@ -55,8 +61,8 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
   })
 
   const refreshAll = useCallback(() => {
-    for (const feed of [stations, domain, network, zones, bathymetry, etopo, aquaculture]) feed.refresh()
-  }, [stations, domain, network, zones, bathymetry, etopo, aquaculture])
+    for (const feed of [stations, domain, network, zones, bathymetry, etopo, aquaculture, exposure]) feed.refresh()
+  }, [stations, domain, network, zones, bathymetry, etopo, aquaculture, exposure])
 
-  return { stations, domain, network, zones, bathymetry, bands, contours, etopo, isobands, isobaths, depthFlags, aquaculture, refreshAll }
+  return { stations, exposure, domain, network, zones, bathymetry, bands, contours, etopo, isobands, isobaths, depthFlags, aquaculture, refreshAll }
 }

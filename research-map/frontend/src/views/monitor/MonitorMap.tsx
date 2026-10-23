@@ -13,6 +13,8 @@ import { HsiZonesOverlay } from '../../components/map/overlays/HsiZonesOverlay'
 import { LodListener } from '../../components/map/overlays/LodListener'
 import { ScalarGridOverlay } from '../../components/map/overlays/ScalarGridOverlay'
 import { StationMarkers } from '../../components/map/overlays/StationMarkers'
+import { SiteExposureOverlay } from '../../components/map/overlays/SiteExposureOverlay'
+import type { SiteExposure } from '../../components/map/siteExposure'
 import { StationNetworkOverlay } from '../../components/map/overlays/StationNetworkOverlay'
 import type { Theme } from '../../hooks/useTheme'
 import type { EnabledLayers } from './useMonitorData'
@@ -28,6 +30,10 @@ type Props = {
   flow: FlowArtifact | null
   stations: Stations | null
   aquacultureMap: AquacultureMap | null
+  /** Live advisory older than 90 min → neutral hatched markers. */
+  advisoryStale: boolean
+  advisoryAgeSeconds: number | null
+  exposure: SiteExposure | null
   domain: ContextDomain | null
   network: StationNetwork | null
   zones: HsiZones | null
@@ -46,7 +52,7 @@ type Props = {
  * the parent never re-renders this subtree unless map inputs change.
  */
 export const MonitorMap = memo(function MonitorMap(props: Props) {
-  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, domain, network, zones, bands, contours, isobands, isobaths, depthFlags, lod, onLod, onSample } = props
+  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, network, zones, bands, contours, isobands, isobaths, depthFlags, lod, onLod, onSample } = props
   const tiles = basemapTiles(basemap, theme)
   const waterGeometry = useMemo(() => domain?.features.find(feature => feature.properties?.kind === 'context_domain_water')?.geometry, [domain])
   const particleColors = PARTICLE_COLORS[theme]
@@ -74,7 +80,8 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
 
       {enabled.station_network && network && <StationNetworkOverlay network={network} dataKey={`${network.network_status}-${network.edge_count}-${network.features.length}`} />}
       {enabled.flow_streamlines && flow && <FlowArtifactOverlay artifact={flow} lod={lod} />}
-      {stations && <StationMarkers stations={stations} aquacultureMap={aquacultureMap} />}
+      {enabled.site_exposure && <SiteExposureOverlay exposure={exposure} stations={stations} theme={theme} />}
+      {stations && <StationMarkers stations={stations} aquacultureMap={aquacultureMap} stale={advisoryStale} staleAgeSeconds={advisoryAgeSeconds} exposure={exposure} theme={theme} />}
 
       <EnvironmentalParticleOverlay type="flow" layer={currentLayer} enabled={enabled.flow_streamlines} waterGeometry={waterGeometry} color={particleColors.flow} />
       <EnvironmentalParticleOverlay type="wind" layer={windLayer} enabled={enabled.wind_particles} waterGeometry={undefined} color={particleColors.wind} />
