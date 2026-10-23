@@ -59,8 +59,8 @@
       "unit": "°C",
       "direction": "le",
       "thresholds": {"1": 22.0, "2": 18.0, "3": 15.0},
-      "persistence_days": {"2": 14},
-      "actions_vi": {"1": "Cá giò ngừng lớn dưới 22 °C (Nhu et al. 2011).", "2": "Cá bỏ ăn dưới 18 °C; ≥ 14 ngày: nguy cơ nấm/vi khuẩn.", "3": "≤ 15 °C kéo dài: nguy cơ chết hàng loạt (2008)."},
+      "persistence_days": {"2": 3, "3": 3},
+      "actions_vi": {"1": "Cá giò ngừng lớn dưới 22 °C (Nhu et al. 2011).", "2": "Cá bỏ ăn dưới 18 °C (≥ 3 ngày); kéo dài ≥ 14 ngày: nguy cơ nấm/vi khuẩn.", "3": "≤ 15 °C ≥ 3 ngày: nguy cơ chết hàng loạt (đợt rét 2008 kéo dài > 5 tuần)."},
       "evidence": ["docs/eval/2026-10-23-disease-risk.md", "docs/eval/2026-10-23-stocking-calendar.md"]
     },
     "disease_env": {
