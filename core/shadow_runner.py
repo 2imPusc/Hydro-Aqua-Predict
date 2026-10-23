@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
 import time
 import json
 import hashlib
@@ -30,6 +31,7 @@ from core.realtime_guards import assess_sensor_freshness, blocked_forecast
 
 RISK_LOG = STORE_DIR / "risk_decisions.jsonl"
 _last_hazard_run: datetime | None = None
+_hazard_thread: threading.Thread | None = None
 
 
 def hazard_runner_enabled() -> bool:
@@ -54,6 +56,25 @@ def maybe_run_hazards(now: datetime | None = None) -> dict | None:
         return hazard_runner.run_once(now)
     except Exception as exc:  # the sensor loop must survive any hazard-runner failure
         return {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
+
+
+def start_hazards_background(now: datetime | None = None) -> bool:
+    """Run ``maybe_run_hazards`` in a daemon thread so a slow run (20 s – minutes) never blocks the
+    sensor loop. At most one run at a time; returns True when a thread was started."""
+    global _hazard_thread
+    if not hazard_runner_enabled():
+        return False
+    if _hazard_thread is not None and _hazard_thread.is_alive():
+        return False
+
+    def _target() -> None:
+        result = maybe_run_hazards(now)
+        if result is not None:
+            print({"hazard_runner": result}, flush=True)
+
+    _hazard_thread = threading.Thread(target=_target, name="hazard-runner", daemon=True)
+    _hazard_thread.start()
+    return True
 
 def record_risk_decision(station_serial: str, future: dict, weather_adv: dict, water_adv: dict) -> int:
     issued_at = future.get("base_timestamp", datetime.now(timezone.utc).isoformat())
@@ -184,9 +205,12 @@ def main() -> None:
         if "long_horizon" in result:
             printable["long_horizon"] = {key: value for key, value in result["long_horizon"].items() if key != "skips"}
         print(printable)
-        hazards = maybe_run_hazards()
-        if hazards is not None:
-            print({"hazard_runner": hazards})
+        if args.once:
+            hazards = maybe_run_hazards()  # synchronous: a daemon thread would die with the process
+            if hazards is not None:
+                print({"hazard_runner": hazards})
+        else:
+            start_hazards_background()
         if args.once:
             return
         time.sleep(max(10, args.interval_seconds))
