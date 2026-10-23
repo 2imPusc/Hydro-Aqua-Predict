@@ -67,6 +67,7 @@ export default function MonitorView({ theme }: { theme: Theme }) {
         environmentLayers={environmentLayers} currentLayer={currentLayer} windLayer={windLayer} flow={flow}
         stations={data.stations.data} aquacultureMap={data.aquaculture.data} domain={data.domain.data} network={data.network.data}
         zones={data.zones.data} bands={data.bands.data} contours={data.contours.data}
+        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data}
         lod={lod} onLod={setLod} onSample={onSample}
       />
 
@@ -74,12 +75,12 @@ export default function MonitorView({ theme }: { theme: Theme }) {
       <div className="pointer-events-none absolute bottom-3 left-3 top-3 z-[800] flex flex-col justify-between gap-3">
         <LayerControl enabled={enabled} onToggle={onToggle} environmentLayers={environmentLayers} snapshotLoaded={!!snapshot}
           flow={flow} currentLayer={currentLayer} windLayer={windLayer} network={data.network.data} zones={data.zones.data}
-          bathymetry={data.bathymetry.data} bathymetryError={data.bathymetry.error} lod={lod} basemap={basemap} onBasemap={onBasemap} />
-        <MapLegends enabled={enabled} environmentLayers={environmentLayers} mockMode={mode === 'mock'} />
+          bathymetry={data.bathymetry.data} bathymetryError={data.bathymetry.error} etopo={data.etopo.data} lod={lod} basemap={basemap} onBasemap={onBasemap} />
+        <MapLegends enabled={enabled} environmentLayers={environmentLayers} mockMode={mode === 'mock'} theme={theme} etopo={data.etopo.data} />
       </div>
 
       {backendDown && (
-        <div role="alert" className="glass panel-enter absolute left-1/2 top-3 z-[850] flex max-w-[min(520px,calc(100%-700px))] min-w-[300px] -translate-x-1/2 items-start gap-2.5 rounded-[var(--radius-md)] px-3.5 py-2.5">
+        <div role="alert" className="glass panel-enter absolute left-3 right-3 top-[76px] z-[850] flex items-start gap-2.5 rounded-[var(--radius-md)] px-3.5 py-2.5 md:left-1/2 md:right-auto md:top-3 md:min-w-[300px] md:max-w-[min(520px,calc(100%-700px))] md:-translate-x-1/2">
           <WifiOff size={16} className="mt-0.5 flex-none text-danger" />
           <div className="min-w-0 flex-1 text-[12px] leading-snug">
             <div className="font-semibold text-fg">{describeApiError(context.error)}</div>
@@ -95,7 +96,7 @@ export default function MonitorView({ theme }: { theme: Theme }) {
           {inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
         </IconButton>
         {inspectorOpen && (
-          <div className="panel-enter min-h-0 flex-1" style={{ width: INSPECTOR_W }}>
+          <div className="panel-enter min-h-0 flex-1" style={{ width: `min(${INSPECTOR_W}px, calc(100vw - 24px))` }}>
             <Inspector
               sensor={sensor} station={pilotStation} aquaculture={data.aquaculture} stations={data.stations.data}
               mode={mode} onMode={setMode} scenario={scenario} onScenario={setScenario}

@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, ZoomControl } from 'react-leaflet'
 import type { AquacultureMap, BathymetryVectorLayer, ContextDomain, FlowArtifact, HsiZones, Layer, StationNetwork, Stations } from '../../types/monitor'
 import { basemapTiles, ESRI_ATTRIBUTION, MAP_BOUNDS, MAP_CENTER, MAP_ZOOM, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { BathymetryOverlay } from '../../components/map/overlays/BathymetryOverlay'
+import { EtopoDepthOverlay } from '../../components/map/overlays/EtopoDepthOverlay'
 import { ContextDomainOverlay } from '../../components/map/overlays/ContextDomainOverlay'
 import { ContextMarkers } from '../../components/map/overlays/ContextMarkers'
 import { EnvironmentalParticleOverlay, PARTICLE_COLORS } from '../../components/map/overlays/EnvironmentalParticleOverlay'
@@ -32,6 +33,9 @@ type Props = {
   zones: HsiZones | null
   bands: BathymetryVectorLayer | null
   contours: BathymetryVectorLayer | null
+  isobands: BathymetryVectorLayer | null
+  isobaths: BathymetryVectorLayer | null
+  depthFlags: BathymetryVectorLayer | null
   lod: Lod
   onLod: (lod: Lod) => void
   onSample: (latitude: number, longitude: number) => void
@@ -42,7 +46,7 @@ type Props = {
  * the parent never re-renders this subtree unless map inputs change.
  */
 export const MonitorMap = memo(function MonitorMap(props: Props) {
-  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, domain, network, zones, bands, contours, lod, onLod, onSample } = props
+  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, domain, network, zones, bands, contours, isobands, isobaths, depthFlags, lod, onLod, onSample } = props
   const tiles = basemapTiles(basemap, theme)
   const waterGeometry = useMemo(() => domain?.features.find(feature => feature.properties?.kind === 'context_domain_water')?.geometry, [domain])
   const particleColors = PARTICLE_COLORS[theme]
@@ -59,12 +63,13 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
       <TileLayer key={tiles.base} attribution={ESRI_ATTRIBUTION} url={tiles.base} />
       {tiles.labels && <TileLayer key={tiles.labels} url={tiles.labels} className="basemap-labels" zIndex={2} />}
 
-      {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} />}
+      <EtopoDepthOverlay theme={theme} lod={lod} isobands={isobands} isobaths={isobaths} flags={depthFlags} showBands={enabled.depth_isobands} showIsobaths={enabled.depth_isobaths} onSample={onSample} />
+      {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} outlineOnly={enabled.depth_isobands} />}
       {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} />}
       <BathymetryOverlay bands={bands} contours={contours} showBands={enabled.bathymetry_bands || enabled.bathymetry_slope} showContours={enabled.bathymetry_contours} showSlope={enabled.bathymetry_slope} onSample={onSample} />
 
       {visibleEnvironment.map(layer => layer.kind === 'scalar_grid'
-        ? <ScalarGridOverlay key={layer.layer} layer={layer} dataKey={`${snapshotId}-${layer.layer}`} />
+        ? <ScalarGridOverlay key={layer.layer} layer={layer} dataKey={`${snapshotId}-${layer.layer}`} waterGeometry={waterGeometry} />
         : <ContextMarkers key={layer.layer} layer={layer} />)}
 
       {enabled.station_network && network && <StationNetworkOverlay network={network} dataKey={`${network.network_status}-${network.edge_count}-${network.features.length}`} />}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChartLine, FlaskRound, Scale, Target } from 'lucide-react'
 import { ChartLegend, HollowMarkerNote, LineChart, type ChartBand, type ChartSeries } from '../../components/charts'
-import { Chip, Note, Panel, Segmented, SectionLabel } from '../../components/ui'
+import { Chip, Disclosure, Note, Panel, Segmented, SectionLabel, StatusWord } from '../../components/ui'
 import { baseFeatureSet, featureSetLabel, horizonLabel, horizonShort, methodLabel, num, pct, pValue, signedPct } from '../../lib/format'
 import type { BenchmarkRow, ConformalRow, ForecastBenchmark } from '../../types/research'
 import { FindingList, GateChip, RefChips } from '../shared/research'
@@ -32,23 +32,33 @@ function rowTooltip(rows: BenchmarkRow[]) {
   }
 }
 
-function TemperatureSkill({ rows }: { rows: BenchmarkRow[] }) {
+/** Headline numbers for the H1 verdict, computed from the exported benchmark rows (never typed in). */
+export function benchmarkSummary(data: ForecastBenchmark) {
+  const h12 = (data.temperature ?? []).filter(row => row.source === 'H1.2')
+  const passing = h12.filter(row => row.gate === 'pass')
+  const maxPassHorizon = passing.length ? Math.max(...passing.map(row => row.horizon_min)) : null
+  const phLong = (data.ph_clean ?? []).filter(row => row.horizon_min >= 180)
+  return {
+    tempPassed: passing.length, tempTotal: h12.length, maxPassHorizon,
+    phPassed: phLong.filter(row => row.gate === 'pass').length, phTotal: phLong.length,
+  }
+}
+
+export function TemperatureSkill({ rows }: { rows: BenchmarkRow[] }) {
   const h12 = rows.filter(row => row.source === 'H1.2')
   const xs = uniqueSorted(h12.map(row => row.horizon_min))
   const series = skillSeries(h12, row => row.feature_set, row => featureSetLabel(row.feature_set))
   const order = ['B4_quality', 'B5_external_as_issued', 'B6_tide', 'B0_lags']
   series.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
-  const passed = h12.filter(row => row.gate === 'pass').length
   return (
     <div>
-      <div className="mb-1.5 flex flex-wrap items-center gap-2">
-        <h3 className="m-0 text-[12.5px] font-semibold text-fg">Nhiệt độ · skill so với persistence theo horizon (H1.2, có pH)</h3>
-        <Chip size="xs" tone={passed === h12.length ? 'ok' : 'warn'}>{passed}/{h12.length} cấu hình đạt gate</Chip>
-      </div>
       <ChartLegend series={series} markerNote={<HollowMarkerNote filled="đạt gate" hollow="không đạt" />} />
-      <LineChart xs={xs} xFormat={horizonShort} series={series} yFormat={v => `${v.toFixed(0)} %`} yTitle="skill (%)" include={[0]} height={210}
+      <LineChart xs={xs} xFormat={horizonShort} series={series} yFormat={v => `${v.toFixed(0)} %`} yTitle="skill (%)" include={[0]} height={220}
         ariaLabel="Skill nhiệt độ so với persistence theo horizon, mỗi đường một bộ đặc trưng" tooltipExtra={rowTooltip(h12)} hollowLabel="không đạt" />
-      <p className="m-0 mt-1 text-[11px] text-fg-subtle">Skill = 1 − MAE/MAE persistence trên lockbox. B0 (chỉ trễ) không có kiểm định DM nên không đạt gate.</p>
+      <Disclosure summary="Đọc biểu đồ thế nào?">
+        <p className="m-0">Skill = mức giảm sai số so với cách đoán “giữ nguyên giá trị hiện tại” (1 − MAE/MAE persistence, trên lockbox). Cao hơn là tốt hơn; dưới 0 là thua cách đoán đơn giản.</p>
+        <p className="m-0">Điểm đặc = đạt gate #16, điểm rỗng = không đạt. B0 (chỉ trễ) không có kiểm định DM nên luôn rỗng. Dữ liệu H1.2, có pH.</p>
+      </Disclosure>
     </div>
   )
 }
@@ -68,7 +78,7 @@ function NoPhComparison({ rows }: { rows: BenchmarkRow[] }) {
   return (
     <div>
       <div className="mb-1.5 flex flex-wrap items-center gap-2">
-        <h3 className="m-0 text-[12.5px] font-semibold text-fg">A1 · nhiệt độ có pH (liền) và không pH (đứt)</h3>
+        <span className="text-[12px] text-fg-muted">Đường liền = có pH, đứt = không pH</span>
         <Chip size="xs" tone={passed === a1.length ? 'ok' : 'warn'}>{passed}/{a1.length} đạt gate</Chip>
         <RefChips refs={['RL-18']} />
       </div>
@@ -91,12 +101,12 @@ function PhClean({ rows }: { rows: BenchmarkRow[] }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <h3 className="m-0 text-[12.5px] font-semibold text-fg">A3 · pH trên dữ liệu sạch (trước khi đầu dò trôi)</h3>
+        <span className="text-[12px] text-fg-muted">A3 · dữ liệu sạch, trước khi đầu dò pH trôi</span>
         <RefChips refs={['RL-13', 'RL-18']} />
       </div>
-      <div className="mb-2 flex items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--danger-line)] bg-danger-bg px-3 py-2">
-        <span className="text-[22px] font-bold leading-none text-danger tabular">{longPass}/{long.length}</span>
-        <div className="text-[12px] leading-snug text-danger"><b>Không đạt.</b> Chỉ {longPass}/{long.length} cấu hình pH ở 3–12 h đạt gate #16 → các bundle pH dài hạn đã rút khỏi shadow.</div>
+      <div className="mb-2 flex items-center gap-2 text-[12.5px] text-fg">
+        <StatusWord status={{ tone: 'danger', label: `${longPass}/${long.length} đạt ở 3–12 h` }} />
+        <span className="text-fg-muted">→ bundle pH dài hạn đã rút khỏi shadow</span>
       </div>
       <div className="scroll-thin overflow-x-auto rounded-[var(--radius-sm)] border border-line">
         <table className="data-table" aria-label="Gate pH theo bộ đặc trưng và horizon">
@@ -145,7 +155,7 @@ function Conformal({ rows }: { rows: ConformalRow[] }) {
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <h3 className="m-0 text-[12.5px] font-semibold text-fg">Độ phủ khoảng dự báo conformal · nhiệt độ</h3>
+        <span className="text-[12px] text-fg-muted">Nhiệt độ · khoảng tin cậy có phủ đúng tỷ lệ không?</span>
         <RefChips refs={['RL-09', 'RL-19']} />
         <div className="ml-auto w-[min(100%,360px)]">
           <Segmented size="xs" label="Bộ đặc trưng" value={featureSet} onChange={setFeatureSet} options={sets.map(fs => ({ value: fs, label: featureSetLabel(fs).split(' · ')[0] + ' · ' + (featureSetLabel(fs).split(' · ')[1] ?? '') }))} />
@@ -161,9 +171,10 @@ function Conformal({ rows }: { rows: ConformalRow[] }) {
           </div>
         ))}
       </div>
-      <p className="m-0 mt-1 text-[11px] text-fg-subtle">
-        Dải xanh là vùng mục tiêu. aci_amp PI80 đạt {passAmp.filter(row => row.gate === 'pass').length}/{passAmp.length} horizon cho bộ này nhưng cửa sổ 24 h được chọn sau khi xem lockbox (gần in-sample): mặc định vẫn là aci_scaled.
-      </p>
+      <Disclosure summary="Đọc biểu đồ thế nào?">
+        <p className="m-0">Dải xanh là vùng mục tiêu: đường nằm trong dải = khoảng tin cậy phủ đúng tỷ lệ.</p>
+        <p className="m-0">aci_amp PI80 đạt {passAmp.filter(row => row.gate === 'pass').length}/{passAmp.length} horizon cho bộ này, nhưng cửa sổ 24 h được chọn sau khi xem lockbox (gần in-sample), nên mặc định vẫn là aci_scaled.</p>
+      </Disclosure>
       {invalid.length > 0 && (
         <details className="mt-2 rounded-[var(--radius-sm)] border border-dashed border-line-strong bg-surface-2 px-3 py-2 text-[11.5px] text-fg-subtle">
           <summary className="cursor-pointer font-semibold">pH: {invalid.length} dòng conformal không có giá trị: {invalidRuns.join(', ')}</summary>
@@ -180,30 +191,44 @@ function Conformal({ rows }: { rows: ConformalRow[] }) {
   )
 }
 
-export function Benchmark({ data }: { data: ForecastBenchmark }) {
+/** Main chart of the H1 view: temperature skill by horizon, with the gate rule one click away. */
+export function SkillPanel({ data }: { data: ForecastBenchmark }) {
+  const { tempPassed, tempTotal } = benchmarkSummary(data)
+  return (
+    <Panel title="Nhiệt độ nước · tốt hơn cách đoán đơn giản bao nhiêu?" icon={<ChartLine size={15} />}
+      actions={<Chip size="xs" tone={tempPassed === tempTotal ? 'ok' : 'warn'} title={data.gate_rule}>{tempPassed}/{tempTotal} đạt gate #16</Chip>}>
+      <TemperatureSkill rows={data.temperature ?? []} />
+      <Disclosure summary="Gate #16 là gì?">
+        <p className="m-0"><Scale size={12} className="mr-1 inline align-[-2px]" aria-hidden />{data.gate_rule}</p>
+      </Disclosure>
+    </Panel>
+  )
+}
+
+/** Secondary analyses: closed by default, each header carries its one-line answer. */
+export function BenchmarkDetails({ data }: { data: ForecastBenchmark }) {
+  const a1 = (data.temperature ?? []).filter(row => row.source === 'A1')
+  const { phPassed, phTotal } = benchmarkSummary(data)
+  const runs = [...new Set([...(data.temperature ?? []), ...(data.ph_clean ?? []), ...(data.conformal ?? [])].map(row => row.source_run))]
   return (
     <>
-      <Panel title="Benchmark gate #16 · nhiệt độ" icon={<ChartLine size={15} />} actions={<Chip size="xs" tone="neutral" title={data.gate_rule}>gate #16</Chip>}>
-        <p className="m-0 mb-3 text-[11.5px] text-fg-subtle"><Scale size={12} className="mr-1 inline align-[-2px]" aria-hidden />{data.gate_rule}</p>
-        <div className="grid gap-5 xl:grid-cols-2">
-          <TemperatureSkill rows={data.temperature ?? []} />
-          <NoPhComparison rows={data.temperature ?? []} />
-        </div>
+      <Panel title="Bỏ pH có làm dự báo kém đi?" icon={<FlaskRound size={15} />} collapsible defaultOpen={false}
+        summary={`A1 · ${a1.filter(row => row.gate === 'pass').length}/${a1.length} cấu hình đạt cả khi không có pH`}>
+        <NoPhComparison rows={data.temperature ?? []} />
       </Panel>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <Panel title="pH dài hạn" icon={<FlaskRound size={15} />}>
-          <PhClean rows={data.ph_clean ?? []} />
-        </Panel>
-        <Panel title="Khoảng dự báo (conformal)" icon={<Target size={15} />}>
-          <Conformal rows={data.conformal ?? []} />
-        </Panel>
-      </div>
+      <Panel title="pH dài hạn" icon={<FlaskRound size={15} />} collapsible defaultOpen={false}
+        summary={<StatusWord size="xs" status={{ tone: 'danger', label: `Không đạt · ${phPassed}/${phTotal} cấu hình 3–12 h` }} />}>
+        <PhClean rows={data.ph_clean ?? []} />
+      </Panel>
+      <Panel title="Khoảng tin cậy (conformal)" icon={<Target size={15} />} collapsible defaultOpen={false} summary="PI80 / PI90 theo horizon và phương pháp">
+        <Conformal rows={data.conformal ?? []} />
+      </Panel>
       {(data.notes?.length ?? 0) > 0 && (
-        <Panel title="Ghi chú nguồn">
+        <Panel title="Nguồn số liệu" collapsible defaultOpen={false} summary={`${runs.length} run${(data.missing_runs?.length ?? 0) > 0 ? ` · thiếu ${data.missing_runs!.length}` : ''}`}>
           <FindingList items={data.notes} />
           {(data.missing_runs?.length ?? 0) > 0 && <div className="mt-2"><Note tone="warn">Thiếu run: {data.missing_runs!.join(', ')}</Note></div>}
           <SectionLabel>Run nguồn</SectionLabel>
-          <div className="flex flex-wrap gap-1.5">{[...new Set([...(data.temperature ?? []), ...(data.ph_clean ?? []), ...(data.conformal ?? [])].map(row => row.source_run))].map(run => <Chip key={run} size="xs" tone="neutral">{run}</Chip>)}</div>
+          <div className="flex flex-wrap gap-1.5">{runs.map(run => <Chip key={run} size="xs" tone="neutral">{run}</Chip>)}</div>
         </Panel>
       )}
     </>

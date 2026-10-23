@@ -278,6 +278,86 @@ export type ReliabilityVn = Payload<{
   notes: string[]
 }>
 
+/* H2 hazards (theory track; `basis: theory_only_unvalidated`) ------------ */
+export type HazardTrend = { column: string; value: number | null; ci95: number[]; years: [number, number] | null }
+export type HazardStorm = {
+  source_run: string
+  source: string | null
+  seasons: [number, number] | null
+  passages: number | null
+  radius_km: number | null
+  /** Storms per year reaching Beaufort ≥ 8 at the site, by month (1–12). */
+  per_month_cap8: Array<{ month: number; per_year: number | null }>
+  yagi?: { peak_time: string; min_dist_km: number | null; site_beaufort: number | null; site_wind_lower_bound: boolean; era5_max_wind_ms: number | null; era5_max_wind_beaufort: number | null; note: string | null }
+}
+export type HazardLeadRow = { lead_day: number; pod: number | null; far: number | null; csi: number | null; hits: number; misses: number; false_alarms: number; n_event_days: number; n_days: number }
+export type HazardStormLead = {
+  source_run: string
+  model: string | null
+  truth: string | null
+  truth_independent: boolean | null
+  level_bf: number
+  period: string
+  lead_rule: string | null
+  by_lead: HazardLeadRow[]
+  storms: Array<{ name: string | null; peak_time: string | null; min_dist_km: number | null; consistent_lead_days: number | null; consistent_lead_hours: number | null }>
+}
+export type HazardHeat = {
+  source_run: string
+  thresholds_c: { watch: number | null; stress: number | null; severe: number | null; min_run_days: number | null }
+  oisst_offset_c: number | null
+  offset_note: string | null
+  trend_days_per_decade: HazardTrend | null
+  trend_days_per_decade_adjusted: HazardTrend | null
+  /** Share of years with ≥ 1 watch-level day in that ISO week (weeks with share 0 omitted). */
+  peak_weeks_watch?: Array<{ iso_week: number; share_years: number }>
+  peak_weeks_stress?: Array<{ iso_week: number; share_years: number }>
+}
+export type HazardHeatSkill = {
+  source_run: string
+  target: string
+  sensor_period: [string, string]
+  sensor_days: number | null
+  hot_days: number | null
+  rows: Array<{ product: string; method: string; label: string; csi: number | null; pod: number | null; far: number | null; n_pos: number | null; n: number | null; mae_c: number | null }>
+}
+export type HazardDisease = {
+  source_run: string
+  note_vi: string | null
+  years: [number, number] | null
+  verdict: string | null
+  verdict_pathogen_attributed: string | null
+  n_events_scored: number | null
+  hits_level2: number | null
+  expected_level2: number | null
+  n_pathogen_attributed: number | null
+  robust_to_shift_1c: boolean | null
+  mean_days_high_per_year: number | null
+  mean_days_cold_high_oisst: number | null
+  mean_days_cold_high_era5_air: number | null
+}
+export type StockingClass = 'good' | 'caution' | 'avoid' | 'avoid_cold'
+export type HazardStocking = {
+  source_run: string
+  validated_against_ground_truth: boolean | null
+  years: [number, number] | null
+  class_cuts: number[] | null
+  gate: { early_weeks: number | null; early_mean_sst_min_c: number | null; min_share_of_years: number | null }
+  best_weeks_base: Record<string, number[]>
+  calendars: Array<{ growout_weeks: number; months: Array<{ month: number; class: StockingClass | null; score: number | null; feasible_frac: number | null }> }>
+}
+export type Hazards = Payload<{
+  basis: string
+  used_by_alerts: false
+  storm: HazardStorm
+  storm_lead: HazardStormLead
+  heat: HazardHeat
+  heat_skill: HazardHeatSkill
+  disease: HazardDisease
+  stocking: HazardStocking
+  sections_omitted: Record<string, string>
+}>
+
 /* Shell ------------------------------------------------------------------ */
 export type FreshState = 'fresh' | 'stale' | 'unavailable'
 export type ApiStatus = {

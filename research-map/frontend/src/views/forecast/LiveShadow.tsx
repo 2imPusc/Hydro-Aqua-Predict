@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
-import { Ban, Clock3, Layers3, Radio, SkipForward } from 'lucide-react'
-import { getLongForecast, researchReason } from '../../api/research'
+import { Ban, Layers3, Radio } from 'lucide-react'
+import { getLongForecast } from '../../api/research'
 import { IntervalBar } from '../../components/charts'
-import { Chip, EmptyState, KeyValue, Note, Panel, SectionLabel, Skeleton, StateChip } from '../../components/ui'
+import { Chip, Disclosure, KeyValue, Note, Panel, Skeleton, StateChip } from '../../components/ui'
+import type { PollState } from '../../hooks/usePolling'
 import { formatAge, formatTime } from '../../hooks/useNow'
 import { baseFeatureSet, featureSetLabel, horizonLabel, isNoPh, num, pct } from '../../lib/format'
 import type { LongForecast, LongForecastBundle, LongForecastItem } from '../../types/research'
@@ -126,10 +127,9 @@ function Withdrawn({ data }: { data: LongForecast }) {
   if (!withdrawn.length) return null
   const reasons = [...new Set(withdrawn.map(w => w.reason ?? ''))]
   return (
-    <div className="rounded-[var(--radius-md)] border border-dashed border-line-strong bg-surface-2 p-3">
+    <div>
       <div className="flex flex-wrap items-center gap-2">
         <Ban size={14} className="text-fg-subtle" aria-hidden />
-        <span className="text-[12.5px] font-semibold text-fg-muted">Bundle pH đã rút khỏi shadow ({withdrawn.length})</span>
         <StateChip size="xs" state="withdrawn" />
         <RefChips refs={['RL-18', 'RL-13']} />
       </div>
@@ -164,50 +164,64 @@ function Scoring({ data }: { data: LongForecast }) {
   )
 }
 
-/** H1 live shadow ledger: latest long-horizon forecasts (or an honest empty state with the configured lineup). */
-export function LiveShadow({ station }: { station: string }) {
-  const poll = useResearch(signal => getLongForecast(station, signal), [station], { intervalMs: 60_000, keepPreviousData: true })
+/** Ledger state → chip state + label, shared with the H1 verdict. */
+export function ledgerMeta(data: LongForecast | null | undefined) {
+  return LEDGER_STATE[data?.ledger_state ?? 'missing']
+}
+
+export function useLongForecast(station: string) {
+  return useResearch(signal => getLongForecast(station, signal), [station], { intervalMs: 60_000, keepPreviousData: true })
+}
+
+/**
+ * H1 live shadow ledger: latest long-horizon forecasts, or an honest one-line
+ * empty state. Lineup, withdrawn bundles, skips and source sit behind disclosures.
+ */
+export function LiveShadow({ poll }: { poll: PollState<LongForecast> }) {
   const data = poll.data
   const groups = useGroups(data?.bundles ?? [], data?.items ?? [])
-  const ledger = LEDGER_STATE[data?.ledger_state ?? 'missing']
+  const ledger = ledgerMeta(data)
+  const activeBundles = (data?.bundles ?? []).filter(b => b.status !== 'withdrawn').length
 
   return (
-    <Panel title="Shadow trực tiếp · dự báo 3–12 giờ" icon={<Radio size={15} />}
+    <Panel title="Shadow trực tiếp · 3–12 giờ" icon={<Radio size={15} />}
+      summary={data ? (data.latest_issued_at ? `phát gần nhất ${formatTime(data.latest_issued_at, true)} · cách ${formatAge((data.latest_age_minutes ?? 0) * 60)}` : 'chưa có bản phát hành nào') : undefined}
       actions={data ? <StateChip size="xs" state={ledger.state} label={ledger.label} /> : poll.error ? <StateChip size="xs" state="unavailable" /> : <StateChip size="xs" state="loading" />}>
-      {!data && !poll.error && <div className="grid grid-cols-3 gap-2"><Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" /></div>}
+      {!data && !poll.error && <div className="grid grid-cols-3 gap-2"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>}
       {!data && poll.error && <Unavailable compact error={poll.error} onRetry={poll.refresh} />}
       {data && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11.5px] text-fg-muted">
-            <span className="inline-flex items-center gap-1"><Clock3 size={12} />{data.latest_issued_at ? <>phát gần nhất {formatTime(data.latest_issued_at, true)} · cách {formatAge((data.latest_age_minutes ?? 0) * 60)}</> : 'chưa có bản phát hành nào'}</span>
-            <span>Trạm <span className="font-mono">{data.station}</span></span>
-            {data.window && <span title="Backend chỉ đọc phần đuôi của sổ ghi">{data.window}</span>}
-            <Chip size="xs" tone="neutral" title="Shadow mode: ghi lại và chấm điểm, không gửi tới người nuôi">không dùng cho cảnh báo</Chip>
-          </div>
-
+        <div className="space-y-2.5">
           {data.ledger_state !== 'active' && (
-            <EmptyState compact tone="info" icon={<Layers3 size={16} />}
-              title={data.ledger_state === 'empty' ? 'Sổ ghi shadow dài hạn đang rỗng' : 'Chưa có bản dự báo shadow dài hạn nào'}
-              description={<>{data.status === 'unavailable' ? researchReason(data.reason) : 'Runner chưa ghi bản dự báo nào trong cửa sổ đọc.'} Không hiển thị giá trị cũ hay giả lập. Bên dưới là đội hình bundle đã cấu hình trong manifest mô hình: chúng sẽ hiện số khi runner bắt đầu ghi.</>} />
+            <p className="m-0 flex items-start gap-2 text-[13px] text-fg">
+              <Layers3 size={15} className="mt-0.5 flex-none text-info" aria-hidden />
+              <span>{data.ledger_state === 'empty' ? 'Sổ ghi đang rỗng' : 'Runner chưa ghi bản dự báo dài hạn nào'}: không hiển thị số cũ hay giả lập.
+                <span className="text-fg-muted"> {activeBundles} bundle đã cấu hình sẽ hiện số khi runner bắt đầu ghi.</span></span>
+            </p>
           )}
 
-          {groups.length > 0 && (
+          {data.ledger_state === 'active' && groups.length > 0 && (
             <>
-              <SectionLabel trailing={data.ledger_state === 'active' ? <span className="text-[10.5px] text-fg-subtle">dải đậm = PI80 · nhạt = PI90 · vạch đứt = giá trị hiện tại</span> : <span className="text-[10.5px] text-fg-subtle">có pH = shadow chính · không pH = shadow song song (A1)</span>}>
-                {data.ledger_state === 'active' ? 'Dự báo mới nhất theo biến · horizon' : 'Đội hình đã cấu hình (manifest)'}
-              </SectionLabel>
-              {data.ledger_state === 'active'
-                ? <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{groups.map(group => <GroupCard key={group.key} group={group} data={data} />)}</div>
-                : <LineupTable bundles={data.bundles ?? []} />}
+              <p className="m-0 text-[12px] text-fg-muted">Dải đậm = PI80, nhạt = PI90, vạch đứt = giá trị hiện tại.</p>
+              <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{groups.map(group => <GroupCard key={group.key} group={group} data={data} />)}</div>
             </>
           )}
-          {!groups.length && data.ledger_state !== 'active' && <p className="m-0 text-[12px] text-fg-subtle">Không đọc được manifest mô hình: không có đội hình để hiển thị.</p>}
 
-          <Withdrawn data={data} />
-
-          {(data.skips?.length ?? 0) > 0 && (
-            <div>
-              <SectionLabel icon={<SkipForward size={12} />}>Lý do bỏ qua gần đây (48 h)</SectionLabel>
+          <div className="flex flex-col gap-1.5">
+            {data.ledger_state !== 'active' && groups.length > 0 && (
+              <Disclosure summary="Đội hình đã cấu hình" hint={`(${activeBundles} bundle)`}>
+                <p className="m-0">Có pH = shadow chính, không pH = shadow song song (A1).</p>
+                <LineupTable bundles={data.bundles ?? []} />
+              </Disclosure>
+            )}
+            {!groups.length && data.ledger_state !== 'active' && <p className="m-0 text-[12px] text-fg-subtle">Không đọc được manifest mô hình: không có đội hình để hiển thị.</p>}
+            {(data.withdrawn?.length ?? 0) > 0 && (
+              <Disclosure summary="Bundle pH đã rút" hint={`(${data.withdrawn!.length})`}><Withdrawn data={data} /></Disclosure>
+            )}
+            {data.ledger_state === 'active' && (
+              <Disclosure summary="Chấm điểm trực tiếp" hint={`(${data.scoring?.length ?? 0})`}><Scoring data={data} /></Disclosure>
+            )}
+            {(data.skips?.length ?? 0) > 0 && (
+              <Disclosure summary="Lý do bỏ qua gần đây (48 h)" hint={`(${data.skips!.length})`}>
               <ul className="m-0 grid list-none gap-1 p-0 md:grid-cols-2">
                 {data.skips!.slice(0, 12).map(skip => (
                   <li key={`${skip.target}-${skip.horizon_min}-${skip.feature_set}-${skip.reason}`} className="flex items-center gap-2 rounded-[var(--radius-xs)] bg-surface-2 px-2 py-1 text-[11.5px]">
@@ -217,16 +231,17 @@ export function LiveShadow({ station }: { station: string }) {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {data.ledger_state === 'active' && (
-            <div>
-              <SectionLabel>Chấm điểm trực tiếp (outcomes)</SectionLabel>
-              <Scoring data={data} />
-            </div>
-          )}
-          <KeyValue items={[['Nguồn', <span key="src" className="font-mono text-[11px]">runtime/forecast-shadow/long_*.jsonl (chỉ đọc)</span>]]} />
+              </Disclosure>
+            )}
+            <Disclosure summary="Nguồn">
+              <KeyValue items={[
+                ['Trạm', <span key="st" className="font-mono">{data.station}</span>],
+                ['Sổ ghi', <span key="src" className="font-mono text-[11px]">runtime/forecast-shadow/long_*.jsonl (chỉ đọc)</span>],
+                data.window ? ['Cửa sổ đọc', data.window] : null,
+                ['Dùng cho cảnh báo', 'Không (shadow mode)'],
+              ]} />
+            </Disclosure>
+          </div>
         </div>
       )}
     </Panel>

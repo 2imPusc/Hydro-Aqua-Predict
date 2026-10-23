@@ -47,7 +47,7 @@ def test_all_export_endpoints_unavailable_without_export(env):
     client = env["client"]
     for url in ("/api/v1/research/overview", "/api/v1/research/forecast/benchmark",
                 "/api/v1/research/suitability?variant=A_W_SUM&region=vn", "/api/v1/research/reliability/foreign",
-                "/api/v1/research/reliability/vn"):
+                "/api/v1/research/reliability/vn", "/api/v1/research/hazards"):
         body = client.get(url).json()
         assert body["status"] == "unavailable" and body["reason"] == "research_export_missing", url
         assert body["export_version"] is None
@@ -67,6 +67,18 @@ def test_omitted_artifact_reports_manifest_reason(env):
     _write_export(env["root"], omitted={"reliability_vn.json": "a6_not_exported"})
     body = env["client"].get("/api/v1/research/reliability/vn").json()
     assert body == {"status": "unavailable", "reason": "a6_not_exported", "export_version": "20261017-1200"}
+
+
+def test_hazards_ready_and_omitted(env):
+    _write_export(env["root"], "20261017-1200", omitted={"hazards.json": "no_hazard_runs"})
+    body = env["client"].get("/api/v1/research/hazards").json()
+    assert body == {"status": "unavailable", "reason": "no_hazard_runs", "export_version": "20261017-1200"}
+    _write_export(env["root"], "20261017-1300", {"hazards.json": {
+        "basis": "theory_only_unvalidated", "storm": {"passages": 265}, "sections_omitted": {"heat": "run_dir_missing"}}})
+    research.clear_cache()
+    body = env["client"].get("/api/v1/research/hazards").json()
+    assert body["status"] == "ready" and body["export_version"] == "20261017-1300"
+    assert body["storm"]["passages"] == 265 and body["sections_omitted"] == {"heat": "run_dir_missing"}
 
 
 def test_suitability_validates_params(env):

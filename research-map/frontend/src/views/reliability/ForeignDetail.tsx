@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import L from 'leaflet'
-import { ArrowLeft, Info, Ruler, Spline } from 'lucide-react'
+import { ArrowLeft, Ruler } from 'lucide-react'
 import { getForeignDetail, getForeignIndex } from '../../api/research'
 import { RELIABILITY_HASH } from '../../app/routes'
 import { CanvasLayer, ResearchMap, boxOfPoints, type LonLatBox } from '../../components/map/ResearchMap'
 import { escapeHtml } from '../../components/map/mapConfig'
-import { Chip, GradientLegend, Note, SectionLabel, Segmented, Select, Skeleton } from '../../components/ui'
+import { Chip, Disclosure, GradientLegend, SectionLabel, Segmented, Select, Skeleton, type VerdictStatus } from '../../components/ui'
+import { MapPanel, MapVerdict, mapInset, mapPanelStyle, useNarrow } from '../shared/MapPanel'
 import type { Theme } from '../../hooks/useTheme'
-import { gateLabel, num, pct, radiusText, regimeRelationLabel, scaleLabel, stopLabel, transferLabel, variableLabel } from '../../lib/format'
+import { gateLabel, num, pct, radiusText, regimeRelationLabel, scaleLabel, splitRefs, stopLabel, transferLabel, variableLabel } from '../../lib/format'
 import { shareColor, shareGradient } from '../../lib/palette'
 import type { ForeignDetail as Detail, ReliabilityPair, ReliabilityRadius } from '../../types/research'
 import { FindingList, RefChips, Unavailable, useResearch } from '../shared/research'
 import { RegimeLegend, regimeLine, regimeTooltip, stationMarker } from './common'
 import { RedistributableBadge } from './ForeignOverview'
 
-const INSET = { top: 20, right: 420, bottom: 20, left: 20 }
+const PANEL_W = 400
 type RegimeFilter = 'all' | 'same' | 'different'
 type DistanceFilter = '10' | '20' | '30' | 'all'
 const DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
@@ -99,6 +100,7 @@ export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
   const [query, setQuery] = useState<{ var?: string; scale?: string; transfer?: string }>({})
   const [regime, setRegime] = useState<RegimeFilter>('all')
   const [maxKm, setMaxKm] = useState<DistanceFilter>('30')
+  const narrow = useNarrow()
   useEffect(() => { setQuery({}); setRegime('all'); setMaxKm('30') }, [id])
   const poll = useResearch(signal => getForeignDetail(id, query, signal), [id, query.var, query.scale, query.transfer], { keepPreviousData: true })
   const index = useResearch(getForeignIndex)
@@ -124,76 +126,85 @@ export function ForeignDetail({ id, theme }: { id: string; theme: Theme }) {
   const selected = detail?.selected
   const available = detail?.available
 
+  const status: VerdictStatus = !detail ? { tone: 'neutral', label: poll.error || poll.data ? 'Không có dữ liệu' : 'Đang tải' }
+    : !pairs.length ? { tone: 'neutral', label: 'Không có cặp khớp bộ lọc' }
+    : passing > 0 ? { tone: 'ok', label: `${Math.round((passing / pairs.length) * 100)} % cặp đạt` }
+    : { tone: 'warn', label: 'Không cặp nào đạt' }
+  const header = (
+    <MapVerdict code="H4" question={detail ? `${(detail.name ?? id).split(' — ')[0]}: chuyển giá trị được bao xa?` : 'Bộ dữ liệu nước ngoài'}
+      value={detail && pairs.length ? `${passing}/${pairs.length}` : '—'} unit={detail && pairs.length ? 'cặp ≥ 80 % thời gian' : undefined} status={status}
+      answer={detail?.headline ? splitRefs(detail.headline).text : undefined}
+      chips={detail ? <><RedistributableBadge value={!!detail.redistributable} /><Chip size="xs" tone="neutral">{detail.cadence}</Chip><Chip size="xs" tone="neutral">{detail.stations?.features.length ?? 0} trạm</Chip></> : undefined} />
+  )
+
   return (
-    <div className="absolute inset-0 overflow-hidden">
-      <ResearchMap theme={theme} box={box} inset={INSET} ariaLabel={`Bản đồ cặp trạm ${card?.name ?? id}`}>
+    <div className="map-with-panel absolute inset-0 overflow-hidden" style={mapPanelStyle(narrow, PANEL_W)}>
+      <ResearchMap theme={theme} box={box} inset={mapInset(narrow, PANEL_W)} ariaLabel={`Bản đồ cặp trạm ${card?.name ?? id}`}>
         {detail && <PairLayers detail={detail} pairs={pairs} theme={theme} habitat={habitat} />}
       </ResearchMap>
-      {poll.status === 'loading' && detail && <div className="glass absolute left-3 top-3 z-[800] rounded-[var(--radius-md)] px-3 py-1.5 text-[12px] text-fg-muted">Đang lọc…</div>}
+      <div className="absolute left-3 top-3 z-[800] flex flex-wrap items-center gap-2">
+        <a href={RELIABILITY_HASH.foreign} className="glass inline-flex items-center gap-1 rounded-[var(--radius-md)] px-3 py-1.5 text-[12.5px] font-semibold text-accent no-underline hover:underline"><ArrowLeft size={14} /> Tất cả bộ dữ liệu</a>
+        {poll.status === 'loading' && detail && <span className="glass rounded-[var(--radius-md)] px-3 py-1.5 text-[12px] text-fg-muted">Đang lọc…</span>}
+      </div>
 
-      <aside aria-label="Chi tiết bộ dữ liệu" className="glass panel-enter scroll-thin absolute bottom-3 right-3 top-3 z-[800] flex w-[400px] flex-col gap-3 overflow-y-auto rounded-[var(--radius-lg)] p-3.5">
-        <a href={RELIABILITY_HASH.foreign} className="inline-flex w-fit items-center gap-1 text-[12px] font-semibold text-accent no-underline hover:underline"><ArrowLeft size={14} /> Tất cả bộ dữ liệu</a>
+      <MapPanel label="Chi tiết bộ dữ liệu" header={header} width={PANEL_W}>
         {!detail && !poll.data && !poll.error && <Skeleton className="h-48" />}
         {!detail && (poll.data?.status === 'unavailable' || poll.error) && <Unavailable compact envelope={poll.data} error={poll.error} onRetry={poll.refresh} title={`Bộ “${id}” chưa có`} />}
         {detail && (
           <>
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-[.12em] text-accent">{detail.region} · {detail.country} · {detail.period}</div>
-              <h2 className="m-0 mt-0.5 text-[15px] font-semibold leading-snug text-fg">{detail.name}</h2>
-              <p className="m-0 mt-1 text-[12.5px] leading-snug text-fg-muted">{detail.headline}</p>
-              <div className="mt-2 flex flex-wrap gap-1">
-                <Chip size="xs" tone="neutral">{detail.cadence}</Chip>
-                <Chip size="xs" tone="neutral">{detail.stations?.features.length ?? 0} trạm</Chip>
-                <Chip size="xs" tone="neutral">{detail.climate}</Chip>
-                <RedistributableBadge value={!!detail.redistributable} />
-                {detail.research_log && <RefChips refs={[detail.research_log]} />}
-              </div>
-            </div>
-            <div className={`rounded-[var(--radius-sm)] border px-2.5 py-2 text-[11.5px] leading-snug ${detail.redistributable ? 'border-line bg-surface-2 text-fg-muted' : 'border-[var(--warn-line)] bg-warn-bg text-fg'}`}>
-              <div><span className="font-semibold">Ghi công:</span> {detail.credit}</div>
-              <div className="mt-1"><span className="font-semibold">Giấy phép:</span> {detail.licence}</div>
-              {!detail.redistributable && <div className="mt-1 text-[11px]">Chỉ hiển thị thống kê tổng hợp theo cặp/bán kính; không có chuỗi số liệu thô.</div>}
-            </div>
-
             <div className="grid grid-cols-2 gap-2">
               <Select label="Biến" value={selected?.var ?? ''} onChange={v => setQuery(q => ({ ...q, var: v }))} options={(available?.vars ?? []).map(v => ({ value: v, label: variableLabel(v) }))} />
-              <Select label="Thang" value={selected?.scale ?? ''} onChange={v => setQuery(q => ({ ...q, scale: v }))} options={(available?.scales ?? []).map(v => ({ value: v, label: scaleLabel(v) }))} />
+              <Select label="Thang thời gian" value={selected?.scale ?? ''} onChange={v => setQuery(q => ({ ...q, scale: v }))} options={(available?.scales ?? []).map(v => ({ value: v, label: scaleLabel(v) }))} />
             </div>
-            <div className="space-y-1">
-              <span className="text-[10.5px] font-bold uppercase tracking-[.08em] text-fg-subtle">Cách chuyển giá trị</span>
-              <Segmented size="xs" label="Cách chuyển" value={selected?.transfer ?? 'raw'} onChange={v => setQuery(q => ({ ...q, transfer: v }))} options={(available?.transfers ?? ['raw']).map(t => ({ value: t, label: t === 'raw' ? 'Thô (lấy nguyên)' : 'Hiệu chỉnh 30 ngày' }))} />
-            </div>
-            <div className="space-y-1">
-              <span className="text-[10.5px] font-bold uppercase tracking-[.08em] text-fg-subtle">{habitat ? 'Môi trường sống' : 'Chế độ mặn của cặp'}</span>
+            <FilterRow label="Cách chuyển giá trị">
+              <Segmented size="xs" label="Cách chuyển" value={selected?.transfer ?? 'raw'} onChange={v => setQuery(q => ({ ...q, transfer: v }))} options={(available?.transfers ?? ['raw']).map(t => ({ value: t, label: t === 'raw' ? 'Lấy nguyên' : 'Hiệu chỉnh 30 ngày' }))} />
+            </FilterRow>
+            <FilterRow label={habitat ? 'Môi trường sống của cặp' : 'Chế độ mặn của cặp'}>
               <Segmented size="xs" label={habitat ? 'Môi trường sống' : 'Chế độ mặn'} value={regime} onChange={setRegime} options={[{ value: 'all', label: 'Tất cả' }, { value: 'same', label: 'Cùng' }, { value: 'different', label: 'Khác' }]} />
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-[10.5px] font-bold uppercase tracking-[.08em] text-fg-subtle">Khoảng cách tối đa</span>
+            </FilterRow>
+            <FilterRow label="Khoảng cách tối đa">
               <Segmented size="xs" label="Khoảng cách tối đa" value={maxKm} onChange={setMaxKm} options={DISTANCE_OPTIONS} />
-            </div>
+            </FilterRow>
+            {pairs.length === 0 && allPairs.length > 0 && <p className="m-0 text-[12px] text-fg-muted">Không có cặp nào khớp bộ lọc: nới khoảng cách hoặc chọn “Tất cả”.</p>}
 
             <div className="rounded-[var(--radius-md)] border border-line bg-surface p-3">
-              <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]"><Spline size={14} className="text-accent" aria-hidden /><span><b className="tabular">{pairs.length}</b> cặp hiển thị · <b className="tabular">{passing}</b> cặp ≥ 80 %</span>{pairs.length < allPairs.length && <span className="text-[11px] text-fg-subtle">(trên tổng {allPairs.length})</span>}</div>
-              {pairs.length === 0 && allPairs.length > 0 && <p className="m-0 mb-2 text-[11px] text-fg-subtle">Không có cặp nào khớp bộ lọc — nới khoảng cách tối đa hoặc chọn “Tất cả”.</p>}
-              <GradientLegend title="Tỷ lệ thời gian trong dung sai (theo cặp)" gradient={shareGradient(theme)} ticks={['0 %', '20 %', '40 %', '60 %', '80 % (gate)', '100 %']}
-                note={`Đường liền = ${habitat ? 'cùng môi trường sống' : 'cùng chế độ'}; đứt = khác. Cặp dưới 80 % vẽ mảnh, mờ; cặp đạt vẽ đậm, nằm trên. ${detail.notes?.length ? 'Xem ghi chú bên dưới.' : ''}`} />
+              <GradientLegend title="Thời gian trong dung sai (mỗi đường một cặp)" gradient={shareGradient(theme)} ticks={['0 %', '20 %', '40 %', '60 %', '80 %', '100 %']}
+                note={`Gate = 80 %; cặp đạt vẽ đậm. Liền = ${habitat ? 'cùng môi trường sống' : 'cùng chế độ'}, đứt = khác.`} />
               <div className="mt-3"><RegimeLegend theme={theme} classes={classes} title="Trạm theo chế độ mặn" /></div>
             </div>
 
             <div>
-              <SectionLabel icon={<Ruler size={12} />}>Bán kính · {variableLabel(selected?.var ?? '')}</SectionLabel>
+              <SectionLabel icon={<Ruler size={12} />}>Bán kính đạt gate · {variableLabel(selected?.var ?? '')}</SectionLabel>
               <RadiusTable key={`${id}-${selected?.var}`} rows={detail.radius ?? []} />
             </div>
-            <div>
-              <SectionLabel>Phát hiện</SectionLabel>
-              <FindingList items={detail.findings} />
+
+            <p className="m-0 text-[11.5px] leading-snug text-fg-muted"><span className="font-semibold">Ghi công:</span> {detail.credit}</p>
+            <div className="flex flex-col gap-1">
+              <Disclosure summary="Phát hiện" hint={`(${detail.findings?.length ?? 0})`}>
+                <FindingList items={detail.findings} />
+              </Disclosure>
+              {(detail.notes?.length ?? 0) > 0 && (
+                <Disclosure summary="Ghi chú" hint={`(${detail.notes!.length})`}><FindingList items={detail.notes} /></Disclosure>
+              )}
+              <Disclosure summary="Giấy phép & nguồn">
+                <p className="m-0"><span className="font-semibold">Giấy phép:</span> {detail.licence}</p>
+                {!detail.redistributable && <p className="m-0">Chỉ hiển thị thống kê tổng hợp theo cặp/bán kính; không có chuỗi số liệu thô.</p>}
+                <p className="m-0">{detail.region} · {detail.country} · {detail.period} · {detail.climate} {detail.research_log && <RefChips refs={[detail.research_log]} />}</p>
+                <p className="m-0 text-[11.5px] text-fg-subtle">Run nguồn <span className="font-mono">{detail.source_run}</span> · export {detail.export_version}{detail.stations?.regime_class_rule ? ` · ${detail.stations.regime_class_rule}` : ''}</p>
+              </Disclosure>
             </div>
-            {(detail.notes?.length ?? 0) > 0 && <Note tone="neutral" icon={<Info size={14} />}><FindingList items={detail.notes} /></Note>}
-            <p className="m-0 text-[10.5px] text-fg-subtle">Run nguồn <span className="font-mono">{detail.source_run}</span> · export {detail.export_version}{detail.stations?.regime_class_rule ? ` · ${detail.stations.regime_class_rule}` : ''}</p>
           </>
         )}
-      </aside>
+      </MapPanel>
+    </div>
+  )
+}
+
+function FilterRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <span className="text-[12px] font-semibold text-fg-muted">{label}</span>
+      {children}
     </div>
   )
 }

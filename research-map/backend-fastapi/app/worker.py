@@ -16,6 +16,7 @@ from app.network import ensure_station_network_cache
 from app.flow_artifacts import FLOW_ARTIFACT_VERSION, build_flow_artifact, load_flow_artifact
 from app.hsi_cache import build_hsi_cache
 from app.bathymetry_artifacts import ensure_bathymetry_artifact
+from app.bathymetry_etopo import ensure_etopo_artifact
 from app.sensor_provider import fetch_station, normalize_readings
 from app.aquaculture_artifacts import build_aquaculture_artifacts
 
@@ -125,6 +126,8 @@ async def serve() -> None:
         settings.copernicus_bathymetry_path,
         settings.context_buffer_m,
     )
+    # Regional ETOPO depth (Cat Ba / Ha Long / Bai Tu Long), where SDB has no pixels.
+    await asyncio.to_thread(ensure_etopo_artifact, settings.cache_dir, settings.etopo_bathymetry_path)
     if not __import__("pathlib").Path(hsi_cache_path).exists():
         # This is intentionally outside FastAPI request handling. It may take
         # several minutes on a cold cache because it builds water-path zones.

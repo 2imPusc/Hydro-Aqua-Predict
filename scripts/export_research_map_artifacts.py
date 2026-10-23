@@ -10,6 +10,7 @@ JSON files that the research-map backend serves read-only:
         reliability_foreign_index.json     dataset cards (credit, licence, headline, bbox, scales)
         reliability_foreign_<id>.json      stations, pair statistics, radius table per foreign dataset
         reliability_vn.json                A6 salinity-regime layer (only when that run exists)
+        hazards.json                       H2 theory track: storm/heat climatology + skill, disease, stocking calendar
         manifest.json                      sources (sha256), output files (sha256), omitted outputs + reason
 
 Missing inputs are omitted with a reason in the manifest, never filled in. Maryland DNR
@@ -932,6 +933,199 @@ def build_overview(ctx: Ctx, bench: dict | None, suitability: dict[str, dict], f
     return {"directions": directions}
 
 
+# ---------------------------------------------------------------- H2 hazards (theory track, not field-validated)
+STORM_RUN = "storm-hindcast-20261023e"
+STORM_LEAD_RUN = "storm-leadtime-20261023d"
+HEAT_RUN = "heat-hindcast-20261023b"
+HEAT_SKILL_RUN = "heat-skill-20261023b"
+DISEASE_RUN = "disease-hindcast-20261023b"
+STOCKING_RUN = "stocking-calendar-20261023c"
+HAZARD_BASIS = "theory_only_unvalidated"
+# Primary truth = the independent one (ERA5); ifs_shortrange is circular for lead 0.
+STORM_LEAD_PAIR = "ecmwf_ifs025_vs_era5"
+STORM_LEAD_LEVEL_BF = 6
+# Rows of heat-skill metrics.csv quoted in docs/eval/2026-10-23-heat-skill.md (LOMO, hot day >= 31 °C).
+HEAT_SKILL_ROWS = (
+    ("oisst", "same-day hindcast", "raw", "OISST thô"),
+    ("air", "same-day hindcast", "offset", "Chỉ nhiệt độ không khí (ERA5 + độ lệch)"),
+    ("marine", "same-day hindcast", "lin_air", "SST marine + không khí"),
+    ("sensor_lag1", "lead 1 (persistence)", "persistence", "Cảm biến hôm qua (persistence)"),
+)
+STOCKING_CLASSES = ("good", "caution", "avoid", "avoid_cold")
+
+
+def _storm(ctx: Ctx) -> tuple[dict | None, str | None]:
+    run = ctx.run(STORM_RUN, ("manifest.json", "climatology_month.csv"))
+    if run is None:
+        return None, ctx.skipped.get(STORM_RUN)
+    manifest = ctx.read_json(run / "manifest.json")
+    month = ctx.read_csv(run / "climatology_month.csv")
+    out = {
+        "source_run": STORM_RUN, "basis": HAZARD_BASIS, "source": manifest.get("source"),
+        "seasons": manifest.get("seasons"), "passages": _int(manifest.get("passages")),
+        "radius_km": _num((manifest.get("params") or {}).get("radius_km")),
+        "per_month_cap8": [{"month": _int(row.month), "per_year": _r(row.storms_per_year_site_cap8_plus, 4)}
+                           for row in month.itertuples()],
+    }
+    if (run / "yagi_check.json").is_file():
+        yagi = ctx.read_json(run / "yagi_check.json")
+        out["yagi"] = {"peak_time": yagi.get("peak_time"), "min_dist_km": _r(yagi.get("min_dist_km"), 1),
+                       "site_beaufort": _int(yagi.get("site_beaufort_093")),
+                       "site_wind_lower_bound": bool(yagi.get("site_wind_lower_bound")),
+                       "era5_max_wind_ms": _r(yagi.get("era5_max_wind_ms"), 2),
+                       "era5_max_wind_beaufort": _int(yagi.get("era5_max_wind_beaufort")),
+                       "note": yagi.get("note")}
+    return out, None
+
+
+def _storm_lead(ctx: Ctx) -> tuple[dict | None, str | None]:
+    pair = STORM_LEAD_PAIR
+    run = ctx.run(STORM_LEAD_RUN, ("manifest.json", f"day_contingency_{pair}.csv", f"events_{pair}.csv"))
+    if run is None:
+        return None, ctx.skipped.get(STORM_LEAD_RUN)
+    manifest = ctx.read_json(run / "manifest.json")
+    table = ctx.read_csv(run / f"day_contingency_{pair}.csv")
+    events = ctx.read_csv(run / f"events_{pair}.csv")
+    level = table[table["level"] == STORM_LEAD_LEVEL_BF].sort_values("lead_day")
+    if level.empty:
+        return None, f"no_bf{STORM_LEAD_LEVEL_BF}_rows"
+    by_lead = [{"lead_day": _int(row.lead_day), "pod": _r(row.POD, 3), "far": _r(row.FAR, 3), "csi": _r(row.CSI, 3),
+                "hits": _int(row.hits), "misses": _int(row.misses), "false_alarms": _int(row.false_alarms),
+                "n_event_days": _int(row.hits + row.misses), "n_days": _int(row.n)} for row in level.itertuples()]
+    ev = events[(events["threshold_bf"] == STORM_LEAD_LEVEL_BF) & events["is_event_truth"].astype(bool)]
+    storms = [{"name": _str(row.NAME), "peak_time": _str(row.peak_time), "min_dist_km": _r(row.min_dist_km, 0),
+               "consistent_lead_days": _int(row.consistent_N_truth),
+               "consistent_lead_hours": _r(row.consistent_lead_hours_truth, 1)} for row in ev.itertuples()]
+    pair_meta = (manifest.get("pairs") or {}).get(pair) or {}
+    return {"source_run": STORM_LEAD_RUN, "basis": HAZARD_BASIS, "model": pair_meta.get("forecast_model"),
+            "truth": pair_meta.get("truth_label"), "truth_independent": pair_meta.get("truth_independent"),
+            "level_bf": STORM_LEAD_LEVEL_BF, "period": manifest.get("period", {}).get("start", "")[:10] + "/"
+            + manifest.get("period", {}).get("end", "")[:10],
+            "day_basis": (manifest.get("params") or {}).get("day_basis"),
+            "lead_rule": (manifest.get("params") or {}).get("warning_lead"),
+            "by_lead": by_lead, "storms": storms}, None
+
+
+def _heat(ctx: Ctx) -> tuple[dict | None, str | None]:
+    run = ctx.run(HEAT_RUN, ("manifest.json", "trend.json"))
+    if run is None:
+        return None, ctx.skipped.get(HEAT_RUN)
+    manifest = ctx.read_json(run / "manifest.json")
+    trends = {row.get("column"): row for row in ctx.read_json(run / "trend.json")}
+
+    def trend(column):
+        row = trends.get(column)
+        if not row:
+            return None
+        return {"column": column, "value": _r(row.get("days_per_decade"), 2),
+                "ci95": [_r(v, 2) for v in row.get("ci95_per_decade") or []], "years": row.get("years")}
+
+    thr = manifest.get("thresholds_c") or {}
+    out = {"source_run": HEAT_RUN, "basis": HAZARD_BASIS,
+           "thresholds_c": {k: _num(thr.get(k)) for k in ("watch", "stress", "severe", "min_run_days")},
+           "oisst_offset_c": _r(manifest.get("oisst_offset_c"), 3), "offset_note": manifest.get("offset_note"),
+           # Primary = unadjusted OISST (the offset is a single-season sensitivity case, not a calibration).
+           "trend_days_per_decade": trend("days_alert_ge1"),
+           "trend_days_per_decade_adjusted": trend("days_alert_ge1_adjusted")}
+    # heat_calendar.csv (stress >= 33 °C) is all zero; the watch file carries the signal. Its column is
+    # named share_years_with_stress_day in the run, but it counts watch (>= watch threshold) days.
+    for name, key in (("heat_calendar_watch.csv", "peak_weeks_watch"), ("heat_calendar.csv", "peak_weeks_stress")):
+        if (run / name).is_file():
+            frame = ctx.read_csv(run / name)
+            out[key] = [{"iso_week": _int(row.iso_week), "share_years": _r(row.share_years_with_stress_day, 3)}
+                        for row in frame.itertuples() if (_num(row.share_years_with_stress_day) or 0) > 0]
+    return out, None
+
+
+def _heat_skill(ctx: Ctx) -> tuple[dict | None, str | None]:
+    run = ctx.run(HEAT_SKILL_RUN, ("manifest.json", "metrics.csv"))
+    if run is None:
+        return None, ctx.skipped.get(HEAT_SKILL_RUN)
+    manifest = ctx.read_json(run / "manifest.json")
+    metrics = ctx.read_csv(run / "metrics.csv")
+    lomo = metrics[(metrics["scheme"] == "lomo") & (metrics["target"] == "ge31")]
+    rows = []
+    for product, horizon, method, label in HEAT_SKILL_ROWS:
+        hit = lomo[(lomo["product"] == product) & (lomo["horizon"] == horizon) & (lomo["method"] == method)]
+        if hit.empty:
+            continue
+        row = hit.iloc[0]
+        rows.append({"product": product, "method": method, "horizon": horizon, "label": label,
+                     "csi": _r(row["CSI"], 3), "pod": _r(row["POD"], 3), "far": _r(row["FAR"], 3),
+                     "n_pos": _int(row["n_pos"]), "n": _int(row["n"]), "mae_c": _r(row["MAE_c"], 3)})
+    if not rows:
+        return None, "no_lomo_ge31_rows"
+    return {"source_run": HEAT_SKILL_RUN, "basis": HAZARD_BASIS, "scheme": "lomo", "target": "sensor daily mean >= 31 °C",
+            "sensor_period": [manifest.get("sensor_first"), manifest.get("sensor_last")],
+            "sensor_days": _int(manifest.get("sensor_days")), "hot_days": _int(manifest.get("sensor_days_ge31")),
+            "rows": rows}, None
+
+
+def _disease(ctx: Ctx) -> tuple[dict | None, str | None]:
+    run = ctx.run(DISEASE_RUN, ("manifest.json", "results.json"))
+    if run is None:
+        return None, ctx.skipped.get(DISEASE_RUN)
+    manifest = ctx.read_json(run / "manifest.json")
+    results = ctx.read_json(run / "results.json")
+    ev = results.get("evaluation") or {}
+    return {"source_run": DISEASE_RUN, "basis": manifest.get("basis", HAZARD_BASIS), "note_vi": manifest.get("note_vi"),
+            "used_by_alerts": manifest.get("used_by_alerts"), "years": results.get("years"),
+            "verdict": ev.get("verdict"), "verdict_pathogen_attributed": ev.get("verdict_pathogen_attributed"),
+            "n_events_scored": _int(ev.get("n_scored")), "hits_level2": _int(ev.get("hits_any_level2")),
+            "expected_level2": _r(ev.get("mean_clim_p_any_level2"), 3),
+            "n_pathogen_attributed": _int(ev.get("n_pathogen_attributed")),
+            "robust_to_shift_1c": ev.get("robust_to_shift_1c"),
+            "mean_days_high_per_year": _r(results.get("mean_days_level2"), 1),
+            "mean_days_cold_high_oisst": _r(results.get("mean_days_cold_high_oisst"), 2),
+            "mean_days_cold_high_era5_air": _r(results.get("mean_days_cold_high_era5_air"), 2)}, None
+
+
+def _stocking(ctx: Ctx) -> tuple[dict | None, str | None]:
+    run = ctx.run(STOCKING_RUN, ("manifest.json", "month_classes.csv"))
+    if run is None:
+        return None, ctx.skipped.get(STOCKING_RUN)
+    manifest = ctx.read_json(run / "manifest.json")
+    months = ctx.read_csv(run / "month_classes.csv")
+    calendars = []
+    for weeks in manifest.get("growout_weeks") or (26, 39):
+        cls, score = f"class_{weeks}w", f"score_{weeks}w"
+        if cls not in months.columns:
+            continue
+        calendars.append({"growout_weeks": int(weeks), "months": [
+            {"month": _int(row["month"]), "class": _str(row[cls]) if _str(row[cls]) in STOCKING_CLASSES else None,
+             "score": _r(row.get(score), 3), "feasible_frac": _r(row.get(f"feasible_frac_{weeks}w"), 2)}
+            for _, row in months.iterrows()]})
+    if not calendars:
+        return None, "no_month_classes"
+    top3 = {}
+    if (run / "sensitivity_top3.csv").is_file():
+        sens = ctx.read_csv(run / "sensitivity_top3.csv")
+        for row in sens[sens["case"] == "base"].itertuples():
+            top3[str(int(row.growout_weeks))] = json.loads(row.top3)
+    gate = manifest.get("gate") or {}
+    return {"source_run": STOCKING_RUN, "basis": HAZARD_BASIS,
+            "validated_against_ground_truth": manifest.get("validated_against_ground_truth"),
+            "years": manifest.get("years_all"), "class_cuts": manifest.get("class_cuts"),
+            "gate": {"early_weeks": manifest.get("early_weeks"), "early_mean_sst_min_c": gate.get("early_mean_sst_min_c"),
+                     "min_share_of_years": gate.get("min_share_of_years")},
+            "best_weeks_base": top3, "calendars": calendars}, None
+
+
+def build_hazards(ctx: Ctx) -> tuple[dict | None, str | None]:
+    """Storm / heat / disease / stocking theory-track summaries; each section independent."""
+    sections, omitted = {}, {}
+    for key, builder in (("storm", _storm), ("storm_lead", _storm_lead), ("heat", _heat),
+                         ("heat_skill", _heat_skill), ("disease", _disease), ("stocking", _stocking)):
+        payload, reason = builder(ctx)
+        if payload is None:
+            omitted[key] = reason or "input_missing"
+        else:
+            sections[key] = payload
+    if not sections:
+        return None, "no_hazard_runs"
+    return {"basis": HAZARD_BASIS, "used_by_alerts": False, **sections, "sections_omitted": omitted}, None
+
+
 # ---------------------------------------------------------------- export
 def _dump(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(clean(payload), ensure_ascii=False, separators=(",", ":"), allow_nan=False),
@@ -981,6 +1175,8 @@ def export(experiments_dir: Path, out_root: Path, *, data_dir: Path, research_lo
     put("reliability_foreign_index.json", {"datasets": cards} if cards else None, "no_foreign_runs")
     vn, reason = build_reliability_vn(ctx)
     put("reliability_vn.json", vn, reason)
+    hazards, reason = build_hazards(ctx)
+    put("hazards.json", hazards, reason)
     put("overview.json", {"generated_at": generated_at, **build_overview(ctx, bench, suitability, cards)}, None)
 
     out_root.mkdir(parents=True, exist_ok=True)

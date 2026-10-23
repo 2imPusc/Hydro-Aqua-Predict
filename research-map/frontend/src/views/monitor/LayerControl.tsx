@@ -1,10 +1,11 @@
 import { memo, useState } from 'react'
 import { ChevronDown, Layers, MapPin, Mountain, Waves, Wind } from 'lucide-react'
-import type { BathymetryManifest, FlowArtifact, HsiZones, Layer, StationNetwork } from '../../types/monitor'
+import type { BathymetryManifest, EtopoManifest, FlowArtifact, HsiZones, Layer, StationNetwork } from '../../types/monitor'
 import { LABEL, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { Chip, SectionLabel, Segmented, StateChip, Toggle } from '../../components/ui'
 import { HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
 import { ENVIRONMENT_LAYERS, type EnabledLayers, type LayerKey } from './useMonitorData'
+import { isNarrowScreen } from '../shared/MapPanel'
 
 type Props = {
   enabled: EnabledLayers
@@ -18,6 +19,7 @@ type Props = {
   zones: HsiZones | null
   bathymetry: BathymetryManifest | null
   bathymetryError: string | null
+  etopo: EtopoManifest | null
   lod: Lod
   basemap: BasemapId
   onBasemap: (basemap: BasemapId) => void
@@ -27,21 +29,24 @@ const LOD_LABEL: Record<Lod, string> = { low: 'LOD thấp', medium: 'LOD vừa',
 
 /** Floating, grouped layer control (Bối cảnh · Dòng chảy & gió · Độ sâu · Mạng trạm · Bản đồ nền). */
 export const LayerControl = memo(function LayerControl(props: Props) {
-  const { enabled, onToggle, environmentLayers, snapshotLoaded, flow, currentLayer, windLayer, network, zones, bathymetry, bathymetryError, lod, basemap, onBasemap } = props
-  const [open, setOpen] = useState(true)
+  const { enabled, onToggle, environmentLayers, snapshotLoaded, flow, currentLayer, windLayer, network, zones, bathymetry, bathymetryError, etopo, lod, basemap, onBasemap } = props
+  // Phones: start collapsed so the map stays usable; the header still names the area and layer count.
+  const [open, setOpen] = useState(() => !isNarrowScreen())
   const bathyReady = bathymetry?.status === 'ready'
   const bathyHint = bathyReady
     ? `${bathymetry?.source_resolution ?? 'Copernicus SDB'} · ${LOD_LABEL[lod]}`
     : bathymetry?.reason_code ?? (bathymetry?.status === 'building' ? 'đang dựng artifact…' : bathymetryError ? 'không tải được manifest' : 'đang tải…')
+  const etopoReady = etopo?.status === 'ready'
+  const etopoHint = etopoReady ? `ETOPO 2022 · lưới ${etopo?.source_resolution ?? '~460 m'}` : etopo?.reason_code ?? 'đang tải…'
   const activeCount = Object.values(enabled).filter(Boolean).length
 
   return (
-    <section aria-label="Lớp bản đồ" className="glass panel-enter pointer-events-auto flex min-h-0 w-[296px] flex-col overflow-hidden rounded-[var(--radius-lg)]">
+    <section aria-label="Lớp bản đồ" className="glass panel-enter pointer-events-auto flex min-h-0 w-[min(296px,calc(100vw-72px))] flex-col overflow-hidden rounded-[var(--radius-lg)]">
       <button type="button" onClick={() => setOpen(value => !value)} aria-expanded={open}
         className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left">
         <span className="grid size-8 flex-none place-items-center rounded-[var(--radius-sm)] bg-accent-soft text-accent"><Layers size={16} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-[.12em] text-accent">Khu vực giám sát</span>
+          <span className="block text-[11px] font-semibold text-accent">Khu vực giám sát</span>
           <span className="block text-[13px] font-semibold leading-snug text-fg">Hải Phòng · Cát Bà · Lạch Huyện</span>
         </span>
         <Chip size="xs" tone="neutral" title="Số lớp đang bật">{activeCount}</Chip>
@@ -69,7 +74,9 @@ export const LayerControl = memo(function LayerControl(props: Props) {
             label="Vệt gió" description={windLayer ? `${windLayer.provenance?.provider ?? 'provider'} · hạt canvas (quan sát)` : 'chưa có lớp gió'} />
 
           <SectionLabel icon={<Mountain size={12} />} trailing={bathyReady ? <Chip size="xs" tone="neutral">{LOD_LABEL[lod]}</Chip> : undefined}>Độ sâu</SectionLabel>
-          <Toggle checked={enabled.bathymetry_bands} disabled={!bathyReady} onChange={value => onToggle('bathymetry_bands', value)} label="Dải độ sâu Copernicus" description={bathyHint} />
+          <Toggle checked={enabled.depth_isobands} disabled={!etopoReady} onChange={value => onToggle('depth_isobands', value)} label="Độ sâu vùng biển" description={etopoHint} />
+          <Toggle checked={enabled.depth_isobaths} disabled={!etopoReady} onChange={value => onToggle('depth_isobaths', value)} label="Đường đẳng sâu" description="2 / 5 / 10 / 20 / 30 m" />
+          <Toggle checked={enabled.bathymetry_bands} disabled={!bathyReady} onChange={value => onToggle('bathymetry_bands', value)} label="Bãi triều (SDB vệ tinh)" description={bathyHint} />
           <Toggle checked={enabled.bathymetry_contours} disabled={!bathyReady} onChange={value => onToggle('bathymetry_contours', value)} label="Đường đồng mức đáy" description="0,25 / 0,5 / 0,75 / 1 m; mức sâu hơn khi có" />
           <Toggle checked={enabled.bathymetry_slope} disabled={!bathyReady} onChange={value => onToggle('bathymetry_slope', value)} label="Độ dốc đáy" description="tính từ depth đã qua quality mask" />
 

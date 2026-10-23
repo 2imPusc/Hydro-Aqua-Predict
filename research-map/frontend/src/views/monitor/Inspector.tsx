@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react'
 import { ChevronRight, Database, FlaskConical, Info, MapPin, Radio, ShieldAlert, X } from 'lucide-react'
 import type { AquacultureMap, BathymetryManifest, BathymetrySample, DataMode, FlowArtifact, HsiZones, Layer, SensorLatest, SensorObservation, Snapshot, StationNetwork, Stations } from '../../types/monitor'
-import { Chip, EmptyState, IconButton, KeyValue, Note, Panel, Segmented, Skeleton, Stat, StateChip, type Tone } from '../../components/ui'
+import { Chip, Disclosure, EmptyState, IconButton, KeyValue, Note, Panel, Segmented, Skeleton, Stat, StateChip, type Tone } from '../../components/ui'
 import { LABEL } from '../../components/map/mapConfig'
 import { HSI_LEGACY_LABEL } from '../../components/map/overlays/HsiZonesOverlay'
 import { advisoryForStation, SEVERITY_STYLE, toSeverity } from '../../components/map/overlays/StationMarkers'
@@ -47,9 +47,15 @@ function SensorCard({ sensor, station }: { sensor: PollState<SensorLatest>; stat
           {data.status === 'unavailable' || !observations.length
             ? <EmptyState compact icon={<Database size={15} />} title="Chưa có quan trắc" description={data.reason_code ?? 'Backend chưa nhận bản ghi nào cho trạm này.'} />
             : <div className="grid grid-cols-2 gap-1.5">{observations.map(item => <ObservationStat key={item.observation_id ?? item.metric} item={item} />)}</div>}
-          {data.status === 'stale' && <div className="mt-2"><Note tone="warn">Dữ liệu cũ hơn hạn tươi — đây là giá trị hợp lệ cuối cùng, không phải hiện tại.</Note></div>}
-          {unknownUnits && <div className="mt-2"><Note>Đơn vị hoá chất <code className="font-mono">vendor_unit_unknown</code>: chưa có tài liệu hiệu chuẩn GreenLab, không quy đổi ngầm (đặc biệt NH4).</Note></div>}
-          <p className="m-0 mt-2 text-[10.5px] text-fg-subtle">Chỉ hiển thị · chưa dùng để kích hoạt thông báo.</p>
+          {data.status === 'stale' && <div className="mt-2"><Note tone="warn">Giá trị cũ: số hợp lệ cuối cùng, không phải hiện tại.</Note></div>}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Chip size="xs" tone="neutral" title="Chỉ hiển thị, chưa dùng để kích hoạt thông báo">Chỉ hiển thị</Chip>
+            {unknownUnits && (
+              <Disclosure summary="Đơn vị chưa rõ">
+                <p className="m-0">Đơn vị hoá chất <code className="font-mono">vendor_unit_unknown</code>: chưa có tài liệu hiệu chuẩn GreenLab, không quy đổi ngầm (đặc biệt NH4).</p>
+              </Disclosure>
+            )}
+          </div>
         </>
       )}
     </Panel>
@@ -68,18 +74,23 @@ function ObservationStat({ item }: { item: SensorObservation }) {
 
 /* ---------------------------------------------------------------- advisory */
 
+const ADVISORY_STALE_SECONDS = 90 * 60
+
 type Driver = { metric: string; value: unknown; unit: string }
 
 function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenario }: { aquaculture: PollState<AquacultureMap>; stations: Stations | null; mode: DataMode; onMode: (mode: DataMode) => void; scenario: string; onScenario: (value: string) => void }) {
   const map = aquaculture.data
   const isMock = mode === 'mock'
+  // Live advisories are rebuilt by the worker; an old artifact (worker/DB down) must read as stale, not "ready".
+  const ageSeconds = map?.generated_at ? (Date.now() - Date.parse(map.generated_at)) / 1000 : null
+  const stale = !!map && map.mode !== 'mock' && map.status === 'ready' && ageSeconds != null && ageSeconds > ADVISORY_STALE_SECONDS
   return (
     <Panel variant="glass" icon={<ShieldAlert size={15} />} title="Khuyến nghị nuôi trồng" collapsible
-      actions={map ? <StateChip size="xs" state={map.mode === 'mock' ? 'mock' : map.status} /> : aquaculture.error ? <StateChip size="xs" state="unavailable" /> : <StateChip size="xs" state="loading" />}>
+      actions={map ? <StateChip size="xs" state={map.mode === 'mock' ? 'mock' : stale ? 'stale' : map.status} suffix={stale ? formatAge(ageSeconds) : undefined} /> : aquaculture.error ? <StateChip size="xs" state="unavailable" /> : <StateChip size="xs" state="loading" />}>
       <Segmented label="Chế độ dữ liệu" value={mode} onChange={onMode} options={[{ value: 'live', label: 'Live · cảm biến + API' }, { value: 'mock', label: 'Mô phỏng', tone: 'mock' }]} />
       {isMock && (
         <div className="mt-2 space-y-2">
-          <Note tone="mock" icon={<FlaskConical size={13} />}><b>CHẾ ĐỘ MÔ PHỎNG</b> — kịch bản giả lập để trình diễn, không phải quan trắc thật.</Note>
+          <Note tone="mock" icon={<FlaskConical size={13} />}><b>Mô phỏng</b>: kịch bản giả lập, không phải quan trắc thật.</Note>
           <label className="block text-[11px] font-semibold text-fg-subtle">Kịch bản
             <select value={scenario} onChange={event => onScenario(event.target.value)}
               className="mt-1 block w-full rounded-[var(--radius-sm)] border border-line bg-surface px-2 py-1.5 text-[12.5px] font-normal text-fg focus:border-mock">
@@ -88,7 +99,8 @@ function AdvisoryCard({ aquaculture, stations, mode, onMode, scenario, onScenari
           </label>
         </div>
       )}
-      {map?.disclaimer && <p className="m-0 mt-2 text-[11px] italic leading-snug text-fg-subtle">{map.disclaimer}</p>}
+      {stale && <div className="mt-2"><Note tone="warn">Khuyến nghị dựng lúc {formatTime(map!.generated_at!, true)} ({formatAge(ageSeconds)} trước): dữ liệu cũ, không phải hiện tại.</Note></div>}
+      {map?.disclaimer && <div className="mt-2"><Disclosure summary="Lưu ý về khuyến nghị"><p className="m-0">{map.disclaimer}</p></Disclosure></div>}
 
       <div className="mt-2">
         {!map && aquaculture.error && <EmptyState compact tone="danger" icon={<ShieldAlert size={15} />} title="Không tải được bản đồ khuyến nghị" description={describeApiError(aquaculture.error)} />}
@@ -188,7 +200,7 @@ function ProvenanceCard({ snapshot, contextError, layers, enabled, flow, bathyme
         {bathyOn && bathymetry && (
           <div>
             <div className="mb-1 flex items-center justify-between"><span className="text-[11.5px] font-semibold text-fg">Độ sâu</span><StateChip size="xs" state={bathymetry.status} /></div>
-            <KeyValue items={[['Nguồn', bathymetry.source], ['Độ phân giải', bathymetry.source_resolution], bathymetry.coverage_fraction != null ? ['Độ phủ', `${Math.round(bathymetry.coverage_fraction * 100)}%`] : null, ['Quy tắc chất lượng', bathymetry.quality_rule]]} />
+            <KeyValue items={[['Nguồn', bathymetry.source], ['Độ phân giải', bathymetry.source_resolution], ['Quy tắc chất lượng', bathymetry.quality_rule]]} />
             {bathymetry.disclaimer && <p className="m-0 mt-1 text-[10.5px] text-fg-subtle">{bathymetry.disclaimer}</p>}
           </div>
         )}
@@ -210,18 +222,27 @@ function ProvenanceCard({ snapshot, contextError, layers, enabled, flow, bathyme
 /* -------------------------------------------------------------- bathymetry */
 
 function SampleCard({ sample, onClose }: { sample: BathymetrySample; onClose: () => void }) {
+  const etopo = sample.etopo?.status === 'available' ? sample.etopo : null
   return (
     <Panel variant="glass" icon={<MapPin size={15} />} title="Điểm đo độ sâu" actions={<IconButton label="Đóng" onClick={onClose} className="!size-6"><X size={14} /></IconButton>}>
-      {sample.status === 'available' ? (
+      {etopo && (
         <>
+          <Stat label="Độ sâu ETOPO (~460 m)" value={etopo.etopo_depth_m ?? '—'} unit="m" />
+          <p className="m-0 mt-1 text-[10.5px] text-fg-subtle">
+            {etopo.suspect ? 'Nghi lỗi nguồn (hố sâu kín). ' : ''}{etopo.nearest_cell_is_sea === false ? 'Ô lưới gần nhất là đất: giá trị nội suy về bờ. ' : ''}So với mực nước TB, không phải số 0 hải đồ.
+          </p>
+        </>
+      )}
+      {sample.status === 'available' ? (
+        <div className={etopo ? 'mt-2 border-t border-line pt-2' : ''}>
           <div className="grid grid-cols-2 gap-1.5">
-            <Stat label="Độ sâu" value={sample.copernicus_depth_m ?? '—'} unit="m" />
+            <Stat label="SDB vệ tinh (~100 m)" value={sample.copernicus_depth_m ?? '—'} unit="m" />
             <Stat label="Độ dốc" value={sample.slope_degrees ?? '—'} unit="°" />
           </div>
           <p className="m-0 mt-1.5 text-[11px] text-fg-subtle tabular">Q={sample.quality_indicator ?? '—'} · SDB={sample.sdb_type ?? '—'}{sample.depth_source ? ` · ${sample.depth_source}` : ''}</p>
-          <p className="m-0 mt-0.5 text-[10.5px] text-fg-subtle">{sample.disclaimer ?? 'Chỉ dùng nghiên cứu; không dùng cho hàng hải.'}</p>
-        </>
-      ) : <EmptyState compact title="Không có giá trị tại điểm này" description={sample.reason_code ?? 'unavailable'} />}
+        </div>
+      ) : !etopo && <EmptyState compact title="Không có giá trị tại điểm này" description={sample.reason_code ?? 'unavailable'} />}
+      <p className="m-0 mt-1 text-[10.5px] text-fg-subtle">Chỉ dùng nghiên cứu; không dùng cho hàng hải.</p>
     </Panel>
   )
 }

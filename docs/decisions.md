@@ -101,3 +101,16 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
   - Bậc hành động tại lồng (cấp 6/8/10/12) và ngưỡng sóng cho lồng cần chuyên gia / người nuôi xem lại. Chưa có ngưỡng sóng.
 - **Lý do:** tài liệu về nhiệt độ tối ưu của cá giò mâu thuẫn (27–29 °C cho cá ~22 g trong Le et al. 2024, so với 33 °C trong Sun & Chen 2014). Vì vậy mức nhiệt được gọi là rủi ro tăng trưởng/stress, không phải tử vong.
 - **Hệ quả:** mọi đầu ra mang `used_by_alerts: False`, `notification_eligible: False`, `basis: "theory_only_unvalidated"`. Mapping Điều 42 của QĐ 18 lấy từ bản tóm tắt thứ cấp; cần đối chiếu bản .doc gốc trước khi dùng trong luận văn. Chi tiết: `docs/guide/27-hazard-advisory-theory.md`, RL-29, RL-30.
+
+## #18 — 2026-10-23 · Dữ liệu tái phân tích phải ghi rõ mô hình
+
+- **Quyết định:** mọi tải từ archive Open-Meteo phải truyền `models=` và ghi model vào tên file + manifest. "ERA5" chỉ dùng cho `models=era5`. File tải không có `models=` (best_match: ERA5 < 2017, ECMWF IFS 9 km từ 2017) chỉ được gọi là best_match/IFS.
+- **Lý do:** review phát hiện file "ERA5" thực ra là IFS từ 2017; Previous Runs lead 0 trùng 100 %, nên đánh giá thời gian báo trước bị vòng tròn; con số Yagi 29.56 m/s sai nguồn (ERA5 thật 18.86 m/s).
+- **Hệ quả:** đánh giá dự báo phải có chặn tự động "giá trị thật ≠ lead 0"; mô hình dự báo được cố định (`ecmwf_ifs025`). Các run bị thay thế liệt kê ở RL-31.
+
+## #19 — 2026-10-23 · Nguồn độ sâu cho research-map: ETOPO 2022, không lấp SDB
+
+- **Quyết định:** lớp độ sâu mặc định dùng NOAA ETOPO 2022 15″ (~460 m), dải độ sâu + đường đẳng sâu cắt theo mặt nước OSM, có cờ "thô"/"nghi ngờ". Copernicus SDB chỉ là lớp bãi triều, tắt mặc định; ETOPO không bao giờ được dùng để lấp chỗ trống của SDB.
+- **Lý do:** SDB không có dữ liệu ở Cát Bà / Hạ Long; ETOPO phủ đều nhưng thô và có lỗi nguồn ở vài cửa sông.
+- **Hệ quả:** chú giải ghi lưới, datum (EGM2008) và "không dùng cho hàng hải". Nâng cấp tiếp theo: GEBCO 2024 (kèm TID) hoặc hải đồ / đo sâu tại lồng.
+
