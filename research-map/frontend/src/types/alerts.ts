@@ -15,17 +15,37 @@ export type HazardConfig = {
   evidence?: string[]
 }
 
+/** Only these hazard fields may be changed by the admin UI (C1/C3); everything else is server-rejected. */
+export type EditableField = 'thresholds' | 'actions_vi' | 'persistence_days'
+export type HazardOverride = Partial<Pick<HazardConfig, EditableField>>
+export type ScopeOverrides = Record<string, HazardOverride>
+
+export type AlertConfigChange = { path: string; old: unknown; new: unknown }
+
 export type AlertConfig = {
   schema_version: number
   config_version: string
   note_vi?: string
   tiers: Array<{ tier: Tier; label_vi: string; color: string }>
   hazards: Record<string, HazardConfig>
-  scopes: { exposure_class: Partial<Record<ExposureClass, Record<string, Partial<HazardConfig>>>>; station: Record<string, Record<string, Partial<HazardConfig>>> }
+  scopes: { exposure_class: Partial<Record<ExposureClass, ScopeOverrides>>; station: Record<string, ScopeOverrides> }
+  /** Present on runtime versions (after the first save). */
+  parent_version?: string | null
+  changes?: AlertConfigChange[]
 }
+
+/** A saved runtime version file: full config + provenance. */
+export type AlertConfigVersionDetail = AlertConfig & { changed_at?: string; changed_by?: string; reason_vi?: string }
 
 export type AlertConfigResponse = { status: 'ready' | 'unavailable'; reason?: string; effective?: AlertConfig; config_version?: string; source?: 'default' | 'runtime' }
 export type AlertConfigVersion = { config_version: string; changed_at: string; changed_by: string; reason_vi: string; n_changes: number }
+export type AlertConfigVersionsResponse = { status: 'ready' | 'unavailable'; reason?: string; versions?: AlertConfigVersion[] }
+export type AlertConfigVersionResponse = { status: 'ready' | 'unavailable'; reason?: string; version?: AlertConfigVersionDetail }
+/** 422 body of save/preview. */
+export type AlertConfigInvalid = { status: 'invalid'; errors: string[] }
+export type AlertConfigSaved = { status: 'ready'; config_version: string }
+export type TierExample = { hazard: string; value: number; tier: Tier | null }
+export type AlertConfigPreview = { status: 'ready' | 'invalid'; errors: string[]; tier_examples?: TierExample[] }
 
 export type ActiveStorm = {
   id: string; name: string; run_time: string; members: number
