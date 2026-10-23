@@ -1,0 +1,33 @@
+
+/* ===========================================
+   PROGRESS 2026-10-23 — ảnh demo, bậc cảnh báo, lịch tháng
+   =========================================== */
+.shot { display: block; width: 100%; border: 3px solid var(--ink); background: #f1f1ee; object-fit: cover; object-position: top left; }
+.cap { font-size: 18px; line-height: 1.35; color: var(--muted); margin-top: 10px; }
+.cap b { color: var(--ink); }
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.ba .lbl { font: 800 15px/1 var(--font-display); letter-spacing: .16em; text-transform: uppercase; margin-bottom: 10px; }
+.ba .lbl.r { color: var(--red-ink); }
+.ba .lbl.g { color: var(--muted); }
+.five .k { margin: 0 0 6px; }
+.five .k.r { margin-top: 0; }
+.five p, .five li { font-size: 21px; line-height: 1.36; }
+.five ul.dash li { margin-bottom: 5px; padding-left: 26px; }
+.five ul.dash li::before { top: 13px; width: 14px; }
+.five .blk { border-top: 2px solid var(--rule); padding-top: 12px; margin-top: 12px; }
+.five .blk:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.tier { display: inline-block; min-width: 92px; text-align: center; font: 800 15px/1 var(--font-display); letter-spacing: .06em; padding: 7px 8px; border-radius: 3px; }
+.tier.t0 { background: #e3f3e8; color: #17663a; }
+.tier.t1 { background: #e3ecfb; color: #1f4f9a; }
+.tier.t2 { background: #fdf1d2; color: #85560a; }
+.tier.t3 { background: #fde2dc; color: #a3200b; }
+.tier.t4 { background: #a3200b; color: #fff; }
+.months { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
+.months .m { height: 112px; border-top: 8px solid var(--ink); padding: 10px 8px; background: #fff; font: 800 22px/1 var(--font-display); }
+.months .m small { display: block; font: 600 15px/1.25 var(--font-body); color: var(--ink-2); margin-top: 10px; }
+.months .m.avoid { border-top-color: var(--red); background: #fde9e4; }
+.months .m.edge { border-top-color: #e0a100; background: #fdf4dc; }
+.months .m.best { border-top-color: var(--series-a); background: #e3ecfb; }
+.months .m.storm { box-shadow: inset 0 -10px 0 rgba(10, 10, 10, .14); }
+.mini .v { font-size: 64px; }
+.note { font-size: 19px; color: var(--muted); line-height: 1.35; }
