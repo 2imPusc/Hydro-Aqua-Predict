@@ -162,7 +162,7 @@ Lead tính bằng giờ trước `peak_time`. "–" = không vượt ngưỡng (
 | FENGSHEN 2025 | 493 | 5 | – | – | 121 | – | 79 | 163 |
 | MAYSAK 2026 | 74 | 6 | 49 | 62 | 62 | 56 | 56 | 62 |
 | NARRA 2026 | 74 | 6 | −8 (trễ) | không có trạng thái | không có | không có | không có | 54 |
-| SAUDEL 2026 | 356 | 4 | – | 6 | – | – | – | 6 |
+| SAUDEL 2026 | 356 | 4 | – | 6 | – | – | – | 6 (*) |
 
 Đọc bảng:
 
@@ -170,6 +170,7 @@ Lead tính bằng giờ trước `peak_time`. "–" = không vượt ngưỡng (
 - **Nơi nhìn toàn vùng thêm giá trị thật:** Prapiroon (gió điểm bỏ lỡ; ENS 69–93 h, thống kê 123 h), Matmo (gió điểm liền mạch chỉ 30 h; ENS 102 h), Trami và Fengshen (ENS ≤ 500 km báo 79–120 h; gió điểm không chạm hoặc bỏ lỡ). Tức là: tâm bão giúp **không bỏ sót** cơn có gió điểm yếu trong mô hình 0,25°.
 - **Ragasa:** vào 128 km theo best track nhưng ERA5 chỉ cấp 4. ENS báo 108 h là đúng về hình học, "nhầm" về gió. Cần tầng gió điểm để quyết định hành động.
 - **Bão sinh trên Biển Đông (Maysak, Wutip, Nongfa, Narra, Saudel):** mọi cách đều chỉ 0–2,5 ngày, vì cơn mới 1–3 ngày tuổi. Narra sinh cách NB1 157 km: không cách nhìn tâm bão nào báo trước được; gió điểm cũng trễ.
+- (*) SAUDEL: track IBTrACS 2026 còn tạm (provisional), điểm đầu đã gần điểm gần NB1 nhất. "6 h" là do track bắt đầu muộn, không phải cơn hình thành và mạnh nhất trong 6 h. Lần chạy ENS khớp đầu tiên lại sau `peak_time`.
 - Bảng này chỉ có các cơn đã vào 500 km, nên không thấy báo nhầm. Báo nhầm của ENS và thống kê trên cùng tập 60 cơn: mục 5.2.
 
 **Sơ đồ hai tầng đề xuất (chưa vận hành):**
@@ -184,8 +185,8 @@ Thử ngày 2026-10-23 (HTTP thật, không đăng nhập):
 
 | Nguồn | Có gì | Truy cập | Đã dùng? |
 | --- | --- | --- | --- |
-| **TIGGE TC tracks (NCAR GDEX d330003)**, CXML | ECMWF, UKMO, NCEP, JMA, CMA, MSC, Météo-France, KMA; 2006-10 → 2026-11; ECMWF: HRES + control + 50 thành viên, 00/12 UTC, tới 360 h | Trang dataset hiện nút "Sign In". Nhưng bản sao OSDF `https://osdf-director.osg-htc.org/ncar/rda/d330003/ecmf/...` liệt kê thư mục và tải file **không cần đăng nhập** (HTTP 200). CC BY 4.0, phi thương mại | **Có**: ECMWF 2024-05-01 → 2024-12-15, 2025-05-01 → 12-15, 2026-05-01 → 10-21; 1 lần chạy/ngày (00 UTC; 12 UTC khi không có file 00 UTC). 531 lần chạy. Chỉ giữ bản trích WP (CSV) + manifest sha256 từng file gốc trong `data/hazards/tigge/` |
-| **ECMWF Open Data** (thời gian thực) | `.../ifs/0p25/oper/<run>-360h-oper-tf.bufr` và `.../enfo/<run>-360h-enfo-tf.bufr` (quỹ đạo bão HRES và ensemble, BUFR) | Không cần đăng nhập, CC BY 4.0. Chỉ giữ vài ngày gần nhất (thư mục có 2026-10-21, 10-22) | Chưa. Đây là nguồn **vận hành** cho tầng theo dõi; TIGGE là kho nghiên cứu, không phải luồng thời gian thực |
+| **TIGGE TC tracks (NCAR GDEX d330003)**, CXML | ECMWF, UKMO, NCEP, JMA, CMA, MSC, Météo-France, KMA; 2006-10 → 2026-11; ECMWF: HRES + control + 50 thành viên, 00/12 UTC; trong bản trích 2025 cả HRES và ENS dài tới 240 h | Trang dataset hiện nút "Sign In". Nhưng bản sao OSDF `https://osdf-director.osg-htc.org/ncar/rda/d330003/ecmf/...` liệt kê thư mục và tải file **không cần đăng nhập** (HTTP 200). CC BY 4.0, phi thương mại | **Có**: ECMWF 2024-05-01 → 2024-12-15, 2025-05-01 → 12-15, 2026-05-01 → 10-21; 1 lần chạy/ngày (00 UTC; 12 UTC khi không có file 00 UTC). 531 lần chạy. Chỉ giữ bản trích WP (CSV) + manifest sha256 từng file gốc trong `data/hazards/tigge/` |
+| **ECMWF Open Data** (thời gian thực) | `.../ifs/0p25/oper/<run>-360h-oper-tf.bufr` và `.../enfo/<run>-360h-enfo-tf.bufr` (quỹ đạo bão HRES và ensemble, BUFR) | Không cần đăng nhập, CC BY 4.0. Chỉ giữ vài ngày gần nhất (ngày 2026-10-23 thư mục có 2026-10-19 → 10-22, tức 4 ngày) | Chưa. Đây là nguồn **vận hành** cho tầng theo dõi; TIGGE là kho nghiên cứu, không phải luồng thời gian thực |
 | **UCAR RAL a-decks mở** (`hurricanes.ral.ucar.edu/repository/data/adecks_open/`) | File ATCF a-deck WP 2003–2026 (vd. `awp112024.dat`) | Mở, HTTP 200 | Chưa. **Chỉ có mô hình không độc quyền:** GFS (AVNX), GEFS (AP01–30, AEMN), CMC/CEMN, NAVGEM, UKM, CARQ. **Không có** dự báo chính thức JTWC, **không có** ECMWF |
 | JTWC (`metoc.navy.mil/jtwc`) | Best track, ATCR | HTTP 403 từ máy này | Không. Không tìm được kho a-deck chính thức JTWC công khai |
 | NRL ATCF (`nrlmry.navy.mil/atcf_web`) | Trước đây có a/b-deck | Chuyển hướng, HTTP 403 | Không |
