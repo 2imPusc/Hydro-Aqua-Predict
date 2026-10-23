@@ -139,5 +139,3 @@ export const localTime = (iso: string | null | undefined) => {
   const at = new Date(iso)
   return Number.isNaN(at.getTime()) ? iso : `${hm.format(at)}, ${dm.format(at)}`
 }
-
-export const isReplaySource = (station: StationAlerts) => !!station.replay
