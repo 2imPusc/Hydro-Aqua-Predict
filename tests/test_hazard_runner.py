@@ -158,3 +158,153 @@ def test_load_exposure_reads_latest_run(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "EXPERIMENT_OUTPUT_DIR", tmp_path / "experiments")
     ex = hr.load_exposure()
     assert ex["S"]["exposure_class"] == "exposed" and ex["S"]["profile"]["depth_m"].min() >= 1.0
+
+
+# --------------------------------------------------------------------------- wave 2 integration
+@pytest.fixture(autouse=True)
+def _no_real_sensor(monkeypatch):
+    monkeypatch.setattr(hr, "default_observed", lambda station, now: None)
+
+
+def _obs(values, end="2026-08-09", source="cage_sensor"):
+    idx = pd.date_range(end=end, periods=len(values), freq="D")
+    return {"source": source, "series": pd.Series(values, index=idx)}
+
+
+def test_observed_seed_makes_heat_tier_two_reachable_on_day_zero():
+    marine = _marine([33.5] * 6)  # forecast days all >= 33
+    plain = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), marine, now=NOW, config=CFG), "heat")
+    assert plain[0]["tier"] == 1 and plain[0]["inputs"]["persistence_basis"] == "forecast_days_only"
+    seeded = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), marine, now=NOW, config=CFG,
+                                     observed=_obs([33.4, 33.6, 33.2])), "heat")
+    assert seeded[0]["tier"] == 2 and seeded[0]["inputs"]["persistence_basis"] == "observed+forecast"
+    seeds = seeded[0]["inputs"]["persistence_seed"]
+    assert [s["date"] for s in seeds] == ["2026-08-07", "2026-08-08", "2026-08-09"]
+    assert {s["source"] for s in seeds} == {"cage_sensor"}
+
+
+def test_observed_gap_breaks_the_run_and_cold_is_seeded_too():
+    marine = _marine([33.5] * 6)
+    two_days = _obs([33.4, 33.6], end="2026-08-09")
+    h = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), marine, now=NOW, config=CFG, observed=two_days), "heat")
+    assert h[0]["tier"] == 2  # 2 observed + first forecast day = 3 consecutive
+    gapped = {"source": "cage_sensor", "series": pd.Series([33.4, 33.6], index=pd.to_datetime(["2026-08-05", "2026-08-06"]))}
+    h2 = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), marine, now=NOW, config=CFG, observed=gapped), "heat")
+    assert h2[0]["tier"] == 1
+    c = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), _marine([17.0] * 6), now=NOW, config=CFG,
+                                observed=_obs([17.0, 17.5])), "cold")
+    assert c[0]["tier"] == 2
+
+
+def test_marine_past_days_seed_when_no_sensor_and_are_labelled():
+    start = pd.Timestamp("2026-08-07", tz="Asia/Ho_Chi_Minh").tz_convert("UTC")  # 3 past local days
+    times = pd.date_range(start, periods=24 * 9, freq="h")
+    marine = {"status": "ready", "timezone": "UTC", "retrieved_at": NOW.isoformat(), "model": "openmeteo_marine_best_match",
+              "hourly": {"time": [t.strftime("%Y-%m-%dT%H:%M") for t in times],
+                         "sea_surface_temperature": [33.5] * len(times)}}
+    h = _by(hr.evaluate_station(OPEN, _weather([5.0] * 130), marine, now=NOW, config=CFG), "heat")
+    assert h[0]["tier"] == 2 and h[0]["inputs"]["persistence_basis"] == "observed+forecast"
+    assert {s["source"] for s in h[0]["inputs"]["persistence_seed"]} == {"openmeteo_marine_past_days"}
+    assert h[0]["inputs"]["model"] == "openmeteo_marine_best_match"
+
+
+def _history(days, per_day=1300, temp=30.0, start="2026-08-01"):
+    rows = []
+    for i in range(days):
+        day = pd.Timestamp(start, tz="Asia/Ho_Chi_Minh") + pd.Timedelta(days=i)
+        t = pd.date_range(day, periods=per_day, freq="min").tz_convert("UTC")
+        rows.append(pd.DataFrame({"fetchedAt": t, "Temperature": temp + i * 0.1}))
+    return pd.concat(rows, ignore_index=True)
+
+
+def test_sensor_daily_temperature_requires_rows_range_and_freshness():
+    h = _history(9)  # 08-01..08-09 local
+    got = hr.sensor_daily_temperature("S", NOW, history=h)
+    assert got["source"] == "cage_sensor" and len(got["series"]) == 7
+    assert got["series"].index.max() == pd.Timestamp("2026-08-09")
+    assert hr.sensor_daily_temperature("S", NOW, history=_history(9, per_day=1000)) is None  # < 1296 rows/day
+    assert hr.sensor_daily_temperature("S", NOW, history=_history(9, temp=45.0)) is None  # out of 10-40 degC
+    assert hr.sensor_daily_temperature("S", NOW, history=_history(3)) is None  # stale (last 08-03)
+    assert hr.sensor_daily_temperature("S", NOW, history=h.iloc[0:0]) is None
+
+
+def test_default_observed_only_for_cage_station(monkeypatch):
+    monkeypatch.undo()
+    seen = []
+    monkeypatch.setattr(hr, "sensor_daily_temperature", lambda serial, now: seen.append(serial) or {"series": None})
+    assert hr.default_observed({"id": "NB1"}, NOW) == {"series": None} and seen == ["06M26042804"]
+    assert hr.default_observed({"id": "QN7"}, NOW) is None
+
+
+def test_run_once_uses_scoped_config_per_station_and_records_version(tmp_path):
+    seen = []
+    scoped = json.loads(json.dumps(CFG))
+    scoped["config_version"] = "v0001-test"
+    scoped["hazards"]["storm_wind"]["thresholds"]["1"] = 3
+
+    def loader(sid, cls):
+        seen.append((sid, cls))
+        return scoped if sid == "A" else CFG
+    sts = [{**OPEN, "id": "A", "exposure_class": "exposed"}, {**OPEN, "id": "B", "exposure_class": "sheltered"}]
+    out = hr.run_once(NOW, tmp_path, stations=sts, fetch_weather=lambda s: _weather([5.0] * 130),
+                      fetch_marine_fn=lambda s: _marine([30.0] * 6), config_loader=loader)
+    assert seen == [("A", "exposed"), ("B", "sheltered")]
+    recs = [json.loads(x) for x in (tmp_path / "hazard_20260810.jsonl").read_text("utf-8").splitlines()]
+    sw = {r["station"]: r for r in recs if r["hazard"] == "storm_wind" and r["lead_hours"] == 0}
+    assert sw["A"]["config_version"] == "v0001-test" and sw["A"]["tier"] == 1  # Beaufort 3 >= scoped threshold 3
+    assert sw["B"]["config_version"] == CFG["config_version"] and sw["B"]["tier"] == 0
+    assert out["config_versions"] == sorted(["v0001-test", CFG["config_version"]])
+
+
+def test_tier_none_becomes_skip_not_a_value():
+    rec = hr.make_record(issued_at=NOW, station=OPEN, hazard="heat", window=(NOW, NOW, 0), config=CFG, value=33.0, tier=None)
+    assert rec["tier"] is None and rec["value"] is None and rec["skip_reason"] == "tier_unavailable"
+
+
+def _write_storms(dirpath, run_time):
+    dirpath.mkdir(parents=True, exist_ok=True)
+    (dirpath / f"storms_active_{run_time:%Y%m%d%H}.json").write_text(
+        json.dumps({"status": "ready", "run_time": run_time.strftime("%Y-%m-%dT%H:%M:%SZ")}), encoding="utf-8")
+
+
+def test_storm_watch_fresh_file_adds_no_duplicate_record(tmp_path):
+    _write_storms(tmp_path, NOW - pd.Timedelta(hours=10))
+    assert hr.storm_watch_records(OPEN, CFG, NOW, tmp_path) == []
+
+
+def test_storm_watch_missing_or_stale_adds_skip_record(tmp_path):
+    r = hr.storm_watch_records(OPEN, CFG, NOW, tmp_path)[0]
+    assert r["hazard"] == "storm_watch" and r["tier"] is None and r["skip_reason"] == "no_storm_data"
+    assert r["used_by_alerts"] is False and r["config_version"] == CFG["config_version"]
+    _write_storms(tmp_path, NOW - pd.Timedelta(hours=40))
+    r2 = hr.storm_watch_records(OPEN, CFG, NOW, tmp_path)[0]
+    assert r2["skip_reason"] == "stale_storm_data" and r2["inputs"]["run_age_hours"] > 36
+    (tmp_path / "storms_active_2026081012.json").write_text("{bad", encoding="utf-8")
+    assert hr.storm_watch_records(OPEN, CFG, NOW, tmp_path)[0]["skip_reason"] == "storm_file_unreadable"
+
+
+def test_run_once_includes_storm_watch_status_per_station(tmp_path):
+    hr.run_once(NOW, tmp_path, stations=[OPEN], fetch_weather=lambda s: _weather([5.0] * 130),
+                fetch_marine_fn=lambda s: _marine([30.0] * 6), config_loader=lambda a, b: CFG)
+    recs = [json.loads(x) for x in (tmp_path / "hazard_20260810.jsonl").read_text("utf-8").splitlines()]
+    assert {r["hazard"] for r in recs} >= {"storm_wind", "heat", "storm_watch"}
+
+
+def test_fetch_functions_name_models_and_reject_unknown_keys(monkeypatch):
+    import core.config as cfgmod
+    calls = []
+    monkeypatch.setattr(cfgmod, "MARINE_ENABLED", True)
+
+    def fake(url, params, timeout=15):
+        calls.append((url, params))
+        if "marine" in url:
+            return {"hourly": {"time": ["2026-08-10T00:00"], "sea_surface_temperature": [29.0]}, "hourly_units": {}}
+        return {"hourly": {"time": ["2026-08-10T00:00"], "wind_speed_10m": [3.0], "wind_direction_10m": [90]}}
+    monkeypatch.setattr(hr, "_get_json", fake)
+    w, m = hr.fetch_forecast(OPEN), hr.fetch_marine(OPEN)
+    assert w["status"] == "ready" and calls[0][1]["models"] == "ecmwf_ifs025"
+    assert m["status"] == "ready" and calls[1][1]["models"] == "best_match" and calls[1][1]["past_days"] == hr.MARINE_PAST_DAYS
+    assert m["model"] == "openmeteo_marine_best_match"
+    monkeypatch.setattr(hr, "_get_json", lambda *a, **k: {"hourly": {"time": [], "wind_speed_10m_ecmwf_ifs025": []}})
+    assert hr.fetch_forecast(OPEN)["reason"] == "unexpected_response_keys"
+    assert hr.fetch_marine(OPEN)["reason"] == "unexpected_response_keys"

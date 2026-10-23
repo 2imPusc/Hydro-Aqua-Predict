@@ -150,3 +150,40 @@ def test_decode_fixture_bufr():
     assert 19 < t0["lat"] < 23 and 123 < t0["lon"] < 127
     assert not df[df["storm_id"] == "76W"]["observed"].any()
     assert df["hour"].max() <= 360 and df["lat"].between(-90, 90).all()
+
+
+def test_run_download_error_records_skip_and_does_not_raise(tmp_path, monkeypatch, capsys):
+    from core import paths
+    monkeypatch.setattr(paths, "HAZARD_SHADOW_DIR", tmp_path)
+    monkeypatch.setattr(eo, "load_stations", lambda: [{"id": "NB1", "lat": 20.7, "lon": 107.0, "exposure_class": None}])
+
+    def boom():
+        raise OSError("network down")
+    monkeypatch.setattr(eo, "fetch", boom)
+    assert eo.main(["run"]) == 1
+    recs = [json.loads(x) for f in tmp_path.glob("hazard_*.jsonl") for x in f.read_text("utf-8").splitlines()]
+    assert len(recs) == 1 and recs[0]["tier"] is None and recs[0]["skip_reason"] == "download_failed: OSError"
+    assert "download_failed" in capsys.readouterr().out
+
+
+def test_run_decode_error_records_skip_and_does_not_raise(tmp_path, monkeypatch):
+    from core import paths
+    monkeypatch.setattr(paths, "HAZARD_SHADOW_DIR", tmp_path)
+    monkeypatch.setattr(eo, "load_stations", lambda: [{"id": "NB1", "lat": 20.7, "lon": 107.0, "exposure_class": None}])
+    monkeypatch.setattr(eo, "fetch", lambda: {"run": datetime(2026, 10, 22, 12, tzinfo=timezone.utc)})
+
+    def bad(run):
+        raise ImportError("eccodes missing")
+    monkeypatch.setattr(eo, "decode_run", bad)
+    assert eo.main(["run"]) == 1
+    recs = [json.loads(x) for f in tmp_path.glob("hazard_*.jsonl") for x in f.read_text("utf-8").splitlines()]
+    assert recs[0]["skip_reason"] == "decode_failed: ImportError"
+
+
+def test_summarize_command_decode_error_returns_1_without_ledger(tmp_path, monkeypatch):
+    from core import paths
+    monkeypatch.setattr(paths, "HAZARD_SHADOW_DIR", tmp_path)
+    monkeypatch.setattr(eo, "newest_local_run", lambda: datetime(2026, 10, 22, 12, tzinfo=timezone.utc))
+    monkeypatch.setattr(eo, "decode_run", lambda run: (_ for _ in ()).throw(FileNotFoundError("x")))
+    assert eo.main(["summarize"]) == 1
+    assert not list(tmp_path.glob("hazard_*.jsonl"))

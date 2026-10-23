@@ -9,6 +9,16 @@ Honesty rules: stale or missing inputs produce skip records (``tier: null`` + ``
 never a value; without exposure data the wind is assumed open-water and flagged, and no wave
 height is invented; water temperature is the raw Open-Meteo marine SST (``correction: "none"``)
 because no cited SST-to-water bias correction exists.
+
+Heat/cold persistence (3 consecutive days for tier 2/3) is seeded with recent OBSERVED days before the
+forecast: cage-sensor daily means for NB1 / 06M26042804 when fresh (>= 1296 rows/day, 10-40 degC), else
+the Open-Meteo marine ``past_days`` SST (labelled).  ``inputs.persistence_basis`` is ``observed+forecast``
+or ``forecast_days_only`` and ``inputs.persistence_seed`` lists the days used.
+
+storm_watch writer: ``experiments/ecmwf_opendata.py run`` is the ONLY writer of fresh ``storm_watch``
+records (it has the ensemble tracks).  ``run_once`` here only appends a ``storm_watch`` skip record per
+station when the newest ``storms_active_*.json`` under the ledger dir is missing or older than 36 h, so a
+single ``run_once`` always leaves a per-station storm_watch status without duplicating fresh records.
 """
 from __future__ import annotations
 
@@ -27,22 +37,8 @@ from core import paths
 from core import site_exposure as se
 from core import storm_advisory as sa
 
-# --- TEMPORARY fallback until Track A's core/alert_config.py lands; remove with the try/except. ---
-try:
-    from core.alert_config import load_effective, tier_for
-except ImportError:  # pragma: no cover - exercised only before Track A merges
-    def load_effective(station_id: str | None = None, exposure_class: str | None = None) -> dict:
-        return json.loads(Path(paths.ALERT_CONFIG_DEFAULT).read_text(encoding="utf-8"))
-
-    def tier_for(hazard_id: str, value: float, config: dict) -> int:
-        spec = config["hazards"][hazard_id]
-        ge = spec["direction"] == "ge"
-        tier = 0
-        for k, thr in sorted(((int(k), float(v)) for k, v in spec["thresholds"].items())):
-            if (value >= thr) if ge else (value <= thr):
-                tier = k
-        return tier
-# ------------------------------------------------------------------------------------------------
+from core import storm_tracks as stt
+from core.alert_config import load_effective, tier_for
 
 LEAD_WINDOWS_H = ((0, 24), (24, 48), (48, 72), (72, 120))
 FORECAST_MODEL = "ecmwf_ifs025"
@@ -52,6 +48,13 @@ FLAGS = {"used_by_alerts": False, "notification_eligible": False, "basis": "theo
 HAZARDS = ("storm_wind", "wave_height", "heat", "cold", "disease_env")
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 OPEN_METEO_MARINE_URL = "https://marine-api.open-meteo.com/v1/marine"
+MARINE_MODEL = "best_match"  # decisions #18: named explicitly; the only Open-Meteo marine model with SST here
+MARINE_PAST_DAYS = 7  # observed-ish SST days before the forecast, used to seed heat/cold persistence
+SENSOR_SERIALS = {"NB1": "06M26042804"}  # the single live cage sensor (AGENTS.md "One live station")
+SENSOR_MIN_ROWS_PER_DAY = 1296  # 90 % of 1440 one-minute rows
+SENSOR_TEMP_RANGE = (10.0, 40.0)
+SENSOR_MAX_LAG_DAYS = 2  # newest complete sensor day must be >= today_local - 2
+SEED_DAYS = 7
 EXPOSURE_KEYS = {"exposed": "exposed", "semi": "semi", "sheltered": "sheltered"}
 
 # Extra evaluators (e.g. Track D's storm_watch): fn(station, ctx) -> list[record].  ctx has
@@ -171,6 +174,8 @@ def make_record(*, issued_at, station: dict, hazard: str, window: tuple[pd.Times
            "action_vi": (spec.get("actions_vi") or {}).get(str(tier)) if tier else None,
            "inputs": inputs or {}, "data_status": data_status, "config_version": config.get("config_version"),
            **FLAGS}
+    if skip_reason is None and value is not None and tier is None:
+        skip_reason = "tier_unavailable"
     if skip_reason:
         rec.update({"tier": None, "value": None, "action_vi": None, "skip_reason": skip_reason})
     return rec
@@ -258,7 +263,70 @@ def _run_tier(raw: pd.Series, hazard: str, config: dict, tiers: dict[int, int]) 
     return pd.Series(out, index=raw.index)
 
 
-def _temperature_records(station, marine, now, issued_at, windows, config, max_age_h, mk) -> list[dict]:
+def _tier_or_nan(hazard: str, v, config: dict) -> float:
+    if pd.isna(v):
+        return np.nan
+    tier = tier_for(hazard, float(v), config)
+    return np.nan if tier is None else float(tier)
+
+
+def sensor_daily_temperature(station_serial: str, now, *, history: pd.DataFrame | None = None) -> dict | None:
+    """Cage-sensor daily mean Temperature per local day (complete days only), or None when not fresh.
+
+    A day counts only with >= SENSOR_MIN_ROWS_PER_DAY rows in SENSOR_TEMP_RANGE.  Fresh = the newest
+    complete day is within SENSOR_MAX_LAG_DAYS of today (local).
+    """
+    try:
+        if history is None:
+            from core.greenlab_api import load_cached_history
+            history = load_cached_history(station_serial)
+    except Exception:
+        return None
+    if history is None or history.empty or "Temperature" not in history:
+        return None
+    lo, hi = SENSOR_TEMP_RANGE
+    temp = pd.to_numeric(history["Temperature"], errors="coerce")
+    ts = pd.to_datetime(history["fetchedAt"], utc=True).dt.tz_convert(LOCAL_TZ)
+    df = pd.DataFrame({"t": temp.to_numpy(), "d": ts.dt.date.to_numpy()}).dropna()
+    df = df[(df["t"] >= lo) & (df["t"] <= hi)]
+    g = df.groupby("d")["t"].agg(["mean", "size"])
+    g = g[g["size"] >= SENSOR_MIN_ROWS_PER_DAY]
+    today = _utc(now).tz_convert(LOCAL_TZ).date()
+    g = g[[d < today for d in g.index]]
+    if g.empty:
+        return None
+    series = pd.Series(g["mean"].to_numpy(), index=pd.to_datetime(list(g.index))).sort_index()
+    if (pd.Timestamp(today) - series.index.max()).days > SENSOR_MAX_LAG_DAYS:
+        return None
+    return {"source": "cage_sensor", "serial": station_serial, "series": series.tail(SEED_DAYS),
+            "min_rows_per_day": SENSOR_MIN_ROWS_PER_DAY, "range_c": list(SENSOR_TEMP_RANGE)}
+
+
+def default_observed(station: dict, now) -> dict | None:
+    serial = SENSOR_SERIALS.get(station.get("id"))
+    return sensor_daily_temperature(serial, now) if serial else None
+
+
+def _seeded_daily(daily: pd.Series, observed: dict | None, now) -> tuple[pd.Series, list[dict]]:
+    """Daily series with observed days before today (local) prepended/overriding; returns (series, seed list)."""
+    today = pd.Timestamp(_utc(now).tz_convert(LOCAL_TZ).date())
+    seeds: dict[pd.Timestamp, dict] = {}
+    if len(daily):
+        for d, v in daily[daily.index < today].dropna().tail(SEED_DAYS).items():
+            seeds[d] = {"date": d.date().isoformat(), "temp_c": round(float(v), 2), "source": "openmeteo_marine_past_days"}
+    if observed is not None:
+        for d, v in observed["series"][observed["series"].index < today].dropna().tail(SEED_DAYS).items():
+            seeds[d] = {"date": d.date().isoformat(), "temp_c": round(float(v), 2), "source": observed["source"]}
+    if not seeds:
+        return daily, []
+    fut = daily[daily.index >= today] if len(daily) else daily
+    obs_s = pd.Series({d: s["temp_c"] for d, s in seeds.items()}, dtype=float)
+    out = pd.concat([obs_s, fut]).sort_index()
+    out = out[~out.index.duplicated(keep="last")].asfreq("D")
+    return out, [seeds[d] for d in sorted(seeds)]
+
+
+def _temperature_records(station, marine, now, issued_at, windows, config, max_age_h, mk, observed=None) -> list[dict]:
     status, reason = _data_status(marine, now, max_age_h)
     base_in = {"source": "forecast", "model": (marine or {}).get("model") or "openmeteo_marine_default",
                "correction": "none", "variable": "sea_surface_temperature_raw"}
@@ -268,14 +336,18 @@ def _temperature_records(station, marine, now, issued_at, windows, config, max_a
         daily = hs.daily_from_hourly(sst) if not sst.dropna().empty else daily
         if not daily.empty:
             daily = daily.asfreq("D")
-    out = []
+    seeded, seeds = _seeded_daily(daily, observed, now) if status == "fresh" else (daily, [])
+    basis = "observed+forecast" if seeds else "forecast_days_only"
+    today = pd.Timestamp(_utc(now).tz_convert(LOCAL_TZ).date())
+    n_forecast_days = int(daily[daily.index >= today].notna().sum()) if len(daily) else 0
     risk = dr.daily_disease_risk(daily) if len(daily.dropna()) else None
+    out = []
     for hazard in ("heat", "cold", "disease_env"):
         spec = config["hazards"].get(hazard, {})
         tiers = sorted(int(k) for k in spec.get("thresholds", {}))
-        raw = None
-        if hazard in ("heat", "cold") and len(daily):
-            raw = daily.map(lambda v: np.nan if pd.isna(v) else tier_for(hazard, float(v), config))
+        eff = None
+        if hazard in ("heat", "cold") and len(seeded):
+            raw = seeded.map(lambda v, h=hazard: _tier_or_nan(h, v, config))
             eff = _run_tier(raw.fillna(0), hazard, config, {k: 0 for k in tiers})
             eff = eff.where(raw.notna())
         for w in windows:
@@ -301,19 +373,22 @@ def _temperature_records(station, marine, now, issued_at, windows, config, max_a
                                       "rain": "not_used"}))
                 continue
             e = eff.loc[days.index]
-            d = e.idxmax()
             val = days.max() if hazard == "heat" else days.min()
             vd = days.idxmax() if hazard == "heat" else days.idxmin()
             persist = (spec.get("persistence_days") or {})
             out.append(mk(hazard, w, value=val, tier=int(e.max()),
-                          inputs={**base_in, "date": vd.date().isoformat(), "forecast_days_available": int(daily.notna().sum()),
-                                  "persistence_days": persist, "persistence_basis": "forecast_days_only"}))
+                          inputs={**base_in, "date": vd.date().isoformat(), "forecast_days_available": n_forecast_days,
+                                  "persistence_days": persist, "persistence_basis": basis,
+                                  "persistence_seed": seeds}))
     return out
 
 
 def evaluate_station(station: dict, weather: dict | None, marine: dict | None, *, now, config: dict,
-                     max_age_hours: float = MAX_AGE_HOURS) -> list[dict]:
-    """C2 records for one station.  ``station`` = {id, lat, lon, exposure_class, profile}."""
+                     max_age_hours: float = MAX_AGE_HOURS, observed: dict | None = None) -> list[dict]:
+    """C2 records for one station.  ``station`` = {id, lat, lon, exposure_class, profile}.
+
+    ``observed`` = {"source", "series"} of daily mean water temperature for local days before today; it
+    seeds heat/cold persistence (see module docstring).  None = forecast (and marine past) days only."""
     now = _utc(now)
     issued_at = now
     start = now.floor("h")
@@ -325,7 +400,7 @@ def evaluate_station(station: dict, weather: dict | None, marine: dict | None, *
         return make_record(issued_at=issued_at, station=station, hazard=hazard, window=w, config=config, **kw)
 
     out = _wind_records(station, weather, now, issued_at, windows, config, max_age_hours, mk)
-    out += _temperature_records(station, marine, now, issued_at, windows, config, max_age_hours, mk)
+    out += _temperature_records(station, marine, now, issued_at, windows, config, max_age_hours, mk, observed)
     ctx = {"now": now, "config": config, "issued_at": issued_at, "windows": windows}
     for fn in HAZARD_HOOKS.values():
         out += fn(station, ctx)
@@ -342,7 +417,12 @@ def _get_json(url: str, params: dict, timeout: int = 15) -> dict:
 
 
 def fetch_forecast(station: dict) -> dict:
-    """Open-Meteo forecast for one station, model named (decisions #18); never raises."""
+    """Open-Meteo forecast for one station, model named (decisions #18); never raises.
+
+    Live check 2026-10-23: with one model in ``models=`` the hourly keys are the plain
+    ``wind_speed_10m`` / ``wind_direction_10m`` (no model suffix).  Any other shape is reported as
+    unavailable rather than guessed.
+    """
     try:
         d = _get_json(OPEN_METEO_URL, {"latitude": station["lat"], "longitude": station["lon"],
                                        "hourly": "wind_speed_10m,wind_direction_10m", "models": FORECAST_MODEL,
@@ -350,12 +430,8 @@ def fetch_forecast(station: dict) -> dict:
     except Exception as exc:
         return {"status": "unavailable", "reason": "provider_request_failed", "detail": str(exc)}
     h = d.get("hourly", {})
-    # models= suffixes variable names for some deployments; accept either spelling
-    for k in ("wind_speed_10m", "wind_direction_10m"):
-        if k not in h:
-            alt = f"{k}_{FORECAST_MODEL}"
-            if alt in h:
-                h[k] = h[alt]
+    if not all(k in h for k in ("time", "wind_speed_10m", "wind_direction_10m")):
+        return {"status": "unavailable", "reason": "unexpected_response_keys", "detail": sorted(h)}
     return {"status": "ready", "provider": "open_meteo", "model": FORECAST_MODEL, "timezone": "UTC",
             "retrieved_at": datetime.now(timezone.utc).isoformat(), "hourly": h,
             "hourly_units": {"wind_speed_10m": "m/s"}}
@@ -367,13 +443,43 @@ def fetch_marine(station: dict) -> dict:
         return {"status": "disabled", "reason": "marine_disabled"}
     try:
         d = _get_json(OPEN_METEO_MARINE_URL, {"latitude": station["lat"], "longitude": station["lon"],
-                                              "hourly": "sea_surface_temperature", "forecast_days": 6,
+                                              "hourly": "sea_surface_temperature", "models": MARINE_MODEL,
+                                              "past_days": MARINE_PAST_DAYS, "forecast_days": 6,
                                               "timezone": "UTC", "cell_selection": "sea"})
     except Exception as exc:
         return {"status": "unavailable", "reason": "provider_request_failed", "detail": str(exc)}
-    return {"status": "ready", "provider": "open_meteo_marine", "model": "openmeteo_marine_default",
-            "timezone": "UTC", "retrieved_at": datetime.now(timezone.utc).isoformat(),
-            "hourly": d.get("hourly", {}), "hourly_units": d.get("hourly_units", {})}
+    h = d.get("hourly", {})
+    if "sea_surface_temperature" not in h or "time" not in h:
+        return {"status": "unavailable", "reason": "unexpected_response_keys", "detail": sorted(h)}
+    return {"status": "ready", "provider": "open_meteo_marine", "model": f"openmeteo_marine_{MARINE_MODEL}",
+            "past_days": MARINE_PAST_DAYS, "timezone": "UTC", "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "hourly": h, "hourly_units": d.get("hourly_units", {})}
+
+
+def newest_storms_file(ledger_dir: Path) -> Path | None:
+    files = sorted(Path(ledger_dir).glob("storms_active_*.json"))
+    return files[-1] if files else None
+
+
+def storm_watch_records(station: dict, config: dict, now, ledger_dir: Path) -> list[dict]:
+    """Skip record when storm data is missing/stale; nothing when ecmwf_opendata already wrote a fresh one."""
+    if "storm_watch" not in config.get("hazards", {}):
+        return []
+    now = _utc(now)
+    f = newest_storms_file(ledger_dir)
+    run_time, reason, extra = None, "no_storm_data", {}
+    if f is not None:
+        try:
+            body = json.loads(f.read_text(encoding="utf-8"))
+            run_time = _utc(body["run_time"])
+            age_h = (now - run_time).total_seconds() / 3600.0
+            if age_h <= stt.STALE_AFTER_H:
+                return []  # fresh: ecmwf_opendata.py run is the writer of this station's record
+            reason, extra = "stale_storm_data", {"run_age_hours": round(age_h, 1)}
+        except (OSError, ValueError, KeyError):
+            reason = "storm_file_unreadable"
+        extra["storms_file"] = f.name
+    return [stt.watch_record(station, None, config, run_time=run_time, issued_at=now, inputs=extra, skip_reason=reason)]
 
 
 def append_records(records: list[dict], out_dir: Path, day: str) -> Path:
@@ -387,15 +493,29 @@ def append_records(records: list[dict], out_dir: Path, day: str) -> Path:
 
 
 def run_once(now=None, out_dir=None, *, stations: list[dict] | None = None, fetch_weather=fetch_forecast,
-             fetch_marine_fn=fetch_marine, config_loader=load_effective) -> dict:
-    """Evaluate every station once and append to the day's ledger.  Returns a small summary."""
+             fetch_marine_fn=fetch_marine, config_loader=load_effective, observed_fn="default",
+             storm_watch: bool = True) -> dict:
+    """Evaluate every station once and append to the day's ledger.  Returns a small summary.
+
+    ``config_loader(station_id, exposure_class)`` applies the scope overrides (station > exposure class >
+    default).  ``observed_fn(station, now)`` supplies the observed daily temperature seed (or None); "default" = cage sensor.
+    """
     now = _utc(now if now is not None else datetime.now(timezone.utc))
     out_dir = Path(out_dir) if out_dir is not None else paths.HAZARD_SHADOW_DIR
     stations = stations if stations is not None else load_stations()
     records = []
+    versions = set()
     for st in stations:
         cfg = config_loader(st["id"], st.get("exposure_class"))
-        records += evaluate_station(st, fetch_weather(st), fetch_marine_fn(st), now=now, config=cfg)
+        versions.add(cfg.get("config_version"))
+        try:
+            fn = default_observed if observed_fn == "default" else observed_fn
+            observed = fn(st, now) if fn else None
+        except Exception:
+            observed = None
+        records += evaluate_station(st, fetch_weather(st), fetch_marine_fn(st), now=now, config=cfg, observed=observed)
+        if storm_watch:
+            records += storm_watch_records(st, cfg, now, out_dir)
     path = append_records(records, out_dir, now.strftime("%Y%m%d"))
     return {"path": str(path), "n_records": len(records), "n_skipped": sum(1 for r in records if r.get("skip_reason")),
-            "stations": len(stations)}
+            "stations": len(stations), "config_versions": sorted(v for v in versions if v)}
