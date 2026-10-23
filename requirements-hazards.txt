@@ -1,0 +1,3 @@
+# Optional: Copernicus Marine downloads (experiments/cmems_sites.py --download).
+# Not needed by core or the test suite. Credentials come from `copernicusmarine login` (home config), never from the repo.
+copernicusmarine>=2.5,<3
