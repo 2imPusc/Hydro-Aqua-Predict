@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react'
 import { ChevronDown, Palette } from 'lucide-react'
-import type { EtopoManifest, Layer } from '../../types/monitor'
+import type { EtopoManifest, GebcoManifest, Layer } from '../../types/monitor'
 import type { Theme } from '../../hooks/useTheme'
 import { DEPTH_BAND_LABELS, depthBandColor, FLAG_STYLE } from '../../components/map/overlays/EtopoDepthOverlay'
 import { scalarColor } from '../../components/map/overlays/ScalarGridOverlay'
@@ -29,7 +29,7 @@ function ScalarLegend({ layer }: { layer: Layer }) {
 }
 
 /** Stepped (one colour per band) depth legend; hard stops match the isobands. */
-function DepthLegend({ theme, etopo }: { theme: Theme; etopo: EtopoManifest | null }) {
+function DepthLegend({ theme, gebco, showEtopo }: { theme: Theme; gebco: GebcoManifest | null; showEtopo: boolean }) {
   const n = DEPTH_BAND_LABELS.length
   const stops = DEPTH_BAND_LABELS.map((_, i) => `${depthBandColor(i, theme)} ${(i / n) * 100}% ${((i + 1) / n) * 100}%`).join(', ')
   return <div className="space-y-2">
@@ -37,9 +37,16 @@ function DepthLegend({ theme, etopo }: { theme: Theme; etopo: EtopoManifest | nu
       <div className="text-[11.5px] font-semibold text-fg">Độ sâu (m)</div>
       <div className="mt-1.5 h-2.5 rounded-sm ring-1 ring-inset ring-black/5" style={{ background: `linear-gradient(90deg, ${stops})` }} />
       <div className="mt-1 grid text-[10px] text-fg-subtle tabular" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }}>{DEPTH_BAND_LABELS.map(label => <span key={label} className="text-center">{label}</span>)}</div>
-      <div className="mt-1 text-[10.5px] text-fg-subtle">ETOPO 2022, lưới {etopo?.source_resolution ?? '~460 m'} · so với mực nước TB, không phải số 0 hải đồ · không dùng cho hàng hải</div>
+      <div className="mt-1 text-[10.5px] text-fg-subtle">GEBCO 2024 (15″ ≈ 460 m) · datum MSL (mực nước TB), không phải số 0 hải đồ · không dùng cho hàng hải</div>
     </div>
-    <SwatchLegend title="Độ tin cậy" items={[{ color: FLAG_STYLE.coarse.color, label: FLAG_STYLE.coarse.label, shape: 'dash' }, { color: FLAG_STYLE.suspect.color, label: FLAG_STYLE.suspect.label, shape: 'dash' }]} />
+    <SwatchLegend title="Độ tin cậy (TID)" items={[
+      { color: depthBandColor(3, theme), label: 'Đo trực tiếp (đậm)', shape: 'square' },
+      { color: depthBandColor(3, theme) + '99', label: 'Nội suy / dự đoán', shape: 'square' },
+      { color: FLAG_STYLE.coarse.color, label: FLAG_STYLE.coarse.label, shape: 'dash' },
+      { color: FLAG_STYLE.suspect.color, label: FLAG_STYLE.suspect.label, shape: 'dash' },
+    ]} note={<>~97 % ô là nội suy; chỉ ~3 % đo trực tiếp (TID){gebco?.direct_cell_count != null && gebco.depth_cell_count ? ` · vùng này ${(100 * gebco.direct_cell_count / gebco.depth_cell_count).toFixed(1).replace('.', ',')} %` : ''}. Tại lồng NB1 giá trị là nội suy.</>} />
+    {showEtopo && <div className="text-[10.5px] text-fg-subtle">Lớp so sánh ETOPO 2022 vẽ dưới GEBCO; hố sâu ở Cửa Lục / Vân Đồn bị cờ “nghi lỗi nguồn”.</div>}
+    <div className="text-[10px] text-fg-subtle">GEBCO Compilation Group (2024) GEBCO 2024 Grid</div>
   </div>
 }
 
@@ -59,7 +66,7 @@ function ExposureLegend({ theme, exposure }: { theme: Theme; exposure: SiteExpos
 }
 
 /** Bottom-left legends for whatever is switched on. */
-export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, etopo, advisoryStale, exposure }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; etopo: EtopoManifest | null; advisoryStale: boolean; exposure: SiteExposure | null }) {
+export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, gebco, etopo, advisoryStale, exposure }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; gebco: GebcoManifest | null; etopo: EtopoManifest | null; advisoryStale: boolean; exposure: SiteExposure | null }) {
   const [open, setOpen] = useState(() => !isCompactScreen())
   const scalar = environmentLayers.find(layer => layer.kind === 'scalar_grid' && enabled[layer.layer as keyof EnabledLayers])
   const bathyBands = enabled.bathymetry_bands && !enabled.bathymetry_slope
@@ -79,7 +86,7 @@ export const MapLegends = memo(function MapLegends({ enabled, environmentLayers,
             note={<>{advisoryStale && <b className="font-semibold text-fg">Khuyến nghị đang cũ: trạm hiện sọc xám, không theo mức. </b>}{mockMode ? 'Viền tím nét đứt = điểm mô phỏng.' : 'Một cảm biến vật lý (06M26042804); các điểm khác dùng chung số đo của trạm này.'}</>} />
           {enabled.site_exposure && exposure?.status === 'ready' && <ExposureLegend theme={theme} exposure={exposure} />}
           {enabled.hsi_zones && <SwatchLegend title="HSI lịch sử" note={HSI_LEGACY_LABEL} items={HSI_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} />}
-          {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} etopo={etopo} />}
+          {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} gebco={gebco} showEtopo={enabled.depth_etopo && etopo?.status === 'ready'} />}
           {scalar && <ScalarLegend layer={scalar} />}
           {enabled.flow_streamlines && <SwatchLegend title="Tia dòng chảy" items={[{ color: '#0b5fc1', label: 'Tia nội suy theo nước (+ hạt minh hoạ)', shape: 'line' }, { color: '#ea580c', label: 'Tương thích dòng–trạm (research only)', shape: 'line' }]} />}
           {enabled.wind_particles && <SwatchLegend title="Vệt gió (10 m)" items={[{ color: 'var(--fg-subtle)', label: 'Hạt canvas một màu — chỉ hướng, không mã hoá tốc độ', shape: 'line' }]} note="Chỉ quan sát · không kích hoạt cảnh báo" />}

@@ -31,6 +31,14 @@ def _default_etopo_bathymetry_path() -> str:
     return str(Path(__file__).resolve().parents[3] / relative)
 
 
+def _default_gebco_bathymetry_path() -> str:
+    relative = "data/depth/gebco2024-20261023/gebco2024_15s_hp_qn.nc"  # scripts/download_gebco2024_bathymetry.py
+    docker_path = Path("/workspace") / relative
+    if docker_path.exists():
+        return str(docker_path)
+    return str(Path(__file__).resolve().parents[3] / relative)
+
+
 def _workspace_root() -> Path:
     """Repo root: the read-only Docker mount when present, else this checkout.
 
@@ -67,6 +75,7 @@ class Settings:
     gebco_raster_path: str = os.getenv("GEBCO_RASTER_PATH", "/cache/gebco.tif")
     copernicus_bathymetry_path: str = os.getenv("COPERNICUS_BATHYMETRY_PATH", _default_copernicus_bathymetry_path())
     etopo_bathymetry_path: str = os.getenv("ETOPO_BATHYMETRY_PATH", _default_etopo_bathymetry_path())
+    gebco_bathymetry_path: str = os.getenv("GEBCO_BATHYMETRY_PATH", _default_gebco_bathymetry_path())
     cache_dir: str = os.getenv("CONTEXT_CACHE_DIR", _default_cache_dir())
     sensor_stale_minutes: int = int(os.getenv("SENSOR_STALE_MINUTES", "10"))
     sensor_ingest_token: str = os.getenv("SENSOR_INGEST_TOKEN", "")

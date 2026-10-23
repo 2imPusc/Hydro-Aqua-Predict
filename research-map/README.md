@@ -99,12 +99,20 @@ Khi thiếu export hay file, endpoint trả `{"status":"unavailable","reason":..
   SECOORA ERDDAP): dữ liệu công khai; ghi công đầy đủ hiển thị trên từng thẻ bộ dữ liệu.
 - Context môi trường: Open-Meteo (lưới mẫu ~1 km, mô hình dòng chảy ~8 km — không tăng độ phân giải thật);
   Copernicus / GEBCO chỉ hiện khi đã cấu hình, không bao giờ lấy giá trị từ nguồn khác bù vào.
-- Độ sâu: **ETOPO 2022 15″** (~460 m, so với geoid EGM2008 ≈ mực nước TB, không phải số 0 hải đồ) cho cả
-  Cát Bà – Hạ Long – Bái Tử Long; tải một lần bằng `python scripts/download_etopo2022_bathymetry.py`
-  (`data/depth/etopo2022-20261023/`, write-once). Worker dựng isoband/isobath/cờ tin cậy vào
-  `cache/bathymetry-etopo/<key>/` (hoặc `python -m app.bathymetry_etopo`); API `/bathymetry/etopo/manifest|isobands|isobaths|flags`.
-  Copernicus SDB 100 m chỉ còn là lớp "bãi triều" (gần như không có pixel quanh Cát Bà / Hạ Long).
-  Đánh giá: [`docs/eval/2026-10-23-bathymetry-map.md`](../docs/eval/2026-10-23-bathymetry-map.md).
+- Độ sâu mặc định: **GEBCO 2024 15″** (~460 m, so với mực nước TB, không phải số 0 hải đồ; không dùng cho hàng hải)
+  kèm lưới **TID** nên mỗi isoband có `confidence` = `direct` (TID 10–17, đo trực tiếp; vẽ đậm) | `indirect`
+  (TID 40–45, nội suy/dự đoán) | `unknown` | `coarse` | `suspect` (mờ, viền đứt). Trong vùng chỉ ~3 % ô là đo trực tiếp,
+  ~97 % là nội suy. Tải một lần bằng `python scripts/download_gebco2024_bathymetry.py`
+  (`data/depth/gebco2024-20261023/gebco2024_15s_hp_qn.nc`, write-once; đổi đường dẫn bằng `GEBCO_BATHYMETRY_PATH`).
+  Worker dựng artifact vào `cache/bathymetry-gebco/<key>/` (hoặc `python -m app.bathymetry_gebco`); lỗi chỉ ghi log,
+  API trả `building` / `unavailable`. API `/bathymetry/gebco/manifest|isobands|isobaths|flags?lod=`;
+  `/bathymetry/sample` có khoá `gebco` (độ sâu + lớp TID) bên cạnh `etopo`. GEBCO không bao giờ lấp chỗ trống của SDB.
+  Ghi công: GEBCO Compilation Group (2024) GEBCO 2024 Grid.
+- **ETOPO 2022 15″** vẫn còn như lớp so sánh (tắt mặc định, bật "So sánh: ETOPO 2022" trong Độ sâu):
+  `data/depth/etopo2022-20261023/`, `cache/bathymetry-etopo/<key>/`, API `/bathymetry/etopo/...`. Có hố sâu giả ở Cửa Lục / Vân Đồn
+  (cờ `suspect`). Copernicus SDB 100 m chỉ còn là lớp "bãi triều" (gần như không có pixel quanh Cát Bà / Hạ Long).
+  Đánh giá: [`docs/eval/2026-10-23-bathymetry-map.md`](../docs/eval/2026-10-23-bathymetry-map.md),
+  [`docs/eval/2026-10-24-gebco-vs-etopo.md`](../docs/eval/2026-10-24-gebco-vs-etopo.md).
 - Dữ liệu cảm biến GreenLab là append-only; đơn vị NH4 vẫn chờ xác nhận nhà cung cấp.
 
 Credit/licence của từng bộ nằm trong `FOREIGN` của `scripts/export_research_map_artifacts.py` (lấy từ
