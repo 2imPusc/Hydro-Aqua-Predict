@@ -1,5 +1,5 @@
 import { ApiError, getJson } from './client'
-import type { ApiStatus, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, Hazards, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
+import type { ApiStatus, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, Hazards, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, ShadowScorecard, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
 
 type Signal = AbortSignal | undefined
 const q = encodeURIComponent
@@ -26,7 +26,8 @@ const query = (params: Record<string, string | undefined>) => {
 
 export const getResearchOverview = (signal?: Signal) => research<ResearchOverview>('/overview', signal)
 export const getLongForecast = (station: string, signal?: Signal) => research<LongForecast>(`/forecast/long${query({ station })}`, signal)
-export const getForecastBenchmark = (signal?: Signal) => research<ForecastBenchmark>('/forecast/benchmark', signal)
+export const getShadowScorecard = (station: string, signal?: Signal) => research<ShadowScorecard>(`/forecast/long/scorecard${query({ station })}`, signal)
+export const getForecastBenchmark =(signal?: Signal) => research<ForecastBenchmark>('/forecast/benchmark', signal)
 export const getWeatherStatus = (station: string, signal?: Signal) => research<WeatherStatus>(`/weather/status${query({ station })}`, signal)
 export const getSuitability = (variant: SuitabilityVariant, region: SuitabilityRegion, signal?: Signal) => research<Suitability>(`/suitability${query({ variant, region })}`, signal)
 export const getHazards = (signal?: Signal) => research<Hazards>('/hazards', signal)
@@ -47,7 +48,8 @@ export const RESEARCH_REASON: Record<string, string> = {
   no_hazard_runs: 'Chưa có run bão / nắng nóng / dịch bệnh / lịch thả nào để export.',
   a6_not_exported: 'Lớp chế độ mặn VN (A6) chưa được export.',
   ledger_missing: 'Sổ ghi shadow dài hạn (runtime/forecast-shadow/long_*.jsonl) chưa tồn tại: runner chưa phát hành bản dự báo dài hạn nào.',
-  snapshot_file_missing: 'Chưa có file snapshot thời tiết.',
+  scorecard_missing: 'Chưa có bảng chấm điểm shadow (artifacts/experiments/shadow-scorecard-*/): chưa chạy experiments/shadow_scorecard.py.',
+  snapshot_file_missing:'Chưa có file snapshot thời tiết.',
   no_records_for_station: 'File snapshot không có bản ghi cho trạm này.',
   stale_last_capture: 'Lần thu gần nhất đã quá 2 giờ.',
   coverage_below_min: 'Độ phủ 7 ngày dưới ngưỡng tối thiểu.',

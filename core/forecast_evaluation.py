@@ -229,14 +229,62 @@ def _valid_series(frame: pd.DataFrame, target: str) -> pd.Series:
     return series.groupby(level=0).median().sort_index()
 
 
+def prepare_long_raw(raw: pd.DataFrame | None) -> pd.DataFrame:
+    """Raw sensor frame with parsed UTC ``fetchedAt`` (rows without a time dropped)."""
+    if raw is None or raw.empty:
+        return pd.DataFrame(columns=["fetchedAt"])
+    frame = raw.copy()
+    frame["fetchedAt"] = pd.to_datetime(frame["fetchedAt"], utc=True, errors="coerce")
+    return frame.dropna(subset=["fetchedAt"])
+
+
+def long_outcome(forecast: dict, series: pd.Series, first: pd.Timestamp, latest: pd.Timestamp) -> dict | None:
+    """Outcome record for one long-horizon forecast, or ``None`` while not decidable.
+
+    Pure (writes nothing).  ``series`` holds the target's valid readings
+    (:func:`_valid_series`); ``first``/``latest`` bound the raw window.  Used by
+    :func:`resolve_long_outcomes` and by read-only scorecards that resolve
+    forecasts on the fly (``experiments/shadow_scorecard.py``).
+    """
+    target = forecast["target"]
+    valid_at = pd.Timestamp(forecast["valid_at"])
+    if valid_at - LONG_TOLERANCE > latest:
+        return None
+    if series.empty:
+        window = series
+    else:  # index is sorted (``_valid_series``): slice instead of scanning the whole history per forecast
+        lo = series.index.searchsorted(valid_at - LONG_TOLERANCE, side="left")
+        hi = series.index.searchsorted(valid_at + LONG_TOLERANCE, side="right")
+        window = series.iloc[lo:hi]
+    base = {key: forecast.get(key) for key in ("station_serial", "issued_at", "valid_at", "horizon_minutes", "target", "feature_set", "model_version",
+                                               "model_variant", "forecast", "current", "sensor_status", "ph_input_status")}
+    base["forecast_record_id"] = forecast["record_id"]
+    if window.empty:
+        if latest < valid_at + LONG_TOLERANCE or first > valid_at - LONG_TOLERANCE:
+            return None  # not decidable from this raw window yet
+        return {**base, "status": "no_observation", "known_at": (valid_at + LONG_TOLERANCE).isoformat()}
+    distance = np.abs((window.index - valid_at).total_seconds())
+    observed_at = window.index[int(np.argmin(distance))]
+    actual = float(window.iloc[int(np.argmin(distance))])
+    abs_error = abs(actual - float(forecast["forecast"]))
+    pi = forecast.get("pi") or {}
+    levels = [level for level in PI_LEVELS if isinstance(pi.get(level), dict) and pi[level].get("q") is not None]
+    outcome = {**base, "status": "scored", "observed_at": observed_at.isoformat(), "known_at": max(valid_at, observed_at).isoformat(),
+               "actual": actual, "abs_error": abs_error, "covered": {level: bool(abs_error <= pi[level]["q"]) for level in levels},
+               "issued_q": {level: pi[level]["q"] for level in levels}, "night": pi.get("night")}
+    if forecast.get("sensor_status", "ok") != "ok":
+        outcome |= {"status": "excluded_sensor_suspect", "excluded_reason": f"input_{forecast['sensor_status']}"}
+    elif target == "pH" and not _ph_plausible(actual):
+        outcome |= {"status": "excluded_sensor_suspect", "excluded_reason": "actual_ph_outside_plausible_band"}
+    return outcome
+
+
 def resolve_long_outcomes(raw: pd.DataFrame) -> int:
     """Match due long-horizon forecasts to the nearest valid reading within 2 minutes."""
     forecasts = _long_index(LONG_FORECAST_LOG).records
     if not forecasts or raw is None or raw.empty:
         return 0
-    frame = raw.copy()
-    frame["fetchedAt"] = pd.to_datetime(frame["fetchedAt"], utc=True, errors="coerce")
-    frame = frame.dropna(subset=["fetchedAt"])
+    frame = prepare_long_raw(raw)
     if frame.empty:
         return 0
     first, latest = frame["fetchedAt"].min(), frame["fetchedAt"].max()
@@ -248,34 +296,13 @@ def resolve_long_outcomes(raw: pd.DataFrame) -> int:
         if outcome_id in resolved:
             continue
         target = forecast["target"]
-        valid_at = pd.Timestamp(forecast["valid_at"])
-        if valid_at - LONG_TOLERANCE > latest:
+        if pd.Timestamp(forecast["valid_at"]) - LONG_TOLERANCE > latest:
             continue
         if target not in series_cache:
             series_cache[target] = _valid_series(frame, target)
-        series = series_cache[target]
-        window = series[(series.index >= valid_at - LONG_TOLERANCE) & (series.index <= valid_at + LONG_TOLERANCE)]
-        base = {key: forecast.get(key) for key in ("station_serial", "issued_at", "valid_at", "horizon_minutes", "target", "feature_set", "model_version",
-                                                   "model_variant", "forecast", "current", "sensor_status", "ph_input_status")}
-        base["forecast_record_id"] = forecast["record_id"]
-        if window.empty:
-            if latest < valid_at + LONG_TOLERANCE or first > valid_at - LONG_TOLERANCE:
-                continue  # not decidable from this raw window yet
-            outcome = {**base, "status": "no_observation", "known_at": (valid_at + LONG_TOLERANCE).isoformat()}
-        else:
-            distance = np.abs((window.index - valid_at).total_seconds())
-            observed_at = window.index[int(np.argmin(distance))]
-            actual = float(window.iloc[int(np.argmin(distance))])
-            abs_error = abs(actual - float(forecast["forecast"]))
-            pi = forecast.get("pi") or {}
-            levels = [level for level in PI_LEVELS if isinstance(pi.get(level), dict) and pi[level].get("q") is not None]
-            outcome = {**base, "status": "scored", "observed_at": observed_at.isoformat(), "known_at": max(valid_at, observed_at).isoformat(),
-                       "actual": actual, "abs_error": abs_error, "covered": {level: bool(abs_error <= pi[level]["q"]) for level in levels},
-                       "issued_q": {level: pi[level]["q"] for level in levels}, "night": pi.get("night")}
-            if forecast.get("sensor_status", "ok") != "ok":
-                outcome |= {"status": "excluded_sensor_suspect", "excluded_reason": f"input_{forecast['sensor_status']}"}
-            elif target == "pH" and not _ph_plausible(actual):
-                outcome |= {"status": "excluded_sensor_suspect", "excluded_reason": "actual_ph_outside_plausible_band"}
+        outcome = long_outcome(forecast, series_cache[target], first, latest)
+        if outcome is None:
+            continue
         written += int(_long_index(LONG_OUTCOME_LOG).append(outcome, outcome_id))
     return written
 
