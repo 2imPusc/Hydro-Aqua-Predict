@@ -11,6 +11,6 @@ export const ContextDomainOverlay = memo(function ContextDomainOverlay({ domain,
   const data = useMemo(() => ({ ...domain, features: domain.features.filter(feature => feature.properties?.kind !== 'station_network_hull') }) as GeoJSON.FeatureCollection, [domain])
   return <GeoJSON key={`${dataKey}-${outlineOnly}`} data={data} style={styleFor(outlineOnly)}
     onEachFeature={(feature, layer) => layer.bindTooltip(feature.properties?.kind === 'station_network_hull'
-      ? `Network hull · ${feature.properties?.station_count} trạm`
-      : `Phạm vi context ${feature.properties?.water_clipped ? 'trên mặt nước' : ''} · buffer ${feature.properties?.buffer_m / 1000} km`)} />
+      ? `${feature.properties?.station_count} trạm`
+      : `Vùng quanh trạm ${feature.properties?.buffer_m / 1000} km`)} />
 })

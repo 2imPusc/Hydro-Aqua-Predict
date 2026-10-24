@@ -44,6 +44,8 @@ export default function MonitorView({ theme }: { theme: Theme }) {
     if ((ENVIRONMENT_LAYERS as readonly string[]).includes(key)) {
       return { ...current, ...Object.fromEntries(ENVIRONMENT_LAYERS.map(layer => [layer, layer === key ? value : false])) }
     }
+    // Seabed shading sits on the depth bands: switching it on shows them too.
+    if (key === 'depth_slope' && value) return { ...current, depth_slope: true, depth_isobands: true }
     return { ...current, [key]: value }
   }), [])
 
@@ -70,10 +72,10 @@ export default function MonitorView({ theme }: { theme: Theme }) {
     <div className="monitor-map absolute inset-0 overflow-hidden" style={{ ['--inspector-offset' as string]: inspectorOpen ? `${INSPECTOR_W + 12}px` : '0px' }}>
       <MonitorMap
         theme={theme} basemap={basemap} enabled={enabled} snapshotId={snapshot?.snapshot_id ?? null}
-        environmentLayers={environmentLayers} currentLayer={currentLayer} windLayer={windLayer} flow={flow}
-        stations={data.stations.data} aquacultureMap={data.aquaculture.data} advisoryStale={advisoryStale} advisoryAgeSeconds={advisoryAge} exposure={data.exposure.data} domain={data.domain.data} network={data.network.data}
+        allLayers={allLayers} flow={flow}
+        stations={data.stations.data} aquacultureMap={data.aquaculture.data} advisoryStale={advisoryStale} advisoryAgeSeconds={advisoryAge} exposure={data.exposure.data} domain={data.domain.data} region={data.region.data} reliability={data.reliability.data} network={data.network.data}
         zones={data.zones.data} bands={data.bands.data} contours={data.contours.data}
-        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data} etopoBands={data.etopoBands.data} etopoFlags={data.etopoFlags.data}
+        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data} seabedShade={data.seabedShade.data} etopoBands={data.etopoBands.data} etopoFlags={data.etopoFlags.data}
         lod={lod} onLod={setLod} onSample={onSample}
       />
 

@@ -10,7 +10,8 @@ from datetime import datetime, timedelta, timezone
 from app.bathymetry import describe_gebco
 from app.providers import fetch_open_meteo_context, unavailable_layer
 from app.copernicus import fetch_copernicus_layers
-from app.domain import build_context_domain
+from app import refresh
+from app.domain import build_context_domain, region_water_geometry
 from app.repository import SnapshotRepository
 from app.settings import settings
 from app.network import ensure_station_network_cache
@@ -19,10 +20,12 @@ from app.hsi_cache import build_hsi_cache
 from app.bathymetry_artifacts import ensure_bathymetry_artifact
 from app.bathymetry_etopo import ensure_etopo_artifact
 from app.bathymetry_gebco import ensure_gebco_artifact
-from app.sensor_provider import fetch_station, normalize_readings
+from app.sensor_provider import GREENLAB_LOCAL_TZ, fetch_station, fetch_station_history, normalize_history_csv, normalize_readings
 from app.aquaculture_artifacts import build_aquaculture_artifacts
 
 logger = logging.getLogger(__name__)
+# How often the worker looks for a map refresh request between scheduled snapshots.
+REFRESH_CHECK_SECONDS = 5
 
 
 def _snapshot(layers: list[dict], domain: dict) -> dict:
@@ -46,15 +49,22 @@ async def run_once(repository: SnapshotRepository) -> bool:
     domain = build_context_domain(settings.context_buffer_m)
     min_lon, min_lat, max_lon, max_lat = domain["provider_bbox"]
     latitude, longitude = (min_lat + max_lat) / 2, (min_lon + max_lon) / 2
+    region_bbox = tuple(settings.context_region_bbox)
     try:
+        # Environment fields cover the whole region (Hải Phòng – Cát Bà – Hạ Long), not only the 5 km station buffer;
+        # the station network, flow rays and advisories still use the station domain.
         layers = await fetch_open_meteo_context(
             latitude, longitude, settings.stale_minutes,
-            bbox=domain["provider_bbox"], buffer_m=settings.context_buffer_m,
+            bbox=list(region_bbox), buffer_m=settings.context_buffer_m,
+            region_step=settings.context_region_step_deg, region_water=region_water_geometry(region_bbox),
         )
-    except Exception:
+    except Exception as exc:
         # Preserve the last known-good immutable snapshot. Replacing it with
         # an all-unavailable fetch failure makes a transient provider outage
-        # erase the map's usable environmental context.
+        # erase the map's usable environmental context. Say why, so a quota
+        # (HTTP 429) or outage is visible instead of a silently "stale" map.
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        logger.warning("Open-Meteo regional fetch failed (%s%s); keeping the last snapshot", type(exc).__name__, f", HTTP {status}" if status else "")
         return False
     copernicus_layers = await asyncio.to_thread(
         fetch_copernicus_layers,
@@ -64,7 +74,7 @@ async def run_once(repository: SnapshotRepository) -> bool:
         sea_level_dataset=settings.copernicus_sea_level_dataset or settings.copernicus_physics_dataset,
         mld_dataset=settings.copernicus_mld_dataset or settings.copernicus_physics_dataset,
         wave_dataset=settings.copernicus_wave_dataset,
-        bbox=domain["provider_bbox"], stale_minutes=settings.stale_minutes,
+        bbox=list(region_bbox), stale_minutes=settings.stale_minutes,
         buffer_m=settings.context_buffer_m,
     )
     if copernicus_layers:
@@ -83,6 +93,35 @@ async def run_once(repository: SnapshotRepository) -> bool:
     if snapshot_row is not None:
         await asyncio.to_thread(build_flow_artifact, snapshot_row, network, settings.cache_dir)
     await asyncio.to_thread(build_aquaculture_artifacts, repository, settings.cache_dir, settings.greenlab_station_serials, settings.latitude, settings.longitude, settings.nh4_unit_scale, settings.sensor_stale_minutes, settings.nh3_max_metric_gap_minutes)
+    return inserted
+
+
+# Full sensor history up to now: the latest-reading endpoint only gives the newest value, so gaps (worker down,
+# missing credentials) are filled from /Datums/DataByDate, from the newest stored day to today (<= 30 days back).
+SENSOR_BACKFILL_MINUTES = 30
+SENSOR_BACKFILL_MAX_DAYS = 30
+SENSOR_BACKFILL_CHUNK_DAYS = 7
+
+
+async def backfill_sensor_history(repository: SnapshotRepository) -> int:
+    if not settings.greenlab_api_enabled or not settings.greenlab_api_username or not settings.greenlab_api_password:
+        return 0
+    today = datetime.now(GREENLAB_LOCAL_TZ).date()
+    inserted = 0
+    for station_serial in settings.greenlab_station_serials:
+        try:
+            newest = await asyncio.to_thread(repository.latest_observed_at, station_serial)
+            start = newest.astimezone(GREENLAB_LOCAL_TZ).date() if newest else today - timedelta(days=14)
+            start = max(start, today - timedelta(days=SENSOR_BACKFILL_MAX_DAYS))
+            while start <= today:
+                end = min(today, start + timedelta(days=SENSOR_BACKFILL_CHUNK_DAYS - 1))
+                text = await fetch_station_history(station_serial, settings.greenlab_api_base_url, settings.greenlab_api_username, settings.greenlab_api_password, start, end)
+                inserted += await asyncio.to_thread(repository.insert_sensor_observations, normalize_history_csv(text, station_serial))
+                start = end + timedelta(days=1)
+        except Exception as exc:
+            logger.warning("GreenLab history backfill failed for %s (%s)", station_serial, type(exc).__name__)
+    if inserted:
+        logger.warning("GreenLab history backfill: %d new observations", inserted)
     return inserted
 
 
@@ -158,13 +197,22 @@ async def serve() -> None:
     async def context_loop():
         while True:
             t0 = loop.time()
+            started = datetime.now(timezone.utc)
             await run_once(repository)
             elapsed = loop.time() - t0
-            await asyncio.sleep(max(10, settings.snapshot_minutes * 60 - elapsed))
+            # Sleep until the next scheduled snapshot, waking early when the map asks for a refresh.
+            deadline = loop.time() + max(10, settings.snapshot_minutes * 60 - elapsed)
+            while loop.time() < deadline and not refresh.due(settings.cache_dir, started):
+                await asyncio.sleep(min(REFRESH_CHECK_SECONDS, max(0.0, deadline - loop.time())))
 
     async def sensor_loop():
+        last_backfill: datetime | None = None
         while True:
             t0 = loop.time()
+            now = datetime.now(timezone.utc)
+            if last_backfill is None or (now - last_backfill).total_seconds() >= SENSOR_BACKFILL_MINUTES * 60 or refresh.due(settings.cache_dir, last_backfill):
+                last_backfill = now
+                await backfill_sensor_history(repository)
             await ingest_sensor_once(repository)
             await asyncio.to_thread(build_aquaculture_artifacts, repository, settings.cache_dir, settings.greenlab_station_serials, settings.latitude, settings.longitude, settings.nh4_unit_scale, settings.sensor_stale_minutes, settings.nh3_max_metric_gap_minutes)
             elapsed = loop.time() - t0

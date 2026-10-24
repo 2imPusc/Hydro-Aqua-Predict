@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
+import { SYNC_EVENT } from '../../app/useSync'
 import { BellRing, Rewind } from 'lucide-react'
 import { getStationHazards } from '../../api/hazards'
 import { describeApiError } from '../../api/client'
@@ -105,6 +106,11 @@ function Summary({ data, stations, tiers }: { data: StationHazardsResponse; stat
 
 export default function AlertsView() {
   const poll = usePolling(getStationHazards, { intervalMs: 5 * 60_000, maxErrorRetries: 3, retryBaseMs: 3_000, clearOnError: true })
+  useEffect(() => {
+    const onSync = () => poll.refresh()
+    window.addEventListener(SYNC_EVENT, onSync)
+    return () => window.removeEventListener(SYNC_EVENT, onSync)
+  }, [poll])
   const data = poll.data
   const tiers = data?.tiers?.length ? data.tiers : DEFAULT_TIERS
   const stations = useMemo(() => sortStations(data?.stations ?? []), [data])

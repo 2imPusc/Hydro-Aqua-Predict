@@ -116,14 +116,13 @@ export const EtopoDepthOverlay = memo(function EtopoDepthOverlay({ source = 'eto
   return <>
     {showBands && bands && <GeoJSON ref={bandsRef} eventHandlers={toBack} key={`${source}-bands-${bands.lod}-${theme}`} data={bands} style={bandStyle}
       onEachFeature={(feature, layer) => {
-        const confidence = String(feature.properties?.confidence ?? '')
-        const note = confidence === 'suspect' ? ' · nghi lỗi nguồn' : confidence === 'coarse' ? ' · lưới thô' : TID_LABEL[confidence] ? ` · ${TID_LABEL[confidence]}` : ''
-        layer.bindTooltip(`Độ sâu ${feature.properties?.label ?? ''} · ${SOURCE_NAME[source]} ~460 m${note}`, { sticky: true })
+        // Hover = the value only; source, grid and confidence live in the click card and the legend.
+        layer.bindTooltip(`${feature.properties?.label ?? ''}`, { sticky: true })
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
       }} />}
     {showBands && flagged && <GeoJSON ref={flagsRef} eventHandlers={toBack} key={`${source}-flags-${flagged.lod}`} data={flagged} style={flagStyle}
       onEachFeature={(feature, layer) => {
-        layer.bindTooltip(FLAG_STYLE[feature.properties?.flag === 'suspect' ? 'suspect' : 'coarse'].label, { sticky: true })
+        layer.bindTooltip(feature.properties?.flag === 'suspect' ? 'Nghi lỗi nguồn' : 'Lưới thô', { sticky: true })
         layer.on('click', event => onSample(event.latlng.lat, event.latlng.lng))
       }} />}
     {showIsobaths && lines && <GeoJSON key={`${source}-lines-${lines.lod}-${theme}`} data={lines} style={lineStyle} interactive={false} />}

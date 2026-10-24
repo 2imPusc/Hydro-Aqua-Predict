@@ -133,3 +133,15 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định (chủ dự án đồng ý đề xuất):** `disease_env` bậc 1/2 đổi từ 0.4/0.75 sang 0.85/0.95 trong `config/alert_tiers.default.json`.
 - **Lý do:** chạy thật (RL-47) ngưỡng cũ đưa cả 14 trạm lên bậc 2 ở SST ~29.7 °C; chỉ số chưa có kỹ năng so với khí hậu (RL-34, RL-42), nên ngưỡng thấp chỉ tạo báo động bão hòa.
 - **Hệ quả:** admin vẫn chỉnh được trong `#/settings/alerts`; xem lại khi có DO / độ mặn / sự kiện có tên mầm bệnh.
+
+## #23 — 2026-10-24 · Lớp thời tiết & biển của research-map: lưới vùng 0,125°, mỗi giờ
+
+- **Quyết định:** mưa, gió, sóng, mực nước, dòng chảy lấy trên một lưới vùng 0,125° phủ bbox GEBCO (Hải Phòng – Cát Bà – Hạ Long), không còn lưới 1,2 km trong vùng đệm 5 km; bản tin mỗi 60 phút. Vùng đệm 5 km chỉ còn cho mạng trạm, tia dòng chảy, khuyến nghị. Một lớp màu mỗi lúc, thang cố định; độ dốc đáy lấy từ GEBCO; phơi nhiễm sóng gió tắt mặc định.
+- **Lý do:** phủ mọi vùng nuôi; bước lưới gần độ phân giải mô hình nên không tạo chi tiết giả; số lượt gọi Open-Meteo giảm từ ~34 nghìn xuống ~6,8 nghìn/ngày (nếu tính theo điểm).
+- **Hệ quả:** ghi chú lưới ở chú giải; lớp biển cắt theo mặt nước OSM; CMEMS là bước sau cho dòng chảy / mực nước / sóng (RL-49, RL-50).
+
+## #24 — 2026-10-24 · Dòng chảy và sóng của research-map lấy từ Copernicus Marine (CMEMS)
+
+- **Quyết định:** khi có file đăng nhập Copernicus, dòng chảy (GLO12 PT1H) và sóng (MFWAM PT3H) trên bản đồ lấy từ CMEMS; mực nước, mưa, gió vẫn từ Open-Meteo. File đăng nhập gắn chỉ-đọc vào worker, không chép vào `.env` (chủ dự án đồng ý 24/10).
+- **Lý do:** cùng mô hình gốc với Open-Meteo marine nhưng có phiên bản dataset và tài liệu kiểm chứng (RL-44, RL-49); một lần tải cho cả vùng.
+- **Hệ quả:** chú giải ghi nguồn theo dữ liệu thực; `zos` (so với geoid) không dùng cho lớp "mực nước so với mực TB" (RL-51).

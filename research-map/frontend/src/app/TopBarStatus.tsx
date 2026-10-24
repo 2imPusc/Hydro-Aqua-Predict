@@ -1,4 +1,5 @@
-import { Archive, FlaskConical, WifiOff } from 'lucide-react'
+import { Archive, FlaskConical, RefreshCw, WifiOff } from 'lucide-react'
+import type { SyncPhase } from './useSync'
 import { useLiveData } from './LiveDataContext'
 import { Chip, StateChip, stateMeta, type Tone } from '../components/ui'
 import { formatAge, useNow } from '../hooks/useNow'
@@ -74,5 +75,28 @@ export function TopBarStatus() {
         <Chip tone={modeChip.tone} icon={mode === 'mock' ? <FlaskConical size={12} /> : undefined} dot={mode !== 'mock'} className={mode === 'mock' ? 'mock-stripes' : ''} title={modeChip.title}>{modeChip.label}</Chip>
       </span>
     </div>
+  )
+}
+
+const SYNC_LABEL: Record<SyncPhase, string> = {
+  idle: 'Đồng bộ dữ liệu mới nhất',
+  requesting: 'Đang kiểm tra dữ liệu mới…',
+  waiting: 'Đang lấy bản tin mới (tối đa ~2 phút)…',
+  done: 'Đã cập nhật dữ liệu mới nhất',
+  fresh: 'Dữ liệu đã mới (< 10 phút), đã tải lại giao diện',
+  error: 'Không đồng bộ được — kiểm tra kết nối backend',
+}
+
+/** "Đồng bộ": ask the worker for a new snapshot, then reload every view (also runs once on app open). */
+export function SyncButton() {
+  const { sync, syncPhase, lastSyncedAt } = useLiveData()
+  const busy = syncPhase === 'requesting' || syncPhase === 'waiting'
+  const title = `${SYNC_LABEL[syncPhase]}${lastSyncedAt && !busy ? ` · lần cuối ${lastSyncedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : ''}`
+  return (
+    <button type="button" onClick={sync} disabled={busy} title={title} aria-label={title}
+      className="inline-flex h-8 flex-none items-center gap-1.5 rounded-[var(--radius-sm)] border border-line bg-surface px-2 text-[12px] font-semibold text-fg-muted transition-colors hover:text-fg disabled:cursor-progress">
+      <RefreshCw size={14} className={busy ? 'animate-spin' : ''} />
+      <span className="hidden sm:inline">{busy ? 'Đang đồng bộ' : 'Đồng bộ'}</span>
+    </button>
   )
 }

@@ -1,32 +1,32 @@
 import 'leaflet/dist/leaflet.css'
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import { MapContainer, TileLayer, ZoomControl } from 'react-leaflet'
-import type { AquacultureMap, BathymetryVectorLayer, ContextDomain, FlowArtifact, HsiZones, Layer, StationNetwork, Stations } from '../../types/monitor'
+import type { AquacultureMap, BathymetryVectorLayer, ContextDomain, ContextRegion, FlowArtifact, HsiZones, Layer, StationNetwork, Stations } from '../../types/monitor'
 import { basemapTiles, ESRI_ATTRIBUTION, MAP_BOUNDS, MAP_CENTER, MAP_ZOOM, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { BathymetryOverlay } from '../../components/map/overlays/BathymetryOverlay'
 import { EtopoDepthOverlay } from '../../components/map/overlays/EtopoDepthOverlay'
+import { SeabedShadeOverlay, type SeabedShade } from '../../components/map/overlays/SeabedShadeOverlay'
 import { ContextDomainOverlay } from '../../components/map/overlays/ContextDomainOverlay'
-import { ContextMarkers } from '../../components/map/overlays/ContextMarkers'
-import { EnvironmentalParticleOverlay, PARTICLE_COLORS } from '../../components/map/overlays/EnvironmentalParticleOverlay'
 import { FlowArtifactOverlay } from '../../components/map/overlays/FlowArtifactOverlay'
 import { HsiZonesOverlay } from '../../components/map/overlays/HsiZonesOverlay'
 import { LodListener } from '../../components/map/overlays/LodListener'
-import { ScalarGridOverlay } from '../../components/map/overlays/ScalarGridOverlay'
 import { StationMarkers } from '../../components/map/overlays/StationMarkers'
 import { SiteExposureOverlay } from '../../components/map/overlays/SiteExposureOverlay'
 import type { SiteExposure } from '../../components/map/siteExposure'
 import { StationNetworkOverlay } from '../../components/map/overlays/StationNetworkOverlay'
 import type { Theme } from '../../hooks/useTheme'
 import type { EnabledLayers } from './useMonitorData'
+import { RegionalFields, activeField } from './RegionalFields'
+import { ReliabilityZonesOverlay, StatusHalos } from '../../components/map/overlays/ReliabilityZonesOverlay'
+import type { ReliabilityVn } from '../../types/research'
 
 type Props = {
   theme: Theme
   basemap: BasemapId
   enabled: EnabledLayers
   snapshotId: string | null
-  environmentLayers: Layer[]
-  currentLayer?: Layer
-  windLayer?: Layer
+  /** Every layer of the latest context snapshot (regional fields pick theirs by name). */
+  allLayers: Layer[]
   flow: FlowArtifact | null
   stations: Stations | null
   aquacultureMap: AquacultureMap | null
@@ -35,6 +35,10 @@ type Props = {
   advisoryAgeSeconds: number | null
   exposure: SiteExposure | null
   domain: ContextDomain | null
+  /** Regional environment grid extent + water polygon. */
+  region: ContextRegion | null
+  /** H4 salinity-regime cells: how far NB1 readings can stand for a place. */
+  reliability: ReliabilityVn | null
   network: StationNetwork | null
   zones: HsiZones | null
   bands: BathymetryVectorLayer | null
@@ -42,6 +46,8 @@ type Props = {
   isobands: BathymetryVectorLayer | null
   isobaths: BathymetryVectorLayer | null
   depthFlags: BathymetryVectorLayer | null
+  /** GEBCO seabed relief shading (slope as light/shadow over the depth bands). */
+  seabedShade: SeabedShade | null
   /** ETOPO 2022 comparison bands + flags (optional). */
   etopoBands: BathymetryVectorLayer | null
   etopoFlags: BathymetryVectorLayer | null
@@ -55,14 +61,9 @@ type Props = {
  * the parent never re-renders this subtree unless map inputs change.
  */
 export const MonitorMap = memo(function MonitorMap(props: Props) {
-  const { theme, basemap, enabled, snapshotId, environmentLayers, currentLayer, windLayer, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, network, zones, bands, contours, isobands, isobaths, depthFlags, etopoBands, etopoFlags, lod, onLod, onSample } = props
+  const { theme, basemap, enabled, snapshotId, allLayers, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, region, reliability, network, zones, bands, contours, isobands, isobaths, depthFlags, seabedShade, etopoBands, etopoFlags, lod, onLod, onSample } = props
   const tiles = basemapTiles(basemap, theme)
-  const waterGeometry = useMemo(() => domain?.features.find(feature => feature.properties?.kind === 'context_domain_water')?.geometry, [domain])
-  const particleColors = PARTICLE_COLORS[theme]
-  const visibleEnvironment = useMemo(
-    () => environmentLayers.filter(layer => enabled[layer.layer as keyof EnabledLayers] && layer.status !== 'unavailable'),
-    [environmentLayers, enabled],
-  )
+  const regionWater = region?.features.find(feature => feature.properties?.kind === 'region_water')?.geometry ?? null
 
   return (
     <MapContainer preferCanvas center={MAP_CENTER} zoom={MAP_ZOOM} minZoom={10} maxZoom={17} maxBounds={MAP_BOUNDS} maxBoundsViscosity={0.22}
@@ -74,13 +75,14 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
 
       {enabled.depth_etopo && <EtopoDepthOverlay source="etopo" underlay theme={theme} lod={lod} isobands={etopoBands} isobaths={null} flags={etopoFlags} showBands showIsobaths={false} onSample={onSample} />}
       <EtopoDepthOverlay source="gebco" theme={theme} lod={lod} isobands={isobands} isobaths={isobaths} flags={depthFlags} showBands={enabled.depth_isobands} showIsobaths={enabled.depth_isobaths} onSample={onSample} />
-      {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} outlineOnly={enabled.depth_isobands} />}
-      {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} />}
-      <BathymetryOverlay bands={bands} contours={contours} showBands={enabled.bathymetry_bands || enabled.bathymetry_slope} showContours={enabled.bathymetry_contours} showSlope={enabled.bathymetry_slope} onSample={onSample} />
+      {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} outlineOnly={enabled.depth_isobands || activeField(enabled) !== null} />}
+      {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} aquacultureMap={aquacultureMap} stale={advisoryStale} />}
+      {enabled.depth_slope && <SeabedShadeOverlay shade={seabedShade} theme={theme} />}
+      <BathymetryOverlay bands={bands} contours={contours} showBands={enabled.bathymetry_bands} showContours={enabled.bathymetry_bands && enabled.bathymetry_contours} showSlope={false} onSample={onSample} />
 
-      {visibleEnvironment.map(layer => layer.kind === 'scalar_grid'
-        ? <ScalarGridOverlay key={layer.layer} layer={layer} dataKey={`${snapshotId}-${layer.layer}`} waterGeometry={waterGeometry} />
-        : <ContextMarkers key={layer.layer} layer={layer} />)}
+      {enabled.reliability_zones && <ReliabilityZonesOverlay data={reliability} water={regionWater} dataKey={`${reliability?.source_run ?? ''}-${!!regionWater}`} />}
+      <RegionalFields enabled={enabled} layers={allLayers} region={region} dataKey={snapshotId ?? 'none'} />
+      {enabled.reliability_zones && <StatusHalos stations={stations} aquacultureMap={aquacultureMap} stale={advisoryStale} />}
 
       {enabled.station_network && network && <StationNetworkOverlay network={network} dataKey={`${network.network_status}-${network.edge_count}-${network.features.length}`} />}
       {enabled.flow_streamlines && flow && <FlowArtifactOverlay artifact={flow} lod={lod} />}
@@ -88,8 +90,6 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
       {enabled.site_exposure && <SiteExposureOverlay exposure={exposure} stations={stations} theme={basemap === 'street' ? 'light' : theme} />}
       {stations && <StationMarkers stations={stations} aquacultureMap={aquacultureMap} stale={advisoryStale} staleAgeSeconds={advisoryAgeSeconds} exposure={exposure} theme={theme} />}
 
-      <EnvironmentalParticleOverlay type="flow" layer={currentLayer} enabled={enabled.flow_streamlines} waterGeometry={waterGeometry} color={particleColors.flow} />
-      <EnvironmentalParticleOverlay type="wind" layer={windLayer} enabled={enabled.wind_particles} waterGeometry={undefined} color={particleColors.wind} />
     </MapContainer>
   )
 })

@@ -622,3 +622,49 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Chạy lại export (`artifacts/research-map/20261024-0330`) để đổi chữ giai đoạn H2 và câu kết luận H1.
 - **Kiểm tra:** `npm run build`; test backend 94 đạt, test lõi 766 đạt; ảnh 1440 và 390 px trước / sau.
 - **Còn mở:** điện thoại có 7 mục điều hướng (khuyến nghị ≤ 5), cần quyết định gộp mục; trang H1 vẫn nhiều thuật ngữ nghiên cứu trong phần mở rộng; trang Cảnh báo trên Docker trống vì `runtime/hazard-shadow` chưa có (bộ chạy chưa bật).
+
+## RL-49 · 2026-10-24 · Đánh giá độ tin cậy nguồn dữ liệu mở
+
+- **Câu hỏi:** các nguồn mở đang dùng có đủ tin cậy không, có nguồn chính thống hơn không? Chỉ đọc tài liệu + đối chiếu RL-29…RL-48; không chạy thí nghiệm, không sửa code. Trang web mở thử ngày 24/10.
+- **Kết quả:** gió `ecmwf_ifs025` giữ (RL-31). Open-Meteo marine là MFWAM / SMOC / SST 0.08° của Météo-France, cũng là sản phẩm CMEMS, nên hai nguồn không độc lập; đổi sang CMEMS không mịn hơn nhưng có phiên bản, QUID và tải cả vùng một lần (`app/copernicus.py` đã có). Research-map không truyền `models=` (trái decisions #18).
+- **Hạn mức Open-Meteo:** nếu mỗi địa điểm tính 1 lượt, bản đồ ở HEAD (358 điểm × 2 API, 30 phút) dùng ~34.400 lượt/ngày, bản đang sửa (154 + 108 nút) ~12.600, đều trên mức 10.000; theo công thức blog 2023 chỉ ~2.450 / ~870. Chưa rõ cách đếm. Worker nuốt lỗi HTTP nên bị chặn chỉ thấy là snapshot cũ.
+- **Nguồn chính thống:** tin bão NCHMF (bảng 24/48/72 h có cấp độ rủi ro; HTML, RSS 404, không API); bản tin thủy triều 10 ngày NCHMF dạng PDF có Hòn Dáu (~26 km từ NB1); JMA có luồng XML mở; HKO có XML trên data.gov.hk. VNDMS cần đăng nhập; vms-north.vn, imer.ac.vn không kết nối được; không tìm thấy bản tin quan trắc vùng nuôi cho Hải Phòng / Quảng Ninh; không có trạm triều thời gian thực mở.
+- **Hạn chế:** DO, độ mặn, NH4 tại lồng, dòng trong luồng hẹp, sóng vịnh kín vẫn không tin được với mọi nguồn (RL-14, RL-39, RL-44). Chưa xác minh: cách đếm lượt Open-Meteo, mốc độ cao bản tin triều, thời gian ECMWF giữ file (2–3 so với ~4 ngày).
+- **Tài liệu:** `docs/eval/2026-10-24-data-sources.md`. **Tiếp theo:** giảm tần suất / ghi log lỗi research-map; cấu hình CMEMS; lưu bản tin NCHMF + JMA và bản tin triều Hòn Dáu làm tham chiếu; thử MUR SST.
+
+## RL-50 · 2026-10-24 · Bản đồ giám sát: thời tiết & biển toàn vùng, kiểu Windy; độ dốc từ GEBCO; bãi triều mượt
+
+- **Chẩn đoán (ảnh từng lớp trên Docker):** mưa, gió, sóng, mực nước, dòng chảy chỉ lấy trong vùng đệm 5 km quanh 14 trạm Cát Bà, lưới truy vấn ~1,2 km (358 điểm × 2 API mỗi 30 phút) — không phủ Hạ Long và tạo chi tiết giả (mô hình gốc ~8–25 km). Sóng vẽ thành rừng mũi tên; hạt gió màu xám trên nền xám, và vùng tìm điểm lân cận cố định 120–360 px nên hạt biến mất khi lưới thưa. Lớp "Dự báo khuyến nghị" (mưa cộng 6 giờ, gió mạnh nhất 6 giờ — đầu vào của bảng khuyến nghị) không có lớp vẽ. Bãi triều, đường đồng mức, độ dốc đều từ SDB 100 m chỉ phủ vài bãi ven bờ Hải Phòng, và bị gộp thành khối vuông 1,6 km / 800 m ở mức xa / vừa.
+- **Sửa:**
+  - Lưới vùng riêng 0,125° (~14 km) trên bbox GEBCO (106,5–108,2°E, 20,3–21,6°N): 165 nút thời tiết, ~110–120 nút biển (chỉ ô chạm mặt nước OSM). Vùng đệm 5 km giữ nguyên cho mạng trạm, tia dòng chảy, khuyến nghị. Bản tin mỗi 60 phút (~6,8 nghìn lượt gọi/ngày nếu mỗi điểm tính 1 lượt). Endpoint `/api/v1/context-region` (vùng + mặt nước giản lược ~200 m). Worker ghi log khi Open-Meteo lỗi (trước đây im lặng).
+  - Giao diện: một lớp màu mỗi lúc với thang cố định kiểu Windy (mưa, mưa 6 giờ, gió, sóng, mực nước, dòng chảy) nội suy song tuyến theo giá trị; hạt trắng cho hướng gió / sóng / dòng; lớp biển cắt theo mặt nước, mưa và gió phủ cả đất liền. "Mưa & gió 6 giờ tới" vẽ mưa cộng dồn + vòng cam ở nút vượt ngưỡng cá giò (15 mm / 40 km/h).
+  - Độ dốc đáy tính từ GEBCO (~460 m, lớp 0,5 / 1 / 2°) phủ toàn vùng; GEBCO artifact v2. Bãi triều SDB vẽ đường viền mượt (tích chập chuẩn hóa, ngưỡng phủ 0,5) thay cho khối vuông; SDB artifact v7; đường mức bãi triều gộp dưới "Bãi triều chi tiết".
+  - Phơi nhiễm sóng gió tắt mặc định, chuyển vào "Phân tích (lý thuyết)".
+- **Độ sâu (trả lời):** GEBCO 2024 là mặc định đã đánh giá (decisions #21, RL-45); ETOPO 2022 chỉ để so sánh (hố sâu sai ở Cửa Lục, Vân Đồn); SDB là nguồn thứ ba, chỉ bãi triều. Đường đẳng sâu 2–30 m từ GEBCO bổ sung cho đường mức 0,25–1 m của SDB ở vùng có SDB.
+- **Kiểm tra:** test backend 97 đạt (thêm `test_regional_grid.py`, độ dốc GEBCO); `npm run build`; ảnh từng lớp trên Docker; đếm điểm ảnh của canvas hạt (gió ~16 nghìn, sóng ~2,5 nghìn, dòng ~1,5 nghìn).
+- **Còn mở:** bản đồ vẫn dùng Open-Meteo `best_match` (không ghim `models=`); dòng chảy / mực nước / sóng nên lấy từ CMEMS (adapter có sẵn, cần quyết định cách cấp thông tin đăng nhập cho container); chưa rõ Open-Meteo đếm lượt theo điểm hay theo request (RL-49).
+
+## RL-51 · 2026-10-24 · Dòng chảy và sóng trên bản đồ lấy từ Copernicus Marine
+
+- **Thiết lập:** worker research-map dùng `cmems_mod_glo_phy_anfc_0.083deg_PT1H-m` (uo, vo bề mặt) và `cmems_mod_glo_wav_anfc_0.083deg_PT3H-i` (VHM0, VMDR, VTPK) trên cả bbox vùng; lưới gốc 1/12° (~9 km), không lọc theo vùng đệm 5 km; file tải về dùng lại 3 giờ (sản phẩm cập nhật theo ngày). Đăng nhập: file của `copernicusmarine login` trên máy gắn chỉ-đọc vào container (`COPERNICUS_CREDENTIALS_PATH`), không chép mật khẩu vào `.env`; không có file thì CMEMS tắt, bản đồ dùng Open-Meteo như cũ.
+- **Kết quả (24/10 02 UTC):** dòng chảy 240 điểm, 0,003–0,185 m/s; sóng 225 điểm, Hs 0,05–0,43 m; tải lần đầu ~40 s, lần sau dùng lại 0 s.
+- **Giữ Open-Meteo cho mực nước:** `zos` của CMEMS đo so với geoid (~0,93–0,99 m quanh Cát Bà), không cùng mốc với `sea_level_height_msl` (so với mực nước trung bình) của Open-Meteo; đổi nguồn sẽ làm chú giải sai nghĩa. Mưa và gió vẫn từ Open-Meteo.
+- **Hạn chế:** CMEMS báo dataset GLO12 "đang cập nhật", dữ liệu sau 23/10 00 UTC có thể chưa đầy đủ; mô hình ~9 km vẫn không thấy dòng siết ở luồng hẹp.
+
+## RL-52 · 2026-10-24 · Bản đồ: vùng tin cậy mặc định, cờ hố sâu GEBCO, tô bóng đáy, đồng bộ dữ liệu, điều hướng 4 mục
+
+- **Cờ "nghi lỗi nguồn / hố sâu" (GEBCO):** quy tắc cũ (giống ETOPO: sâu > 30 m, không nối ra biển mở) gắn cờ 31 cụm / 772 ô. Kiểm tra từng cụm: ~22 cụm ngoài khơi phía nam chỉ sâu 31–34 m cạnh nước ~29 m (đáy nhấp nhô quanh ngưỡng, không phải hố); các cụm trong vịnh sâu 32–55 m cạnh nước 15–23 m, nhiều cụm có ô đo trực tiếp (TID 17) nên nhiều khả năng là rãnh triều thật giữa đảo. Quy tắc mới: chỉ gắn cờ khi sâu hơn vòng xung quanh ≥ 12 m, vòng xung quanh < 25 m và không có ô đo trực tiếp → còn 24 ô. GEBCO artifact v3; thêm test.
+- **Bản đồ mặc định:** "Độ tin cậy & trạng thái nuôi" — ô 1 km (H4) tô theo chế độ mặn so với NB1 (cùng chế độ = tin cậy, chuyển tiếp = kém, cửa sông = không đại diện) + quầng 2,5 km quanh mỗi điểm nuôi theo trạng thái khuyến nghị. Dải độ sâu GEBCO tắt mặc định, giữ đường đẳng sâu. Hạn chế: quanh Cát Bà phần lớn ô chưa được tô vì không có trạm quan trắc QN trong 10 km.
+- **Độ dốc đáy → tô bóng địa hình đáy:** bóng đổ (hillshade) từ lưới GEBCO, chiều sâu phóng đại ×30 (vịnh đa số dốc < 0,5°), phủ lên các tầng độ sâu; endpoint `/api/v1/bathymetry/gebco/hillshade`.
+- **Sóng, dòng chảy:** hạt chạy với tốc độ màn hình ổn định theo hướng (độ lớn thật quá nhỏ nên trước đây gần như đứng yên), vệt dài như gió; thang màu chia mịn ở giá trị nhỏ (sóng < 1 m, dòng < 0,5 m/s).
+- **Đồng bộ dữ liệu:** mở trang hoặc bấm "Đồng bộ" gửi `POST /api/v1/refresh`; worker (nơi duy nhất ghi dữ liệu, có quyền Copernicus) thấy yêu cầu trong ≤ 5 s và lấy bản tin ngay; bản tin < 10 phút thì không lấy lại (hạn mức Open-Meteo). Worker vẫn lấy ngay khi khởi động và mỗi 60 phút.
+- **Giao diện:** chữ khi rê chuột chỉ còn giá trị (ví dụ "5–10 m"); nguồn và độ tin cậy chuyển vào thẻ khi bấm. Điều hướng còn 4 mục: Bản đồ · Cảnh báo · Phân tích (tab Dự báo / Thời tiết / Phân vùng / Độ tin cậy) · Cấu hình.
+- **Kiểm tra:** test backend 104 đạt; `npm run build`; ảnh 1440 và 390 px trên Docker.
+
+## RL-53 · 2026-10-24 · Cảm biến trên bản đồ dừng ở 14/10: nguyên nhân và nạp lịch sử; bản đồ mặc định là vùng HSI + hiện trạng
+
+- **Nguyên nhân:** `research-map/.env` không có `TK_DHTB` / `MK_DHTB`, nên worker Docker chưa từng gọi GreenLab; trạm vẫn phát (bộ thu hằng ngày trên máy đã có tới 23/10). Vì số đo cuối trong Postgres là 14/10 (quá hạn 10 phút), khuyến nghị coi NH3 và nhiệt độ là thiếu → cả 14 điểm "Thiếu dữ liệu".
+- **Sửa:** chép tài khoản từ `.env` gốc sang `research-map/.env` (không in ra, không vào git). Worker nạp lịch sử bằng `/Datums/DataByDate` (giờ địa phương +07, decisions #12) từ ngày mới nhất đã lưu tới hôm nay (tối đa 30 ngày, khối 7 ngày) khi khởi động, mỗi 30 phút và khi bấm "Đồng bộ"; vẫn đọc số mới nhất mỗi 60 s. Lần đầu nạp 75.315 bản ghi; số đo mới nhất cách ~25 s; cả 14 điểm "Bình thường" với số đo đủ.
+- **Bản đồ mặc định:** vùng HSI lịch sử (nền = phân loại phù hợp, chưa kiểm chứng) có viền đậm theo hiện trạng nuôi lúc này của điểm trong vùng (cảm biến + dự báo mưa, gió 6 giờ); dải độ sâu GEBCO bật lại như trước; lớp độ tin cậy NB1 (H4) chuyển thành tuỳ chọn vì chỉ phủ quanh trạm quan trắc Quảng Ninh.
+- **Sóng:** hạt sóng vẽ thành gợn ngắn vuông góc với hướng truyền, trôi chậm (kiểu Windy), gợn dài hơn khi sóng cao.
+- **Lưu ý:** pH cảm biến ~6,66 vẫn là trôi đầu dò đã biết (H1 pH drift), không phải nước thật chua.

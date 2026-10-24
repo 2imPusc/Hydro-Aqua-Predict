@@ -15,7 +15,7 @@ from shapely import contains_xy, prepare
 from app.domain import build_context_domain, water_geometry_for_bounds
 
 
-BATHYMETRY_ARTIFACT_VERSION = "copernicus-sdb-100m-v6"
+BATHYMETRY_ARTIFACT_VERSION = "copernicus-sdb-100m-v7"  # v7: smooth contoured bands/contours instead of LOD squares
 DATASET_ID = "cmems_obs-sdb_glo_phy_comp_my_100m-l4-s2_static"
 QUALITY_ACCEPTED = (0, 1, 2)
 QUALITY_RULE = "accept 0=Highly_reliable, 1=Reliable, 2=Moderately_reliable; reject 3=High_uncertainties and 4=Unknown_uncertainties"
@@ -135,6 +135,39 @@ def _contours(lons: np.ndarray, lats: np.ndarray, depth: np.ndarray, valid: np.n
     return {"type": "FeatureCollection", "features": features}
 
 
+# Tidal-flat depth classes (m) for the contoured SDB bands; the band's depth_m is its midpoint (legend colour).
+SDB_BAND_EDGES = (0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0)
+
+
+def _smooth_layers(lons: np.ndarray, lats: np.ndarray, depth: np.ndarray, valid: np.ndarray, water: Any, levels: tuple[float, ...]) -> dict[str, list]:
+    """Contour the 100 m SDB grid into smooth bands and lines (no aggregated squares).
+
+    Normalised convolution: depth is smoothed only over valid pixels and divided by the smoothed coverage,
+    so gaps never pull the depth toward 0; the coverage >= 0.5 outline bounds every polygon.
+    """
+    from app.bathymetry_etopo import _filled_polygons, _lines, smooth
+    if lats[0] > lats[-1]:
+        lats, depth, valid = lats[::-1], depth[::-1], valid[::-1]
+    cover_f = smooth(valid.astype(float), 3)
+    depth_f = smooth(np.where(valid, depth, 0.0), 3) / np.maximum(cover_f, 1e-6)
+    cover = _filled_polygons(lons, lats, cover_f, 0.5, 2.0)
+    if cover is None or cover.is_empty:
+        return {"bands": [], "lines": []}
+    cover = cover.intersection(water)
+    edges = list(SDB_BAND_EDGES) + [max(float(np.nanmax(np.where(valid, depth, 0))) + 1.0, SDB_BAND_EDGES[-1] + 1.0)]
+    bands = []
+    for lower, upper in zip(edges[:-1], edges[1:]):
+        geometry = _filled_polygons(lons, lats, depth_f, lower, upper)
+        if geometry is not None:
+            bands.append((lower, upper, geometry.intersection(cover)))
+    lines = []
+    for level in levels:
+        geometry = _lines(lons, lats, depth_f, level)
+        if geometry is not None:
+            lines.append((level, geometry.intersection(cover)))
+    return {"bands": bands, "lines": lines}
+
+
 def ensure_bathymetry_artifact(cache_dir: str, raw_path: str, buffer_m: int) -> dict[str, Any]:
     path = Path(raw_path)
     if not path.is_file():
@@ -169,13 +202,24 @@ def ensure_bathymetry_artifact(cache_dir: str, raw_path: str, buffer_m: int) -> 
     slope = np.degrees(np.arctan(np.hypot(gx, gy)))
     root = _root(cache_dir); root.mkdir(parents=True, exist_ok=True)
     files: dict[str, str] = {}
-    for lod, stride in LODS.items():
+    from app.bathymetry_etopo import LOD_MIN_AREA, LOD_TOLERANCE, _features
+    levels = tuple(level for level in CONTOURS if level <= float(np.nanmax(depth))) or (float(np.nanmax(depth)),)
+    smooth_layers = _smooth_layers(lons, lats, depth, valid, water, levels)
+    for lod in LODS:
         bands_name = f"bands-{key}-{lod}.json"; contours_name = f"contours-{key}-{lod}.json"
-        _write_json_atomic(root / bands_name, _depth_bands(lons, lats, depth, valid, quality, sdb_type, slope, stride, water))
-        requested_levels = (0.5, 1.0) if lod == "low" else CONTOURS
-        available_levels = tuple(level for level in requested_levels if level <= float(np.nanmax(depth)))
-        levels = available_levels or (float(np.nanmax(depth)),)
-        _write_json_atomic(root / contours_name, _contours(lons, lats, depth, valid, stride, levels, water))
+        band_features = []
+        for lower, upper, geometry in smooth_layers["bands"]:
+            last = upper > SDB_BAND_EDGES[-1]
+            band_features += _features(geometry, {"kind": "copernicus_depth_band", "depth_m": round((lower + (upper if not last else lower + 1.0)) / 2, 2),
+                                                  "depth_min_m": lower, "depth_max_m": None if last else upper, "depth_band": f"≥ {lower:g} m" if last else f"{lower:g}–{upper:g} m",
+                                                  "depth_source": "copernicus_sdb_100m", "coverage": "available"}, LOD_TOLERANCE[lod], LOD_MIN_AREA[lod])
+        lod_levels = (0.5, 1.0) if lod == "low" else levels
+        line_features = []
+        for level, geometry in smooth_layers["lines"]:
+            if level in lod_levels:
+                line_features += _features(geometry, {"kind": "copernicus_depth_contour", "depth_m": level, "depth_source": "copernicus_sdb_100m"}, LOD_TOLERANCE[lod], 0.0)
+        _write_json_atomic(root / bands_name, {"type": "FeatureCollection", "features": band_features})
+        _write_json_atomic(root / contours_name, {"type": "FeatureCollection", "features": line_features})
         files[f"bands_{lod}"], files[f"contours_{lod}"] = bands_name, contours_name
     grid_name = f"grid-{key}.npz"
     with tempfile.NamedTemporaryFile(dir=root, suffix=".npz", delete=False) as temporary:

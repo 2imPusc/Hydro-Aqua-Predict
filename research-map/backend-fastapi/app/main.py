@@ -12,10 +12,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 import psycopg
 
+from app import refresh
 from app.repository import SnapshotRepository, snapshot_status
 from app.schemas import ContextSnapshot, LayerPayload, SensorLatest, SensorObservation, SensorObservationIn
 from app.settings import settings
-from app.domain import build_context_domain, stations_geojson
+from app.domain import build_context_domain, region_geojson, stations_geojson
 from app.aquaculture_artifacts import build_aquaculture_artifacts
 from app.network import building_station_network, ensure_station_network_cache, load_station_network_cache
 from app.hsi_cache import load_hsi_cache
@@ -254,6 +255,41 @@ def aquaculture_map(mode: str = "live", scenario: str = "normal") -> dict:
     return artifact or {"status": "building", "mode": mode, "scenario": scenario, "artifact_version": "aquaculture-map-v1", "type": "FeatureCollection", "features": []}
 
 
+def _latest_retrieved_at():
+    latest = repository.latest()
+    value = latest.get("retrieved_at") if latest else None
+    if value is not None and getattr(value, "tzinfo", None) is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value
+
+
+@app.post("/api/v1/refresh")
+def refresh_request() -> dict:
+    """Ask the worker for a new context snapshot now (page open / sync button); throttled to one per 10 min."""
+    try:
+        latest = _latest_retrieved_at()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"reason_code": "database_unavailable"}) from exc
+    return refresh.request_refresh(settings.cache_dir, latest)
+
+
+@app.get("/api/v1/refresh")
+def refresh_state() -> dict:
+    try:
+        latest = _latest_retrieved_at()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"reason_code": "database_unavailable"}) from exc
+    requested = refresh.read_request(settings.cache_dir)
+    return {"pending": bool(requested and (latest is None or requested > latest)), "requested_at": requested.isoformat() if requested else None,
+            "latest_retrieved_at": latest.isoformat() if latest else None}
+
+
+@app.get("/api/v1/context-region")
+def context_region() -> dict:
+    """Regional environment grid extent + simplified OSM water polygon (clips marine fields in the browser)."""
+    return region_geojson(tuple(settings.context_region_bbox), settings.context_region_step_deg)
+
+
 @app.get("/api/v1/context-domain")
 def context_domain() -> dict:
     """Convex-hull context domain buffered 5 km around the station network."""
@@ -349,11 +385,17 @@ def bathymetry_gebco_manifest() -> dict:
     return _gebco_manifest()
 
 
+@app.get("/api/v1/bathymetry/gebco/hillshade")
+def bathymetry_gebco_hillshade() -> dict:
+    """Seabed relief shading from the GEBCO grid (uint8 dark/light masks, row 0 = north), depth exaggerated."""
+    return bathymetry_gebco.hillshade(settings.cache_dir, bathymetry_gebco.load_manifest(settings.cache_dir))
+
+
 @app.get("/api/v1/bathymetry/gebco/{kind}")
 def bathymetry_gebco_layer(kind: str, lod: str = "low") -> dict:
-    """GEBCO 2024 isobands (with TID confidence) / isobaths / flags (worker-built, read-only here)."""
-    if kind not in ("isobands", "isobaths", "flags"):
-        raise HTTPException(status_code=404, detail={"reason_code": "unknown_layer", "allowed": ["isobands", "isobaths", "flags"]})
+    """GEBCO 2024 isobands (with TID confidence) / isobaths / flags / slope classes (worker-built, read-only here)."""
+    if kind not in ("isobands", "isobaths", "flags", "slope"):
+        raise HTTPException(status_code=404, detail={"reason_code": "unknown_layer", "allowed": ["isobands", "isobaths", "flags", "slope"]})
     if lod not in bathymetry_gebco.LOD_TOLERANCE:
         raise HTTPException(status_code=422, detail={"reason_code": "invalid_lod", "allowed": list(bathymetry_gebco.LOD_TOLERANCE)})
     manifest = _gebco_manifest()

@@ -97,7 +97,7 @@ export function splitRefs(text: string): { text: string; refs: string[] } {
   return { text: stripped, refs }
 }
 
-const PROVIDER: Record<string, string> = { open_meteo: 'Open-Meteo', openmeteo: 'Open-Meteo', copernicus: 'Copernicus Marine', cmems: 'Copernicus Marine', ecmwf: 'ECMWF', noaa: 'NOAA' }
+const PROVIDER: Record<string, string> = { open_meteo: 'Open-Meteo', openmeteo: 'Open-Meteo', copernicus: 'Copernicus Marine', copernicus_marine: 'Copernicus Marine', cmems: 'Copernicus Marine', ecmwf: 'ECMWF', noaa: 'NOAA' }
 /** Data provider id → display name ("open_meteo" → "Open-Meteo"). */
 export const providerLabel = (provider?: string | null) => (provider ? PROVIDER[provider.toLowerCase()] ?? provider : 'nguồn chưa rõ')
 

@@ -146,3 +146,25 @@ def point_inside_context(longitude: float, latitude: float, buffer_m: int = 5_00
 def domain_center(buffer_m: int = 5_000) -> tuple[float, float]:
     min_lon, min_lat, max_lon, max_lat = build_context_domain(buffer_m)["provider_bbox"]
     return (min_lat + max_lat) / 2, (min_lon + max_lon) / 2
+
+
+@lru_cache(maxsize=4)
+def region_water_geometry(bbox: tuple[float, ...]):
+    """OSM water mask for the regional environment grid (None when the mask is unavailable)."""
+    min_lon, min_lat, max_lon, max_lat = bbox
+    return _load_water((min_lon, min_lat, max_lon, max_lat))
+
+
+@lru_cache(maxsize=4)
+def region_geojson(bbox: tuple[float, ...], step_deg: float, tolerance_deg: float = 0.002) -> dict[str, Any]:
+    """Regional grid extent + a simplified (~200 m) water polygon for clipping marine fields in the browser."""
+    water = region_water_geometry(bbox)
+    simplified = water.simplify(tolerance_deg, preserve_topology=True) if water is not None else box(*bbox)
+    return {
+        "type": "FeatureCollection",
+        "bbox": list(bbox), "step_deg": step_deg, "water_clipped": water is not None,
+        "features": [
+            {"type": "Feature", "geometry": mapping(box(*bbox)), "properties": {"kind": "region_boundary"}},
+            {"type": "Feature", "geometry": mapping(simplified), "properties": {"kind": "region_water", "simplify_deg": tolerance_deg}},
+        ],
+    }

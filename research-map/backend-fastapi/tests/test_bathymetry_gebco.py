@@ -12,7 +12,7 @@ def _raw(tmp_path):
     lat = np.round(np.arange(20.7, 20.8001, 0.01), 5)
     xx, yy = np.meshgrid(lon, lat)
     z = -(5.0 + (20.8 - yy) * 300)
-    z[7:9, 2:4] = -90.0                        # enclosed bogus hole
+    z[7:9, 6:8] = -90.0                        # enclosed bogus hole (interpolated cells, shallow surroundings)
     z[5, 8] = 3.0                               # land cell inside OSM water
     tid = np.full(z.shape, 44, dtype="int8")   # interpolated everywhere ...
     tid[:, :5] = 11                             # ... except a measured western strip
@@ -54,3 +54,42 @@ def test_gebco_artifact_has_tid_confidence_and_is_write_once(tmp_path):
 def test_missing_file_is_unavailable(tmp_path):
     result = gebco.ensure_gebco_artifact(str(tmp_path), str(tmp_path / "nope.nc"), water=box(0, 0, 1, 1))
     assert result["reason_code"] == "gebco_bathymetry_file_missing"
+
+
+def test_gebco_artifact_has_slope_classes(tmp_path):
+    water = box(106.99, 20.69, 107.11, 20.81)
+    cache = str(tmp_path / "cache")
+    manifest = gebco.ensure_gebco_artifact(cache, str(_raw(tmp_path)), water=water)
+    assert manifest["slope_edges_deg"] == list(gebco.SLOPE_EDGES_DEG)
+    slope = gebco.load_geojson(cache, manifest, "slope", "high")
+    classes = {f["properties"]["class"] for f in slope["features"]}
+    assert all(f["properties"]["kind"] == "gebco_slope" for f in slope["features"])
+    # The enclosed -90 m hole is a steep pit on a gentle ramp: both a gentle and the steepest class exist.
+    assert 0 in classes and len(gebco.SLOPE_EDGES_DEG) - 1 in classes
+    assert manifest["slope_max_deg"] > 2.0
+
+
+def test_suspect_needs_contrast_shallow_ring_and_no_sounding():
+    wet = np.ones((12, 12), dtype=bool)
+    indirect = np.full((12, 12), 2)
+    # Measured deep channel in a shallow bay: real, not flagged.
+    bay = np.full((12, 12), 15.0); bay[5:7, 5:7] = 45.0
+    measured = indirect.copy(); measured[5:7, 5:7] = 1
+    assert not gebco.gebco_suspect_mask(bay, measured, wet).any()
+    assert gebco.gebco_suspect_mask(bay, indirect, wet)[5:7, 5:7].all()
+    # Open-Gulf seabed dipping just below 30 m next to 29 m water: not a hole.
+    gulf = np.full((12, 12), 29.0); gulf[5:7, 5:7] = 32.0
+    assert not gebco.gebco_suspect_mask(gulf, indirect, wet).any()
+
+
+def test_hillshade_shapes_and_flat_bottom_is_unshaded(tmp_path):
+    import base64
+    water = box(106.99, 20.69, 107.11, 20.81)
+    cache = str(tmp_path / "cache")
+    manifest = gebco.ensure_gebco_artifact(cache, str(_raw(tmp_path)), water=water)
+    shade = gebco.hillshade(cache, manifest)
+    assert shade["status"] == "ready" and shade["exaggeration"] == gebco.HILLSHADE_EXAGGERATION
+    dark = np.frombuffer(base64.b64decode(shade["dark_b64"]), dtype="uint8").reshape(shade["height"], shade["width"])
+    light = np.frombuffer(base64.b64decode(shade["light_b64"]), dtype="uint8").reshape(shade["height"], shade["width"])
+    assert dark.max() > 0 and light.max() > 0          # the bogus hole has a shaded and a lit wall
+    assert gebco.hillshade(cache, None)["status"] == "building"
