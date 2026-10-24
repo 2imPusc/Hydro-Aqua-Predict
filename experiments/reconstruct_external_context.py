@@ -39,13 +39,14 @@ def availability(valid_at: pd.Series, lead_days: int, lag: pd.Timedelta = LAG) -
     return valid_at.dt.floor("D") - pd.Timedelta(days=lead_days) + pd.Timedelta(days=1) + lag
 
 
-def to_records(hourly: pd.DataFrame, station: str, location: dict, lead_days: int) -> list[dict]:
+def to_records(hourly: pd.DataFrame, station: str, location: dict, lead_days: int,
+               variables: tuple[str, ...] = VARIABLES) -> list[dict]:
     """One snapshot record per valid hour for one lead, in the captured_live schema."""
     valid = pd.to_datetime(hourly["time"], utc=True)
     avail = availability(valid, lead_days)
     records = []
     for i in range(len(hourly)):
-        features = {v: hourly[f"{v}_previous_day{lead_days}"].iloc[i] for v in VARIABLES}
+        features = {v: hourly[f"{v}_previous_day{lead_days}"].iloc[i] for v in variables}
         if all(pd.isna(x) for x in features.values()):
             continue
         features = {k: (None if pd.isna(x) else float(x)) for k, x in features.items()}
