@@ -73,9 +73,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import rankdata
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -228,6 +228,7 @@ def fetch_reconstructed(start: str, end: str, out_path: Path, station: str = STA
 def fetch_era5(start: str, end: str, out_path: Path, station: str = STATION) -> dict:
     import requests
     location = weather_location_for_station(station)
+    end = min(pd.Timestamp(end), pd.Timestamp.now(tz="UTC").tz_localize(None).normalize()).strftime("%Y-%m-%d")  # archive rejects future dates
     params = {"latitude": location["latitude"], "longitude": location["longitude"], "hourly": ",".join(ERA5_VARIABLES),
               "start_date": start, "end_date": end, "timezone": "UTC", "models": "era5"}
     response = requests.get("https://archive-api.open-meteo.com/v1/archive", params=params, timeout=300)
@@ -384,13 +385,29 @@ def brier(p: np.ndarray, y: np.ndarray) -> float:
     return float(np.mean((np.asarray(p, float) - np.asarray(y, float)) ** 2))
 
 
-def score(frame: pd.DataFrame) -> dict:
-    y, p = frame["y"].to_numpy(float), frame["p"].to_numpy(float)
-    bs, bs_c, bs_p = brier(p, y), brier(frame["p_clim"], y), brier(frame["p_persist"], y)
-    auc = float(roc_auc_score(y, p)) if 0 < y.sum() < len(y) else np.nan
+def auc_rank(y: np.ndarray, p: np.ndarray) -> float:
+    """ROC-AUC via the Mann-Whitney rank statistic (ties averaged); NaN with one class."""
+    n1 = int(y.sum())
+    n0 = len(y) - n1
+    if n1 == 0 or n0 == 0:
+        return np.nan
+    ranks = rankdata(p)
+    return float((ranks[y == 1].sum() - n1 * (n1 + 1) / 2) / (n1 * n0))
+
+
+def _score_arrays(y: np.ndarray, p: np.ndarray, pc: np.ndarray, pp: np.ndarray) -> dict:
+    bs, bs_c, bs_p = brier(p, y), brier(pc, y), brier(pp, y)
     return {"brier": bs, "brier_clim": bs_c, "brier_persist": bs_p,
             "bss_clim": 1 - bs / bs_c if bs_c > 0 else np.nan,
-            "bss_persist": 1 - bs / bs_p if bs_p > 0 else np.nan, "auc": auc}
+            "bss_persist": 1 - bs / bs_p if bs_p > 0 else np.nan, "auc": auc_rank(y, p)}
+
+
+def _arrays(frame: pd.DataFrame) -> tuple[np.ndarray, ...]:
+    return tuple(frame[c].to_numpy(float) for c in ("y", "p", "p_clim", "p_persist"))
+
+
+def score(frame: pd.DataFrame) -> dict:
+    return _score_arrays(*_arrays(frame))
 
 
 def block_bootstrap(frame: pd.DataFrame, block_days: int, draws: int = BOOT_DRAWS, seed: int = 42) -> dict:
@@ -398,15 +415,17 @@ def block_bootstrap(frame: pd.DataFrame, block_days: int, draws: int = BOOT_DRAW
     days = sorted(frame["issue_day"].unique())
     if len(days) < 3:
         return {}
-    by_day = [frame.index[frame["issue_day"].eq(d)].to_numpy() for d in days]
+    day_of_row = frame["issue_day"].map({d: i for i, d in enumerate(days)}).to_numpy()
+    by_day = [np.flatnonzero(day_of_row == i) for i in range(len(days))]
+    arrays = _arrays(frame)
     rng = np.random.default_rng(seed)
     n, n_blocks = len(days), int(np.ceil(len(days) / block_days))
     stats = []
     for _ in range(draws):
         starts = rng.integers(0, n, n_blocks)
         picked = np.concatenate([(s + np.arange(block_days)) % n for s in starts])[:n]
-        sample = frame.loc[np.concatenate([by_day[i] for i in picked])]
-        stats.append(score(sample))
+        rows = np.concatenate([by_day[i] for i in picked])
+        stats.append(_score_arrays(*(a[rows] for a in arrays)))
     table = pd.DataFrame(stats)
     out = {}
     for col in table:
@@ -434,6 +453,23 @@ def verdict(row: pd.Series) -> str:
     if row["bss_clim"] > 0 and row["bss_clim_ci_lo"] > 0:
         return "skill"
     return "no_skill"
+
+
+def regime_diagnostics(hourly: pd.Series, era5: pd.DataFrame, labels: pd.DataFrame) -> pd.DataFrame:
+    """POST-HOC (added after the first look at results): weekly diurnal amplitude of the sensor vs
+    ERA5 air-temperature range, and weekly E1/E2/E3 rates. Explains non-stationary base rates."""
+    local = hourly.tz_convert(LOCAL_TZ)
+    day = local.groupby(local.index.date).agg(["min", "max", "count"])
+    day = day[day["count"] >= WINDOW_MIN_BINS]
+    day.index = pd.to_datetime(day.index).tz_localize(LOCAL_TZ)
+    air = era5.assign(t=pd.to_datetime(era5["time"], utc=True).dt.tz_convert(LOCAL_TZ)).set_index("t")["temperature_2m"]
+    air_day = air.resample("D").agg(["min", "max", "count"])
+    air_day = air_day[air_day["count"] == 24]
+    weekly = pd.DataFrame({"sensor_daily_range_median_c": (day["max"] - day["min"]).resample("W").median(),
+                           "era5_air_daily_range_median_c": (air_day["max"] - air_day["min"]).resample("W").median()})
+    lab = labels.dropna(subset=["y"]).assign(t=lambda f: pd.to_datetime(f["issued_at"], utc=True).dt.tz_convert(LOCAL_TZ))
+    rates = lab.groupby(["event", pd.Grouper(key="t", freq="W")])["y"].mean().unstack(0).add_suffix("_rate")
+    return weekly.join(rates, how="outer").rename_axis("week_ending_local").reset_index()
 
 
 # ---------------------------------------------------------------- run
@@ -546,7 +582,7 @@ def main(argv: list[str] | None = None) -> int:
         weather_info = {"reused_from": str(args.weather_jsonl), "sha256": hashlib.sha256(weather_path.read_bytes()).hexdigest()}
     else:
         weather_info = fetch_reconstructed(start, end, weather_path)
-    era5_path = out / f"openmeteo_era5_nb1_{start}_{end}.csv"
+    era5_path = out / f"openmeteo_era5_nb1_{start}_fetched{pd.Timestamp.now(tz='UTC'):%Y%m%d}.csv"
     if args.era5_csv:
         era5_path.write_bytes(args.era5_csv.read_bytes())
         era5_info = {"reused_from": str(args.era5_csv), "model": "era5"}
@@ -576,6 +612,7 @@ def main(argv: list[str] | None = None) -> int:
     metrics, rel = evaluate(preds)
     metrics.to_csv(out / "metrics.csv", index=False)
     rel.to_csv(out / "reliability.csv", index=False)
+    regime_diagnostics(hourly, era5, labels).to_csv(out / "diag_regime_weekly.csv", index=False)
 
     verdicts = {}
     for event in EVENTS:
@@ -585,6 +622,7 @@ def main(argv: list[str] | None = None) -> int:
                            "lockbox": {k: lock[k] for k in ("n", "n_events", "n_days", "brier", "bss_clim", "bss_clim_ci_lo",
                                                             "bss_clim_ci_hi", "bss_persist", "bss_persist_ci_lo", "bss_persist_ci_hi", "auc")},
                            "beats_persistence_lockbox": bool(lock["bss_persist_ci_lo"] > 0) if pd.notna(lock.get("bss_persist_ci_lo")) else None,
+                           "lockbox_event_rate": float(lock["event_rate"]), "lockbox_train_base_rate": float(lock["mean_p_clim"]),
                            "cv_pooled_supporting": {"verdict_rule_applied": verdict(cv),
                                                     **{k: cv[k] for k in ("n", "n_events", "bss_clim", "bss_clim_ci_lo", "bss_clim_ci_hi",
                                                                           "bss_persist", "bss_persist_ci_lo", "bss_persist_ci_hi", "auc")}}}
