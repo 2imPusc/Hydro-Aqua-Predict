@@ -25,8 +25,8 @@ export const FlowArtifactOverlay = memo(function FlowArtifactOverlay({ artifact,
       ? { color: '#0b5fc1', weight: rayWeight, opacity: .82 }
       : { color: '#ea580c', weight: 2.8, opacity: .95 }} onEachFeature={(feature, layer) => layer.bindTooltip(
         feature.properties?.kind === 'flow_ray'
-          ? `Tia dòng chảy nội suy theo nước · snapshot ${artifact.snapshot_id.slice(0, 8)}`
-          : `Current compatibility (research only) · ${feature.properties?.station_a} -> ${feature.properties?.station_b}`,
+          ? 'Hướng dòng chảy'
+          : `Dòng chảy ${feature.properties?.station_a} → ${feature.properties?.station_b}`,
       )} />
     {arrows}
   </>

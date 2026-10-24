@@ -1,4 +1,5 @@
 import { getJson } from './client'
+import type { SeabedShade } from '../components/map/overlays/SeabedShadeOverlay'
 import type { AquacultureMap, BathymetryManifest, BathymetrySample, BathymetryVectorLayer, ContextDomain, ContextRegion, EtopoManifest, GebcoManifest, DataMode, FlowArtifact, FlowLatest, FlowScenarios, HsiZones, SensorLatest, Snapshot, StationNetwork, Stations } from '../types/monitor'
 
 type Signal = AbortSignal | undefined
@@ -19,6 +20,7 @@ export const getBathymetryManifest = (signal?: Signal) => getJson<BathymetryMani
 export const getBathymetryDepthBands = (lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/depth-bands?lod=${q(lod)}`, signal)
 export const getBathymetryContours = (lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/contours?lod=${q(lod)}`, signal)
 export const getGebcoManifest = (signal?: Signal) => getJson<GebcoManifest>('/bathymetry/gebco/manifest', signal)
+export const getSeabedShade = (signal?: Signal) => getJson<SeabedShade>('/bathymetry/gebco/hillshade', signal)
 export const getGebcoLayer = (kind: 'isobands' | 'isobaths' | 'flags' | 'slope', lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/gebco/${kind}?lod=${q(lod)}`, signal)
 export const getEtopoManifest = (signal?: Signal) => getJson<EtopoManifest>('/bathymetry/etopo/manifest', signal)
 export const getEtopoLayer = (kind: 'isobands' | 'isobaths' | 'flags', lod: string, signal?: Signal) => getJson<BathymetryVectorLayer>(`/bathymetry/etopo/${kind}?lod=${q(lod)}`, signal)

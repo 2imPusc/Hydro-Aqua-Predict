@@ -10,9 +10,9 @@ import { EXPOSURE_INK } from '../../components/map/overlays/SiteExposureOverlay'
 import { wedgePath, type SiteExposure } from '../../components/map/siteExposure'
 import type { EnabledLayers } from './useMonitorData'
 import { PALETTES, paletteGradient } from '../../components/map/fieldPalettes'
-import { GEBCO_SLOPE_CLASSES } from '../../components/map/overlays/GebcoSlopeOverlay'
 import { activeField, ADVISORY_RAIN_MM, ADVISORY_WIND_KMH } from './RegionalFields'
 import { num, providerLabel } from '../../lib/format'
+import { RELIABILITY_CLASSES, STATUS_HALO_M } from '../../components/map/overlays/ReliabilityZonesOverlay'
 import { isCompactScreen, LEFT_PANEL_WIDTH, SCROLL_FADE } from './LayerControl'
 
 /** Fixed-scale colour key of the active regional field; states the model grid so smoothness is not read as detail. */
@@ -90,6 +90,8 @@ export const MapLegends = memo(function MapLegends({ enabled, environmentLayers,
             { color: STALE_STYLE.pattern, label: STALE_STYLE.label, shape: 'dot' as const },
           ]} columns={2}
             note={<>{advisoryStale && <b className="font-semibold text-fg">Khuyến nghị đang cũ: trạm hiện sọc xám, không theo mức. </b>}{mockMode ? 'Viền tím nét đứt = điểm mô phỏng.' : 'Một cảm biến vật lý (06M26042804); các điểm khác dùng chung số đo của trạm này.'}</>} />
+          {enabled.reliability_zones && <SwatchLegend title="Độ tin cậy của số đo NB1" items={(['same', 'transitional', 'other'] as const).map(key => ({ color: `rgb(${RELIABILITY_CLASSES[key].color.join(',')})`, label: RELIABILITY_CLASSES[key].label }))}
+            note={`Theo chế độ độ mặn từ trạm quan trắc Quảng Ninh gần nhất (ô 1 km, trong 10 km); chỗ không tô = chưa đủ trạm để đánh giá. Quầng ${STATUS_HALO_M / 1000} km quanh mỗi điểm = trạng thái nuôi hiện tại. Chỉ nghiên cứu.`} />}
           {/* Depth colours most of the map by default: its key comes right after the station states. */}
           {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} gebco={gebco} showEtopo={enabled.depth_etopo && etopo?.status === 'ready'} />}
           {enabled.site_exposure && exposure?.status === 'ready' && <ExposureLegend theme={theme} exposure={exposure} />}
@@ -97,7 +99,8 @@ export const MapLegends = memo(function MapLegends({ enabled, environmentLayers,
           {field && <FieldLegend id={field} layer={fieldLayer} />}
           {enabled.flow_streamlines && <SwatchLegend title="Tia dòng chảy quanh trạm" items={[{ color: '#0b5fc1', label: 'Tia nội suy theo mặt nước', shape: 'line' }, { color: '#ea580c', label: 'Tương thích dòng–trạm (chỉ nghiên cứu)', shape: 'line' }]} />}
           {bathyBands && <GradientLegend title="Bãi triều (vệ tinh SDB ~100 m)" gradient="linear-gradient(to right, hsl(195 78% 76%), hsl(210 78% 55%), hsl(225 78% 33%))" ticks={['0 m', '1 m', '≥ 2 m']} note="Chỉ có ở bãi triều ven bờ Hải Phòng · không dùng cho hàng hải" />}
-          {enabled.depth_slope && <SwatchLegend title="Độ dốc đáy (GEBCO ~460 m)" items={GEBCO_SLOPE_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} note="Lưới thô: chỉ thấy sườn dốc lớn quanh đảo, không thấy rãnh hẹp." />}
+          {enabled.depth_slope && <SwatchLegend title="Tô bóng địa hình đáy" items={[{ color: '#0c1e46', label: 'Sườn dốc khuất sáng' }, { color: '#e2e8f0', label: 'Sườn dốc đón sáng' }]} columns={2}
+            note="Độ dốc đáy = mức nghiêng của đáy biển; vịnh rất thoải (đa số < 0,5°) nên chiều sâu được phóng đại ×30 để thấy hình dạng. Từ GEBCO ~460 m: thấy sườn quanh đảo và rãnh lớn, không thấy luồng hẹp." />}
           {enabled.station_network && <SwatchLegend title="Mạng trạm" items={[{ color: '#64748b', label: 'Kết nối mặt nước tĩnh (không phải hướng dòng)', shape: 'dash' }]} />}
           {enabled.context_buffer && <SwatchLegend title="Phạm vi" items={[{ color: '#38bdf8', label: 'Context 5 km trên mặt nước' }, { color: '#2563eb', label: 'Biên buffer', shape: 'dash' }]} />}
         </div>

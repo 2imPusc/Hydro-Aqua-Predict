@@ -1,6 +1,8 @@
-import { useCallback } from 'react'
-import { getAquacultureMap, getBathymetryContours, getBathymetryDepthBands, getBathymetryManifest, getContextDomain, getContextRegion, getEtopoLayer, getEtopoManifest, getGebcoLayer, getGebcoManifest, getHsiZones, getStationNetwork, getStations } from '../../api/monitor'
+import { useCallback, useEffect } from 'react'
+import { SYNC_EVENT } from '../../app/useSync'
+import { getAquacultureMap, getBathymetryContours, getBathymetryDepthBands, getBathymetryManifest, getContextDomain, getContextRegion, getEtopoLayer, getEtopoManifest, getGebcoLayer, getGebcoManifest, getSeabedShade, getHsiZones, getStationNetwork, getStations } from '../../api/monitor'
 import { usePolling } from '../../hooks/usePolling'
+import { getReliabilityVn } from '../../api/research'
 import { getSiteExposure } from '../../components/map/siteExposure'
 import type { DataMode } from '../../types/monitor'
 import type { Lod } from '../../components/map/mapConfig'
@@ -11,7 +13,7 @@ export type LayerKey =
   | 'rain' | 'wave' | 'sea_level' | 'mixed_layer_depth' | 'advisory_forecast'
   | 'depth_isobands' | 'depth_isobaths' | 'depth_etopo' | 'depth_slope'
   | 'bathymetry_bands' | 'bathymetry_contours' | 'bathymetry_slope'
-  | 'site_exposure'
+  | 'site_exposure' | 'reliability_zones'
 export type EnabledLayers = Record<LayerKey, boolean>
 
 export const DEFAULT_LAYERS: EnabledLayers = {
@@ -22,7 +24,9 @@ export const DEFAULT_LAYERS: EnabledLayers = {
   rain: false, wave: false, sea_level: false, mixed_layer_depth: false, advisory_forecast: false,
   // GEBCO 2024 depth (with TID confidence) covers Cat Ba / Ha Long / Bai Tu Long; Copernicus SDB only the HP tidal flats.
   // ETOPO 2022 is kept as an optional comparison layer, off by default.
-  depth_isobands: true, depth_isobaths: true, depth_etopo: false, depth_slope: false,
+  // Default view = reliability zones + farming status (owner 2026-10-24); depth stays as thin isobaths only.
+  reliability_zones: true,
+  depth_isobands: false, depth_isobaths: true, depth_etopo: false, depth_slope: false,
   bathymetry_bands: false, bathymetry_contours: false, bathymetry_slope: false,
   // Theory-only wind/wave exposure per station (site-exposure run): an analysis aid, not a core monitoring
   // layer, so it starts off (owner decision 2026-10-24); labelled "lý thuyết" everywhere.
@@ -39,6 +43,7 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
   const stations = usePolling(getStations, ONE_SHOT)
   const domain = usePolling(getContextDomain, ONE_SHOT)
   const region = usePolling(getContextRegion, ONE_SHOT)
+  const reliability = usePolling(getReliabilityVn, { ...ONE_SHOT, enabled: enabled.reliability_zones })
   const network = usePolling(getStationNetwork, { ...ONE_SHOT, isBuilding: value => value.network_status === 'building', buildingIntervalMs: 8_000, maxBuildingRetries: 60 })
   const zones = usePolling(getHsiZones, { ...ONE_SHOT, enabled: enabled.hsi_zones, isBuilding: value => value.status === 'building', buildingIntervalMs: 10_000, maxBuildingRetries: 30 })
   // Read-only research artifact (no Postgres); fetched once so the inspector can show it even when the layer is off.
@@ -57,7 +62,7 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
   const isobands = usePolling(signal => getGebcoLayer('isobands', lod, signal), { enabled: enabled.depth_isobands && gebcoReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
   const isobaths = usePolling(signal => getGebcoLayer('isobaths', lod, signal), { enabled: enabled.depth_isobaths && gebcoReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
   const depthFlags = usePolling(signal => getGebcoLayer('flags', lod, signal), { enabled: depthOn && gebcoReady, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
-  const depthSlope = usePolling(signal => getGebcoLayer('slope', lod, signal), { enabled: enabled.depth_slope && gebcoReady && !!gebco.data?.files?.slope_medium, deps: [lod], keepPreviousData: true, maxErrorRetries: 2 })
+  const seabedShade = usePolling(getSeabedShade, { ...ONE_SHOT, enabled: enabled.depth_slope && gebcoReady })
 
   // ETOPO 2022: optional comparison only; nothing is fetched until the toggle is on.
   const etopo = usePolling(getEtopoManifest, { ...ONE_SHOT, enabled: enabled.depth_etopo, isBuilding: value => value.status === 'building', buildingIntervalMs: 15_000, maxBuildingRetries: 40 })
@@ -76,5 +81,10 @@ export function useMonitorData({ enabled, lod, mode, scenario }: { enabled: Enab
     for (const feed of [stations, domain, network, zones, bathymetry, gebco, aquaculture, exposure]) feed.refresh()
   }, [stations, domain, network, zones, bathymetry, gebco, aquaculture, exposure])
 
-  return { stations, exposure, domain, region, network, zones, bathymetry, bands, contours, gebco, etopo, isobands, isobaths, depthFlags, depthSlope, etopoBands, etopoFlags, aquaculture, refreshAll }
+  useEffect(() => {
+    window.addEventListener(SYNC_EVENT, refreshAll)
+    return () => window.removeEventListener(SYNC_EVENT, refreshAll)
+  }, [refreshAll])
+
+  return { stations, exposure, domain, region, reliability, network, zones, bathymetry, bands, contours, gebco, etopo, isobands, isobaths, depthFlags, seabedShade, etopoBands, etopoFlags, aquaculture, refreshAll }
 }

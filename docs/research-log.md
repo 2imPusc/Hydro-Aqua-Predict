@@ -650,3 +650,13 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết quả (24/10 02 UTC):** dòng chảy 240 điểm, 0,003–0,185 m/s; sóng 225 điểm, Hs 0,05–0,43 m; tải lần đầu ~40 s, lần sau dùng lại 0 s.
 - **Giữ Open-Meteo cho mực nước:** `zos` của CMEMS đo so với geoid (~0,93–0,99 m quanh Cát Bà), không cùng mốc với `sea_level_height_msl` (so với mực nước trung bình) của Open-Meteo; đổi nguồn sẽ làm chú giải sai nghĩa. Mưa và gió vẫn từ Open-Meteo.
 - **Hạn chế:** CMEMS báo dataset GLO12 "đang cập nhật", dữ liệu sau 23/10 00 UTC có thể chưa đầy đủ; mô hình ~9 km vẫn không thấy dòng siết ở luồng hẹp.
+
+## RL-52 · 2026-10-24 · Bản đồ: vùng tin cậy mặc định, cờ hố sâu GEBCO, tô bóng đáy, đồng bộ dữ liệu, điều hướng 4 mục
+
+- **Cờ "nghi lỗi nguồn / hố sâu" (GEBCO):** quy tắc cũ (giống ETOPO: sâu > 30 m, không nối ra biển mở) gắn cờ 31 cụm / 772 ô. Kiểm tra từng cụm: ~22 cụm ngoài khơi phía nam chỉ sâu 31–34 m cạnh nước ~29 m (đáy nhấp nhô quanh ngưỡng, không phải hố); các cụm trong vịnh sâu 32–55 m cạnh nước 15–23 m, nhiều cụm có ô đo trực tiếp (TID 17) nên nhiều khả năng là rãnh triều thật giữa đảo. Quy tắc mới: chỉ gắn cờ khi sâu hơn vòng xung quanh ≥ 12 m, vòng xung quanh < 25 m và không có ô đo trực tiếp → còn 24 ô. GEBCO artifact v3; thêm test.
+- **Bản đồ mặc định:** "Độ tin cậy & trạng thái nuôi" — ô 1 km (H4) tô theo chế độ mặn so với NB1 (cùng chế độ = tin cậy, chuyển tiếp = kém, cửa sông = không đại diện) + quầng 2,5 km quanh mỗi điểm nuôi theo trạng thái khuyến nghị. Dải độ sâu GEBCO tắt mặc định, giữ đường đẳng sâu. Hạn chế: quanh Cát Bà phần lớn ô chưa được tô vì không có trạm quan trắc QN trong 10 km.
+- **Độ dốc đáy → tô bóng địa hình đáy:** bóng đổ (hillshade) từ lưới GEBCO, chiều sâu phóng đại ×30 (vịnh đa số dốc < 0,5°), phủ lên các tầng độ sâu; endpoint `/api/v1/bathymetry/gebco/hillshade`.
+- **Sóng, dòng chảy:** hạt chạy với tốc độ màn hình ổn định theo hướng (độ lớn thật quá nhỏ nên trước đây gần như đứng yên), vệt dài như gió; thang màu chia mịn ở giá trị nhỏ (sóng < 1 m, dòng < 0,5 m/s).
+- **Đồng bộ dữ liệu:** mở trang hoặc bấm "Đồng bộ" gửi `POST /api/v1/refresh`; worker (nơi duy nhất ghi dữ liệu, có quyền Copernicus) thấy yêu cầu trong ≤ 5 s và lấy bản tin ngay; bản tin < 10 phút thì không lấy lại (hạn mức Open-Meteo). Worker vẫn lấy ngay khi khởi động và mỗi 60 phút.
+- **Giao diện:** chữ khi rê chuột chỉ còn giá trị (ví dụ "5–10 m"); nguồn và độ tin cậy chuyển vào thẻ khi bấm. Điều hướng còn 4 mục: Bản đồ · Cảnh báo · Phân tích (tab Dự báo / Thời tiết / Phân vùng / Độ tin cậy) · Cấu hình.
+- **Kiểm tra:** test backend 104 đạt; `npm run build`; ảnh 1440 và 390 px trên Docker.

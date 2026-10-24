@@ -12,6 +12,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 import psycopg
 
+from app import refresh
 from app.repository import SnapshotRepository, snapshot_status
 from app.schemas import ContextSnapshot, LayerPayload, SensorLatest, SensorObservation, SensorObservationIn
 from app.settings import settings
@@ -254,6 +255,35 @@ def aquaculture_map(mode: str = "live", scenario: str = "normal") -> dict:
     return artifact or {"status": "building", "mode": mode, "scenario": scenario, "artifact_version": "aquaculture-map-v1", "type": "FeatureCollection", "features": []}
 
 
+def _latest_retrieved_at():
+    latest = repository.latest()
+    value = latest.get("retrieved_at") if latest else None
+    if value is not None and getattr(value, "tzinfo", None) is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value
+
+
+@app.post("/api/v1/refresh")
+def refresh_request() -> dict:
+    """Ask the worker for a new context snapshot now (page open / sync button); throttled to one per 10 min."""
+    try:
+        latest = _latest_retrieved_at()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"reason_code": "database_unavailable"}) from exc
+    return refresh.request_refresh(settings.cache_dir, latest)
+
+
+@app.get("/api/v1/refresh")
+def refresh_state() -> dict:
+    try:
+        latest = _latest_retrieved_at()
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail={"reason_code": "database_unavailable"}) from exc
+    requested = refresh.read_request(settings.cache_dir)
+    return {"pending": bool(requested and (latest is None or requested > latest)), "requested_at": requested.isoformat() if requested else None,
+            "latest_retrieved_at": latest.isoformat() if latest else None}
+
+
 @app.get("/api/v1/context-region")
 def context_region() -> dict:
     """Regional environment grid extent + simplified OSM water polygon (clips marine fields in the browser)."""
@@ -353,6 +383,12 @@ def _gebco_manifest() -> dict:
 @app.get("/api/v1/bathymetry/gebco/manifest")
 def bathymetry_gebco_manifest() -> dict:
     return _gebco_manifest()
+
+
+@app.get("/api/v1/bathymetry/gebco/hillshade")
+def bathymetry_gebco_hillshade() -> dict:
+    """Seabed relief shading from the GEBCO grid (uint8 dark/light masks, row 0 = north), depth exaggerated."""
+    return bathymetry_gebco.hillshade(settings.cache_dir, bathymetry_gebco.load_manifest(settings.cache_dir))
 
 
 @app.get("/api/v1/bathymetry/gebco/{kind}")

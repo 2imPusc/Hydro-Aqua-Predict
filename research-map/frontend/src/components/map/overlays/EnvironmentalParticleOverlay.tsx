@@ -17,11 +17,16 @@ export const PARTICLE_ON_FIELD = 'rgba(255, 255, 255, 0.95)'
 
 type ParticleType = 'flow' | 'wind' | 'wave'
 /** Visual-only time scale (s of motion per frame), trail length, count and fade per field. */
-const STYLE: Record<ParticleType, { secondsPerFrame: number; trail: number; multiplier: number; max: number; fade: string; minAge: number; width: number }> = {
-  flow: { secondsPerFrame: 55, trail: 12, multiplier: 1.8, max: 900, fade: 'rgba(0,0,0,.08)', minAge: 30, width: 1.3 },
+/**
+ * `screen`: [min, max] px per frame and the magnitude that reaches max. Waves and currents are far too slow to
+ * read at physical speed (Hs 0.05–0.4 m, currents < 0.2 m/s turned into still dots), so they move at a steady
+ * on-screen speed that only grows with the magnitude; wind keeps its physical (scaled) speed.
+ */
+const STYLE: Record<ParticleType, { secondsPerFrame: number; trail: number; multiplier: number; max: number; fade: string; minAge: number; width: number; screen?: [number, number, number] }> = {
+  flow: { secondsPerFrame: 55, trail: 7, multiplier: 7, max: 2000, fade: 'rgba(0,0,0,.04)', minAge: 50, width: 1.3, screen: [0.35, 1.6, 0.5] },
   wind: { secondsPerFrame: 6, trail: 7, multiplier: 8, max: 2200, fade: 'rgba(0,0,0,.04)', minAge: 40, width: 1.4 },
   // Wave u/v are the travel direction scaled by Hs (m), not a velocity: the speed only separates calm from rough.
-  wave: { secondsPerFrame: 70, trail: 9, multiplier: 6, max: 1600, fade: 'rgba(0,0,0,.06)', minAge: 40, width: 1.6 },
+  wave: { secondsPerFrame: 70, trail: 7, multiplier: 8, max: 2200, fade: 'rgba(0,0,0,.04)', minAge: 50, width: 1.5, screen: [0.45, 1.8, 2] },
 }
 
 /**
@@ -159,9 +164,18 @@ export function EnvironmentalParticleOverlay({ layer, type, enabled, waterGeomet
         const vector = interpolate(particle.x, particle.y)
         if (!vector) { respawn(particle); continue }
         const oldX = particle.x, oldY = particle.y
-        // Euler advection, m/s converted to pixels at the current zoom.
-        particle.x += vector.u / Math.max(metersPerPixel, .1) * visualSecondsPerFrame
-        particle.y -= vector.v / Math.max(metersPerPixel, .1) * visualSecondsPerFrame
+        const screen = STYLE[type].screen
+        if (screen) {
+          // Direction from u/v, on-screen speed from the magnitude (see STYLE).
+          const magnitude = Math.hypot(vector.u, vector.v) || 1e-9
+          const pixels = screen[0] + (screen[1] - screen[0]) * Math.min(1, magnitude / screen[2])
+          particle.x += vector.u / magnitude * pixels
+          particle.y -= vector.v / magnitude * pixels
+        } else {
+          // Euler advection, m/s converted to pixels at the current zoom.
+          particle.x += vector.u / Math.max(metersPerPixel, .1) * visualSecondsPerFrame
+          particle.y -= vector.v / Math.max(metersPerPixel, .1) * visualSecondsPerFrame
+        }
         particle.age += 1
         if (particle.age > particle.maxAge || particle.x < 0 || particle.y < 0 || particle.x > container.clientWidth || particle.y > container.clientHeight || !isWaterPoint(particle.x, particle.y)) { respawn(particle); continue }
         // Elongate only the visual streak, not the Euler step. The water clip

@@ -5,7 +5,7 @@ import type { AquacultureMap, BathymetryVectorLayer, ContextDomain, ContextRegio
 import { basemapTiles, ESRI_ATTRIBUTION, MAP_BOUNDS, MAP_CENTER, MAP_ZOOM, type BasemapId, type Lod } from '../../components/map/mapConfig'
 import { BathymetryOverlay } from '../../components/map/overlays/BathymetryOverlay'
 import { EtopoDepthOverlay } from '../../components/map/overlays/EtopoDepthOverlay'
-import { GebcoSlopeOverlay } from '../../components/map/overlays/GebcoSlopeOverlay'
+import { SeabedShadeOverlay, type SeabedShade } from '../../components/map/overlays/SeabedShadeOverlay'
 import { ContextDomainOverlay } from '../../components/map/overlays/ContextDomainOverlay'
 import { FlowArtifactOverlay } from '../../components/map/overlays/FlowArtifactOverlay'
 import { HsiZonesOverlay } from '../../components/map/overlays/HsiZonesOverlay'
@@ -17,6 +17,8 @@ import { StationNetworkOverlay } from '../../components/map/overlays/StationNetw
 import type { Theme } from '../../hooks/useTheme'
 import type { EnabledLayers } from './useMonitorData'
 import { RegionalFields, activeField } from './RegionalFields'
+import { ReliabilityZonesOverlay, StatusHalos } from '../../components/map/overlays/ReliabilityZonesOverlay'
+import type { ReliabilityVn } from '../../types/research'
 
 type Props = {
   theme: Theme
@@ -35,6 +37,8 @@ type Props = {
   domain: ContextDomain | null
   /** Regional environment grid extent + water polygon. */
   region: ContextRegion | null
+  /** H4 salinity-regime cells: how far NB1 readings can stand for a place. */
+  reliability: ReliabilityVn | null
   network: StationNetwork | null
   zones: HsiZones | null
   bands: BathymetryVectorLayer | null
@@ -42,8 +46,8 @@ type Props = {
   isobands: BathymetryVectorLayer | null
   isobaths: BathymetryVectorLayer | null
   depthFlags: BathymetryVectorLayer | null
-  /** GEBCO-derived bottom-slope classes (whole region). */
-  depthSlope: BathymetryVectorLayer | null
+  /** GEBCO seabed relief shading (slope as light/shadow over the depth bands). */
+  seabedShade: SeabedShade | null
   /** ETOPO 2022 comparison bands + flags (optional). */
   etopoBands: BathymetryVectorLayer | null
   etopoFlags: BathymetryVectorLayer | null
@@ -57,8 +61,9 @@ type Props = {
  * the parent never re-renders this subtree unless map inputs change.
  */
 export const MonitorMap = memo(function MonitorMap(props: Props) {
-  const { theme, basemap, enabled, snapshotId, allLayers, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, region, network, zones, bands, contours, isobands, isobaths, depthFlags, depthSlope, etopoBands, etopoFlags, lod, onLod, onSample } = props
+  const { theme, basemap, enabled, snapshotId, allLayers, flow, stations, aquacultureMap, advisoryStale, advisoryAgeSeconds, exposure, domain, region, reliability, network, zones, bands, contours, isobands, isobaths, depthFlags, seabedShade, etopoBands, etopoFlags, lod, onLod, onSample } = props
   const tiles = basemapTiles(basemap, theme)
+  const regionWater = region?.features.find(feature => feature.properties?.kind === 'region_water')?.geometry ?? null
 
   return (
     <MapContainer preferCanvas center={MAP_CENTER} zoom={MAP_ZOOM} minZoom={10} maxZoom={17} maxBounds={MAP_BOUNDS} maxBoundsViscosity={0.22}
@@ -72,10 +77,12 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
       <EtopoDepthOverlay source="gebco" theme={theme} lod={lod} isobands={isobands} isobaths={isobaths} flags={depthFlags} showBands={enabled.depth_isobands} showIsobaths={enabled.depth_isobaths} onSample={onSample} />
       {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} outlineOnly={enabled.depth_isobands || activeField(enabled) !== null} />}
       {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} />}
-      {enabled.depth_slope && <GebcoSlopeOverlay slope={depthSlope} />}
+      {enabled.depth_slope && <SeabedShadeOverlay shade={seabedShade} theme={theme} />}
       <BathymetryOverlay bands={bands} contours={contours} showBands={enabled.bathymetry_bands} showContours={enabled.bathymetry_bands && enabled.bathymetry_contours} showSlope={false} onSample={onSample} />
 
+      {enabled.reliability_zones && <ReliabilityZonesOverlay data={reliability} water={regionWater} dataKey={`${reliability?.source_run ?? ''}-${!!regionWater}`} />}
       <RegionalFields enabled={enabled} layers={allLayers} region={region} dataKey={snapshotId ?? 'none'} />
+      {enabled.reliability_zones && <StatusHalos stations={stations} aquacultureMap={aquacultureMap} stale={advisoryStale} />}
 
       {enabled.station_network && network && <StationNetworkOverlay network={network} dataKey={`${network.network_status}-${network.edge_count}-${network.features.length}`} />}
       {enabled.flow_streamlines && flow && <FlowArtifactOverlay artifact={flow} lod={lod} />}

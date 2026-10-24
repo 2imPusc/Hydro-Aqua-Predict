@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { SYNC_EVENT, useSync, type SyncPhase } from './useSync'
 import { getFlowArtifact, getLatestContext, getSensorLatest } from '../api/monitor'
 import { getApiStatus } from '../api/research'
 import { isAbortError } from '../api/client'
@@ -19,6 +20,10 @@ type LiveData = {
   setMode: (mode: DataMode) => void
   scenario: string
   setScenario: (scenario: string) => void
+  /** Ask the worker for fresh data now (runs once on app open too). */
+  sync: () => void
+  syncPhase: SyncPhase
+  lastSyncedAt: Date | null
 }
 
 const LiveDataContext = createContext<LiveData | null>(null)
@@ -77,7 +82,14 @@ export function LiveDataProvider({ children, monitorActive }: { children: ReactN
 
   const status = usePolling(signal => getApiStatus(PILOT_STATION, signal), { intervalMs: STATUS_POLL_MS, keepPreviousData: true, retryBaseMs: 5_000, maxBackoffMs: 60_000 })
 
-  const value = useMemo<LiveData>(() => ({ pilotStation: PILOT_STATION, status, context, sensor, mode, setMode, scenario, setScenario }), [status, context, sensor, mode, scenario])
+  const { phase: syncPhase, sync, lastSyncedAt } = useSync()
+  useEffect(() => {
+    const onSync = () => { context.refresh(); sensor.refresh(); status.refresh() }
+    window.addEventListener(SYNC_EVENT, onSync)
+    return () => window.removeEventListener(SYNC_EVENT, onSync)
+  }, [context, sensor, status])
+
+  const value = useMemo<LiveData>(() => ({ pilotStation: PILOT_STATION, status, context, sensor, mode, setMode, scenario, setScenario, sync, syncPhase, lastSyncedAt }), [status, context, sensor, mode, scenario, sync, syncPhase, lastSyncedAt])
   return <LiveDataContext.Provider value={value}>{children}</LiveDataContext.Provider>
 }
 

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from app.bathymetry import describe_gebco
 from app.providers import fetch_open_meteo_context, unavailable_layer
 from app.copernicus import fetch_copernicus_layers
+from app import refresh
 from app.domain import build_context_domain, region_water_geometry
 from app.repository import SnapshotRepository
 from app.settings import settings
@@ -23,6 +24,8 @@ from app.sensor_provider import fetch_station, normalize_readings
 from app.aquaculture_artifacts import build_aquaculture_artifacts
 
 logger = logging.getLogger(__name__)
+# How often the worker looks for a map refresh request between scheduled snapshots.
+REFRESH_CHECK_SECONDS = 5
 
 
 def _snapshot(layers: list[dict], domain: dict) -> dict:
@@ -165,9 +168,13 @@ async def serve() -> None:
     async def context_loop():
         while True:
             t0 = loop.time()
+            started = datetime.now(timezone.utc)
             await run_once(repository)
             elapsed = loop.time() - t0
-            await asyncio.sleep(max(10, settings.snapshot_minutes * 60 - elapsed))
+            # Sleep until the next scheduled snapshot, waking early when the map asks for a refresh.
+            deadline = loop.time() + max(10, settings.snapshot_minutes * 60 - elapsed)
+            while loop.time() < deadline and not refresh.due(settings.cache_dir, started):
+                await asyncio.sleep(min(REFRESH_CHECK_SECONDS, max(0.0, deadline - loop.time())))
 
     async def sensor_loop():
         while True:

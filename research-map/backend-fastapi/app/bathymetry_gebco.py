@@ -8,7 +8,8 @@ cell is based on.  Nothing here edits values.  Per band, confidence is one of:
 * ``indirect`` -- TID 40-45: interpolated / predicted / pre-generated grid;
 * ``unknown``  -- any other TID, or land (TID 0) inside OSM water;
 * ``coarse``   -- OSM water where the GEBCO cell is land (channels, karst islets);
-* ``suspect``  -- >30 m basins not connected to the open Gulf (same rule as ETOPO).
+* ``suspect``  -- >30 m basins not connected to the open Gulf that also stand >= 12 m above a shallow
+  (< 25 m) surrounding and contain no direct sounding (stricter than ETOPO, RL-52).
 
 ``suspect`` and ``coarse`` win over the TID classes.  Geometry is clipped to the OSM
 water mask.  Built write-once into ``<cache>/bathymetry-gebco/<key>/``; the API only reads.
@@ -36,7 +37,7 @@ from app.bathymetry_etopo import (
 )
 from app.domain import water_geometry_for_bounds
 
-GEBCO_ARTIFACT_VERSION = "gebco2024-15s-isobands-v2"  # v2: + slope classes
+GEBCO_ARTIFACT_VERSION = "gebco2024-15s-isobands-v3"  # v2: + slope classes; v3: stricter suspect holes
 # Bottom-slope classes (degrees) from the ~460 m grid: it only resolves broad slopes, never narrow channels.
 SLOPE_EDGES_DEG = (0.0, 0.5, 1.0, 2.0)
 DIRECT_TID = range(10, 18)
@@ -45,6 +46,60 @@ CONFIDENCE_ORDER = ("suspect", "coarse", "direct", "indirect", "unknown")
 DISCLAIMER = ("GEBCO_2024 15\" (~460 m) grid, heights vs mean sea level, not chart datum. Confidence from the TID grid: "
               "direct = measured soundings, indirect = interpolated/predicted. Karst islets and narrow channels "
               "are not resolved. Research visualization, not for navigation.")
+
+
+# A flagged GEBCO hole must stand out from its surroundings, sit in shallow water and carry no direct sounding.
+# Without these tests the ETOPO rule flagged ~22 patches of open-Gulf seabed that merely dip below 30 m next to
+# 29 m water, and deep tidal channels between karst islands that GEBCO has measured (TID 17) (RL-52).
+SUSPECT_MIN_CONTRAST_M = 12.0
+SUSPECT_MAX_SURROUNDING_M = 25.0
+
+
+def _clusters(mask: np.ndarray) -> list[np.ndarray]:
+    """8-connected components of a boolean grid (no scipy in the API image)."""
+    seen = np.zeros_like(mask, dtype=bool)
+    out = []
+    ny, nx = mask.shape
+    for y, x in zip(*np.nonzero(mask)):
+        if seen[y, x]:
+            continue
+        member = np.zeros_like(mask, dtype=bool)
+        stack = [(y, x)]
+        seen[y, x] = member[y, x] = True
+        while stack:
+            a, b = stack.pop()
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    c, d = a + dy, b + dx
+                    if 0 <= c < ny and 0 <= d < nx and mask[c, d] and not seen[c, d]:
+                        seen[c, d] = member[c, d] = True
+                        stack.append((c, d))
+        out.append(member)
+    return out
+
+
+def gebco_suspect_mask(depth: np.ndarray, tid_cls: np.ndarray, wet: np.ndarray) -> np.ndarray:
+    """Isolated deep basins (ETOPO rule) kept only when they look like source artefacts:
+    >= SUSPECT_MIN_CONTRAST_M deeper than the surrounding ring, ring median < SUSPECT_MAX_SURROUNDING_M,
+    and no direct-measurement cell (TID class 1) inside."""
+    candidate = suspect_mask(np.where(wet, depth, np.nan))
+    keep = np.zeros_like(candidate, dtype=bool)
+    for member in _clusters(candidate):
+        ring = member.copy()
+        for _ in range(3):
+            grown = ring.copy()
+            grown[1:, :] |= ring[:-1, :]; grown[:-1, :] |= ring[1:, :]
+            grown[:, 1:] |= ring[:, :-1]; grown[:, :-1] |= ring[:, 1:]
+            ring = grown
+        ring &= ~member & wet
+        if not ring.any():
+            continue
+        surrounding = float(np.median(depth[ring]))
+        contrast = float(depth[member].max()) - surrounding
+        if contrast >= SUSPECT_MIN_CONTRAST_M and surrounding < SUSPECT_MAX_SURROUNDING_M and not (tid_cls[member] == 1).any():
+            keep |= member
+    return keep
+
 
 
 def tid_class(tid: np.ndarray) -> np.ndarray:
@@ -106,7 +161,7 @@ def ensure_gebco_artifact(cache_dir: str, raw_path: str, water=None) -> dict[str
     sea = np.isfinite(z) & (z < 0)
     depth = np.where(sea, -z, 0.0)
     cls = tid_class(tid)
-    suspect = suspect_mask(np.where(sea & in_water, -z, np.nan))
+    suspect = gebco_suspect_mask(depth, cls, sea & in_water)
     lon_f = np.linspace(lon[0], lon[-1], (len(lon) - 1) * UPSAMPLE + 1)
     lat_f = np.linspace(lat[0], lat[-1], (len(lat) - 1) * UPSAMPLE + 1)
     width = UPSAMPLE + 1
@@ -194,7 +249,7 @@ def ensure_gebco_artifact(cache_dir: str, raw_path: str, water=None) -> dict[str
         "interpolation": "bilinear between grid nodes + ~1-cell moving-average smoothing for contouring; land cells = 0 m shoreline; sample endpoint uses unsmoothed bilinear",
         "water_mask": "OSM water polygons (all geometry clipped to it)",
         "confidence_classes": {"direct": "TID 10-17 (measured)", "indirect": "TID 40-45 (interpolated/predicted)",
-                               "unknown": "other TID", "coarse": "OSM water, GEBCO land", "suspect": f"> {SUSPECT_DEPTH_M:g} m basin not open to the Gulf"},
+                               "unknown": "other TID", "coarse": "OSM water, GEBCO land", "suspect": f"> {SUSPECT_DEPTH_M:g} m basin not open to the Gulf, >= {SUSPECT_MIN_CONTRAST_M:g} m deeper than a < {SUSPECT_MAX_SURROUNDING_M:g} m surrounding, no direct sounding"},
         "water_cell_count": int(in_water.sum()), "depth_cell_count": int(wet.sum()),
         "coarse_cell_count": int((in_water & ~sea).sum()), "suspect_cell_count": int(suspect.sum()),
         "direct_cell_count": int((wet & (cls == 1)).sum()), "indirect_cell_count": int((wet & (cls == 2)).sum()),
@@ -256,3 +311,44 @@ if __name__ == "__main__":
     raw = sys.argv[1] if len(sys.argv) > 1 else os.getenv("GEBCO_BATHYMETRY_PATH", "")
     result = ensure_gebco_artifact(settings.cache_dir, raw)
     print(json.dumps({k: v for k, v in result.items() if k != "files"}, indent=2, ensure_ascii=False))
+
+
+# Seabed relief shading: bay slopes are mostly < 0.5 deg, invisible at true scale, so depth is exaggerated.
+HILLSHADE_EXAGGERATION = 30.0
+
+
+@lru_cache(maxsize=2)
+def _hillshade_cached(cache_dir: str, key: str, exaggeration: float, azimuth: float, altitude: float) -> dict[str, Any]:
+    import base64
+    grid = _grid(cache_dir, key)
+    lon, lat, depth = grid["lon"], grid["lat"], grid["depth"].astype(float)
+    wet = grid["sea"].astype(bool) & grid["in_water"].astype(bool)
+    elevation = -depth * exaggeration                     # seabed as terrain (negative = deeper)
+    dy = abs(float(lat[1] - lat[0])) * 111_320.0
+    dx = abs(float(lon[1] - lon[0])) * 111_320.0 * np.cos(np.radians(lat))[:, None]
+    gy, gx = np.gradient(elevation)
+    gx, gy = gx / dx, gy / dy
+    slope = np.arctan(np.hypot(gx, gy))
+    aspect = np.arctan2(-gx, gy)
+    az, alt = np.radians(360.0 - azimuth + 90.0), np.radians(altitude)
+    shade = np.sin(alt) * np.cos(slope) + np.cos(alt) * np.sin(slope) * np.cos(az - aspect)
+    shade = np.clip(shade, 0.0, 1.0)
+    flat = float(np.sin(alt))                              # value of a level seabed
+    # Darkness relative to a flat bottom (0 = flat or lit side, 255 = darkest slope); land/no-data stays 0.
+    dark = np.where(wet, np.clip((flat - shade) / max(flat, 1e-6), 0.0, 1.0), 0.0)
+    light = np.where(wet, np.clip((shade - flat) / max(1.0 - flat, 1e-6), 0.0, 1.0), 0.0)
+    # Row 0 = north for the image.
+    dark_img, light_img = (np.flipud((a * 255).round().astype("uint8")) if lat[0] < lat[-1] else (a * 255).round().astype("uint8") for a in (dark, light))
+    return {
+        "status": "ready", "width": int(len(lon)), "height": int(len(lat)),
+        "bbox": [float(lon.min()), float(lat.min()), float(lon.max()), float(lat.max())],
+        "exaggeration": exaggeration, "azimuth_deg": azimuth, "altitude_deg": altitude,
+        "dark_b64": base64.b64encode(dark_img.tobytes()).decode(), "light_b64": base64.b64encode(light_img.tobytes()).decode(),
+        "note": f"GEBCO 2024 15\" (~460 m); depth exaggerated x{exaggeration:g} so gentle bay slopes show; not for navigation",
+    }
+
+
+def hillshade(cache_dir: str, manifest: dict[str, Any] | None, exaggeration: float = HILLSHADE_EXAGGERATION, azimuth: float = 315.0, altitude: float = 45.0) -> dict[str, Any]:
+    if not manifest or manifest.get("status") != "ready":
+        return {"status": "building", "reason_code": "gebco_artifact_not_ready"}
+    return _hillshade_cached(cache_dir, manifest["artifact_key"], float(exaggeration), float(azimuth), float(altitude))

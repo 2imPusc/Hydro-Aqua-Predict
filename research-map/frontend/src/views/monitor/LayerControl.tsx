@@ -1,5 +1,5 @@
 import { memo, useState } from 'react'
-import { ChevronDown, Compass, Layers, MapPin, Mountain, Waves, Wind } from 'lucide-react'
+import { ChevronDown, Compass, Layers, MapPin, Mountain, ShieldCheck, Waves, Wind } from 'lucide-react'
 import type { BathymetryManifest, EtopoManifest, GebcoManifest, FlowArtifact, HsiZones, Layer, StationNetwork } from '../../types/monitor'
 import type { BasemapId, Lod } from '../../components/map/mapConfig'
 import { Chip, SectionLabel, Segmented, StateChip, Toggle } from '../../components/ui'
@@ -86,6 +86,10 @@ export const LayerControl = memo(function LayerControl(props: Props) {
 
       {open && (
         <div className="scroll-thin min-h-0 overflow-y-auto border-t border-line px-2 pb-5 pt-2" style={SCROLL_FADE}>
+          <SectionLabel icon={<ShieldCheck size={12} />}>Vùng nuôi</SectionLabel>
+          <Toggle checked={enabled.reliability_zones} onChange={value => onToggle('reliability_zones', value)} label="Độ tin cậy & trạng thái nuôi"
+            description="vùng dùng được số đo cảm biến NB1 · quầng màu = trạng thái từng điểm nuôi" />
+
           <SectionLabel icon={<Wind size={12} />} trailing={<Chip size="xs" tone="neutral" title="Lưới dự báo phủ cả Hải Phòng, Cát Bà, Hạ Long; một lớp màu mỗi lúc">toàn vùng</Chip>}>Thời tiết & biển</SectionLabel>
           {FIELD_TOGGLES.map(item => {
             const layer = byName.get(item.layer)
@@ -100,8 +104,8 @@ export const LayerControl = memo(function LayerControl(props: Props) {
           <SectionLabel icon={<Mountain size={12} />} trailing={bathyReady ? <Chip size="xs" tone="neutral">{LOD_LABEL[lod]}</Chip> : undefined}>Độ sâu</SectionLabel>
           <Toggle checked={enabled.depth_isobands} disabled={!gebcoReady} onChange={value => onToggle('depth_isobands', value)} label="Độ sâu vùng biển (GEBCO)" description={gebcoHint} />
           <Toggle checked={enabled.depth_isobaths} disabled={!gebcoReady} onChange={value => onToggle('depth_isobaths', value)} label="Đường đẳng sâu" description="2 / 5 / 10 / 20 / 30 m (từ GEBCO)" />
-          <Toggle checked={enabled.depth_slope} disabled={!gebcoReady || !gebco?.files?.slope_medium} onChange={value => onToggle('depth_slope', value)} label="Độ dốc đáy"
-            description={gebco?.files?.slope_medium ? 'tính từ GEBCO (~460 m) · chỉ thấy dốc lớn, không thấy rãnh hẹp' : 'đang dựng lớp…'} />
+          <Toggle checked={enabled.depth_slope} disabled={!gebcoReady} onChange={value => onToggle('depth_slope', value)} label="Tô bóng địa hình đáy"
+            description="độ dốc đáy hiện thành bóng đổ trên các tầng độ sâu · phóng đại ×30" />
           <Toggle checked={enabled.bathymetry_bands} disabled={!bathyReady} onChange={value => onToggle('bathymetry_bands', value)} label="Bãi triều chi tiết (vệ tinh SDB)"
             description={bathyReady ? 'chỉ có ở bãi triều ven bờ Hải Phòng · không có ở Cát Bà, Hạ Long' : bathyHint} />
           {enabled.bathymetry_bands && <Toggle checked={enabled.bathymetry_contours} disabled={!bathyReady} onChange={value => onToggle('bathymetry_contours', value)} label="Đường mức bãi triều" description="0,25 / 0,5 / 0,75 / 1 m (cùng nguồn SDB)" />}

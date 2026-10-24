@@ -18,5 +18,5 @@ export const GebcoSlopeOverlay = memo(function GebcoSlopeOverlay({ slope }: { sl
   }, [])
   if (!slope?.features?.length) return null
   return <GeoJSON key={`gebco-slope-${slope.features.length}`} data={slope} style={style}
-    onEachFeature={(feature, layer) => layer.bindTooltip(`Độ dốc đáy ${feature.properties?.label ?? ''} (GEBCO ~460 m)`, { sticky: true })} />
+    onEachFeature={(feature, layer) => layer.bindTooltip(`Dốc ${feature.properties?.label ?? ''}`, { sticky: true })} />
 })

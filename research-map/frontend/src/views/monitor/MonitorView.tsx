@@ -44,6 +44,8 @@ export default function MonitorView({ theme }: { theme: Theme }) {
     if ((ENVIRONMENT_LAYERS as readonly string[]).includes(key)) {
       return { ...current, ...Object.fromEntries(ENVIRONMENT_LAYERS.map(layer => [layer, layer === key ? value : false])) }
     }
+    // Seabed shading sits on the depth bands: switching it on shows them too.
+    if (key === 'depth_slope' && value) return { ...current, depth_slope: true, depth_isobands: true }
     return { ...current, [key]: value }
   }), [])
 
@@ -71,9 +73,9 @@ export default function MonitorView({ theme }: { theme: Theme }) {
       <MonitorMap
         theme={theme} basemap={basemap} enabled={enabled} snapshotId={snapshot?.snapshot_id ?? null}
         allLayers={allLayers} flow={flow}
-        stations={data.stations.data} aquacultureMap={data.aquaculture.data} advisoryStale={advisoryStale} advisoryAgeSeconds={advisoryAge} exposure={data.exposure.data} domain={data.domain.data} region={data.region.data} network={data.network.data}
+        stations={data.stations.data} aquacultureMap={data.aquaculture.data} advisoryStale={advisoryStale} advisoryAgeSeconds={advisoryAge} exposure={data.exposure.data} domain={data.domain.data} region={data.region.data} reliability={data.reliability.data} network={data.network.data}
         zones={data.zones.data} bands={data.bands.data} contours={data.contours.data}
-        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data} depthSlope={data.depthSlope.data} etopoBands={data.etopoBands.data} etopoFlags={data.etopoFlags.data}
+        isobands={data.isobands.data} isobaths={data.isobaths.data} depthFlags={data.depthFlags.data} seabedShade={data.seabedShade.data} etopoBands={data.etopoBands.data} etopoFlags={data.etopoFlags.data}
         lod={lod} onLod={setLod} onSample={onSample}
       />
 
