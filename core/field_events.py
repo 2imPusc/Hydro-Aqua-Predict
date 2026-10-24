@@ -151,7 +151,7 @@ def validate(body: object, known_stations: set[str] | None, *, now: datetime | N
         out["station_id"], out["station_other"] = station, None
 
     event_type = body.get("event_type")
-    if event_type not in EVENT_TYPES:
+    if not isinstance(event_type, str) or event_type not in EVENT_TYPES:
         errors.append(f"event_type: one of {', '.join(EVENT_TYPES)}")
     else:
         out["event_type"] = event_type
@@ -189,7 +189,7 @@ def validate(body: object, known_stations: set[str] | None, *, now: datetime | N
     out["reporter"] = _text(body, "reporter", SHORT_TEXT_MAX, errors)
 
     source = body.get("source")
-    if source not in SOURCES:
+    if not isinstance(source, str) or source not in SOURCES:
         errors.append(f"source: one of {', '.join(SOURCES)}")
     else:
         out["source"] = source
