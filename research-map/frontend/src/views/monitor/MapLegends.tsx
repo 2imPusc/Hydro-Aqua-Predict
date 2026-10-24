@@ -95,7 +95,7 @@ export const MapLegends = memo(function MapLegends({ enabled, environmentLayers,
           {/* Depth colours most of the map by default: its key comes right after the station states. */}
           {(enabled.depth_isobands || enabled.depth_isobaths) && <DepthLegend theme={theme} gebco={gebco} showEtopo={enabled.depth_etopo && etopo?.status === 'ready'} />}
           {enabled.site_exposure && exposure?.status === 'ready' && <ExposureLegend theme={theme} exposure={exposure} />}
-          {enabled.hsi_zones && <SwatchLegend title="HSI lịch sử" note={HSI_LEGACY_LABEL} items={HSI_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} />}
+          {enabled.hsi_zones && <SwatchLegend title="Vùng HSI · nền = phù hợp nuôi (lịch sử)" note={`Viền đậm = hiện trạng nuôi lúc này của điểm trong vùng (cảm biến + dự báo mưa, gió 6 giờ; màu như "Trạng thái trạm"). ${HSI_LEGACY_LABEL}.`} items={HSI_CLASSES.map(item => ({ color: item.color, label: item.label }))} columns={2} />}
           {field && <FieldLegend id={field} layer={fieldLayer} />}
           {enabled.flow_streamlines && <SwatchLegend title="Tia dòng chảy quanh trạm" items={[{ color: '#0b5fc1', label: 'Tia nội suy theo mặt nước', shape: 'line' }, { color: '#ea580c', label: 'Tương thích dòng–trạm (chỉ nghiên cứu)', shape: 'line' }]} />}
           {bathyBands && <GradientLegend title="Bãi triều (vệ tinh SDB ~100 m)" gradient="linear-gradient(to right, hsl(195 78% 76%), hsl(210 78% 55%), hsl(225 78% 33%))" ticks={['0 m', '1 m', '≥ 2 m']} note="Chỉ có ở bãi triều ven bờ Hải Phòng · không dùng cho hàng hải" />}

@@ -20,7 +20,7 @@ from app.hsi_cache import build_hsi_cache
 from app.bathymetry_artifacts import ensure_bathymetry_artifact
 from app.bathymetry_etopo import ensure_etopo_artifact
 from app.bathymetry_gebco import ensure_gebco_artifact
-from app.sensor_provider import fetch_station, normalize_readings
+from app.sensor_provider import GREENLAB_LOCAL_TZ, fetch_station, fetch_station_history, normalize_history_csv, normalize_readings
 from app.aquaculture_artifacts import build_aquaculture_artifacts
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,35 @@ async def run_once(repository: SnapshotRepository) -> bool:
     if snapshot_row is not None:
         await asyncio.to_thread(build_flow_artifact, snapshot_row, network, settings.cache_dir)
     await asyncio.to_thread(build_aquaculture_artifacts, repository, settings.cache_dir, settings.greenlab_station_serials, settings.latitude, settings.longitude, settings.nh4_unit_scale, settings.sensor_stale_minutes, settings.nh3_max_metric_gap_minutes)
+    return inserted
+
+
+# Full sensor history up to now: the latest-reading endpoint only gives the newest value, so gaps (worker down,
+# missing credentials) are filled from /Datums/DataByDate, from the newest stored day to today (<= 30 days back).
+SENSOR_BACKFILL_MINUTES = 30
+SENSOR_BACKFILL_MAX_DAYS = 30
+SENSOR_BACKFILL_CHUNK_DAYS = 7
+
+
+async def backfill_sensor_history(repository: SnapshotRepository) -> int:
+    if not settings.greenlab_api_enabled or not settings.greenlab_api_username or not settings.greenlab_api_password:
+        return 0
+    today = datetime.now(GREENLAB_LOCAL_TZ).date()
+    inserted = 0
+    for station_serial in settings.greenlab_station_serials:
+        try:
+            newest = await asyncio.to_thread(repository.latest_observed_at, station_serial)
+            start = newest.astimezone(GREENLAB_LOCAL_TZ).date() if newest else today - timedelta(days=14)
+            start = max(start, today - timedelta(days=SENSOR_BACKFILL_MAX_DAYS))
+            while start <= today:
+                end = min(today, start + timedelta(days=SENSOR_BACKFILL_CHUNK_DAYS - 1))
+                text = await fetch_station_history(station_serial, settings.greenlab_api_base_url, settings.greenlab_api_username, settings.greenlab_api_password, start, end)
+                inserted += await asyncio.to_thread(repository.insert_sensor_observations, normalize_history_csv(text, station_serial))
+                start = end + timedelta(days=1)
+        except Exception as exc:
+            logger.warning("GreenLab history backfill failed for %s (%s)", station_serial, type(exc).__name__)
+    if inserted:
+        logger.warning("GreenLab history backfill: %d new observations", inserted)
     return inserted
 
 
@@ -177,8 +206,13 @@ async def serve() -> None:
                 await asyncio.sleep(min(REFRESH_CHECK_SECONDS, max(0.0, deadline - loop.time())))
 
     async def sensor_loop():
+        last_backfill: datetime | None = None
         while True:
             t0 = loop.time()
+            now = datetime.now(timezone.utc)
+            if last_backfill is None or (now - last_backfill).total_seconds() >= SENSOR_BACKFILL_MINUTES * 60 or refresh.due(settings.cache_dir, last_backfill):
+                last_backfill = now
+                await backfill_sensor_history(repository)
             await ingest_sensor_once(repository)
             await asyncio.to_thread(build_aquaculture_artifacts, repository, settings.cache_dir, settings.greenlab_station_serials, settings.latitude, settings.longitude, settings.nh4_unit_scale, settings.sensor_stale_minutes, settings.nh3_max_metric_gap_minutes)
             elapsed = loop.time() - t0

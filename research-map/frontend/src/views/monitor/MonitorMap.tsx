@@ -76,7 +76,7 @@ export const MonitorMap = memo(function MonitorMap(props: Props) {
       {enabled.depth_etopo && <EtopoDepthOverlay source="etopo" underlay theme={theme} lod={lod} isobands={etopoBands} isobaths={null} flags={etopoFlags} showBands showIsobaths={false} onSample={onSample} />}
       <EtopoDepthOverlay source="gebco" theme={theme} lod={lod} isobands={isobands} isobaths={isobaths} flags={depthFlags} showBands={enabled.depth_isobands} showIsobaths={enabled.depth_isobaths} onSample={onSample} />
       {enabled.context_buffer && domain && <ContextDomainOverlay domain={domain} dataKey={`domain-${domain.features.length}`} outlineOnly={enabled.depth_isobands || activeField(enabled) !== null} />}
-      {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} />}
+      {enabled.hsi_zones && zones && zones.status !== 'building' && <HsiZonesOverlay zones={zones} aquacultureMap={aquacultureMap} stale={advisoryStale} />}
       {enabled.depth_slope && <SeabedShadeOverlay shade={seabedShade} theme={theme} />}
       <BathymetryOverlay bands={bands} contours={contours} showBands={enabled.bathymetry_bands} showContours={enabled.bathymetry_bands && enabled.bathymetry_contours} showSlope={false} onSample={onSample} />
 

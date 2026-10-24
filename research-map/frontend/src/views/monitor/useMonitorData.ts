@@ -17,16 +17,16 @@ export type LayerKey =
 export type EnabledLayers = Record<LayerKey, boolean>
 
 export const DEFAULT_LAYERS: EnabledLayers = {
-  // Legacy HSI is off by default: HP salinity/temperature behind it are model-gridded
-  // (CMEMS/GLORYS), not measured (RL-25), so it is not validated evidence.
-  hsi_zones: false, context_buffer: true, station_network: true,
+  // HSI stays labelled legacy / unvalidated: HP salinity/temperature behind it are model-gridded (RL-25).
+  // Default view (owner 2026-10-24): historical HSI zones, each outlined with its current farming status.
+  hsi_zones: true, context_buffer: true, station_network: true,
   flow_streamlines: false, wind_particles: false,
   rain: false, wave: false, sea_level: false, mixed_layer_depth: false, advisory_forecast: false,
   // GEBCO 2024 depth (with TID confidence) covers Cat Ba / Ha Long / Bai Tu Long; Copernicus SDB only the HP tidal flats.
   // ETOPO 2022 is kept as an optional comparison layer, off by default.
-  // Default view = reliability zones + farming status (owner 2026-10-24); depth stays as thin isobaths only.
-  reliability_zones: true,
-  depth_isobands: false, depth_isobaths: true, depth_etopo: false, depth_slope: false,
+  // H4 NB1-reliability zones: optional (they only cover areas near observed QN stations).
+  reliability_zones: false,
+  depth_isobands: true, depth_isobaths: true, depth_etopo: false, depth_slope: false,
   bathymetry_bands: false, bathymetry_contours: false, bathymetry_slope: false,
   // Theory-only wind/wave exposure per station (site-exposure run): an analysis aid, not a core monitoring
   // layer, so it starts off (owner decision 2026-10-24); labelled "lý thuyết" everywhere.

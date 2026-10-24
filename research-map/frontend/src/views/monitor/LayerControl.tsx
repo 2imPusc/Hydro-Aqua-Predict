@@ -87,8 +87,10 @@ export const LayerControl = memo(function LayerControl(props: Props) {
       {open && (
         <div className="scroll-thin min-h-0 overflow-y-auto border-t border-line px-2 pb-5 pt-2" style={SCROLL_FADE}>
           <SectionLabel icon={<ShieldCheck size={12} />}>Vùng nuôi</SectionLabel>
-          <Toggle checked={enabled.reliability_zones} onChange={value => onToggle('reliability_zones', value)} label="Độ tin cậy & trạng thái nuôi"
-            description="vùng dùng được số đo cảm biến NB1 · quầng màu = trạng thái từng điểm nuôi" />
+          <Toggle checked={enabled.hsi_zones} onChange={value => onToggle('hsi_zones', value)} label="Vùng HSI & hiện trạng nuôi"
+            description={`nền = phù hợp nuôi (HSI lịch sử) · viền = hiện trạng lúc này${enabled.hsi_zones && !zones ? ' · đang tải…' : ''}`} badge={<StateChip size="xs" state="legacy" title={HSI_LEGACY_LABEL} />} />
+          <Toggle checked={enabled.reliability_zones} onChange={value => onToggle('reliability_zones', value)} label="Độ tin cậy số đo NB1"
+            description="chỉ có quanh trạm quan trắc Quảng Ninh (chủ yếu Hạ Long) · nghiên cứu H4" />
 
           <SectionLabel icon={<Wind size={12} />} trailing={<Chip size="xs" tone="neutral" title="Lưới dự báo phủ cả Hải Phòng, Cát Bà, Hạ Long; một lớp màu mỗi lúc">toàn vùng</Chip>}>Thời tiết & biển</SectionLabel>
           {FIELD_TOGGLES.map(item => {
@@ -117,8 +119,6 @@ export const LayerControl = memo(function LayerControl(props: Props) {
 
           <SectionLabel icon={<MapPin size={12} />}>Bối cảnh</SectionLabel>
           <Toggle checked={enabled.context_buffer} onChange={value => onToggle('context_buffer', value)} label="Vùng quanh trạm (5 km)" description="chỉ tính phần mặt nước" />
-          <Toggle checked={enabled.hsi_zones} onChange={value => onToggle('hsi_zones', value)} label="Vùng HSI lịch sử"
-            description={`${HSI_LEGACY_LABEL}${enabled.hsi_zones && !zones ? ' · đang tải…' : ''}`} badge={<StateChip size="xs" state="legacy" title={HSI_LEGACY_LABEL} />} />
 
           <SectionLabel icon={<Waves size={12} />}>Mạng trạm</SectionLabel>
           <Toggle checked={enabled.station_network} onChange={value => onToggle('station_network', value)} label="Kết nối mặt nước giữa các trạm"

@@ -95,6 +95,11 @@ class SnapshotRepository:
                 inserted += int(connection.execute(query, values).rowcount == 1)
         return inserted
 
+    def latest_observed_at(self, station_serial: str) -> datetime | None:
+        with psycopg.connect(self.database_url) as connection:
+            row = connection.execute("SELECT max(observed_at) FROM sensor_observations WHERE station_serial = %s", (station_serial,)).fetchone()
+        return row[0] if row else None
+
     def latest_sensor(self, station_serial: str, limit: int = 100) -> list[dict[str, Any]]:
         query = """
         SELECT DISTINCT ON (metric) observation_id, station_serial, metric, value, unit,

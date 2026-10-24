@@ -660,3 +660,11 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Đồng bộ dữ liệu:** mở trang hoặc bấm "Đồng bộ" gửi `POST /api/v1/refresh`; worker (nơi duy nhất ghi dữ liệu, có quyền Copernicus) thấy yêu cầu trong ≤ 5 s và lấy bản tin ngay; bản tin < 10 phút thì không lấy lại (hạn mức Open-Meteo). Worker vẫn lấy ngay khi khởi động và mỗi 60 phút.
 - **Giao diện:** chữ khi rê chuột chỉ còn giá trị (ví dụ "5–10 m"); nguồn và độ tin cậy chuyển vào thẻ khi bấm. Điều hướng còn 4 mục: Bản đồ · Cảnh báo · Phân tích (tab Dự báo / Thời tiết / Phân vùng / Độ tin cậy) · Cấu hình.
 - **Kiểm tra:** test backend 104 đạt; `npm run build`; ảnh 1440 và 390 px trên Docker.
+
+## RL-53 · 2026-10-24 · Cảm biến trên bản đồ dừng ở 14/10: nguyên nhân và nạp lịch sử; bản đồ mặc định là vùng HSI + hiện trạng
+
+- **Nguyên nhân:** `research-map/.env` không có `TK_DHTB` / `MK_DHTB`, nên worker Docker chưa từng gọi GreenLab; trạm vẫn phát (bộ thu hằng ngày trên máy đã có tới 23/10). Vì số đo cuối trong Postgres là 14/10 (quá hạn 10 phút), khuyến nghị coi NH3 và nhiệt độ là thiếu → cả 14 điểm "Thiếu dữ liệu".
+- **Sửa:** chép tài khoản từ `.env` gốc sang `research-map/.env` (không in ra, không vào git). Worker nạp lịch sử bằng `/Datums/DataByDate` (giờ địa phương +07, decisions #12) từ ngày mới nhất đã lưu tới hôm nay (tối đa 30 ngày, khối 7 ngày) khi khởi động, mỗi 30 phút và khi bấm "Đồng bộ"; vẫn đọc số mới nhất mỗi 60 s. Lần đầu nạp 75.315 bản ghi; số đo mới nhất cách ~25 s; cả 14 điểm "Bình thường" với số đo đủ.
+- **Bản đồ mặc định:** vùng HSI lịch sử (nền = phân loại phù hợp, chưa kiểm chứng) có viền đậm theo hiện trạng nuôi lúc này của điểm trong vùng (cảm biến + dự báo mưa, gió 6 giờ); dải độ sâu GEBCO bật lại như trước; lớp độ tin cậy NB1 (H4) chuyển thành tuỳ chọn vì chỉ phủ quanh trạm quan trắc Quảng Ninh.
+- **Sóng:** hạt sóng vẽ thành gợn ngắn vuông góc với hướng truyền, trôi chậm (kiểu Windy), gợn dài hơn khi sóng cao.
+- **Lưu ý:** pH cảm biến ~6,66 vẫn là trôi đầu dò đã biết (H1 pH drift), không phải nước thật chua.

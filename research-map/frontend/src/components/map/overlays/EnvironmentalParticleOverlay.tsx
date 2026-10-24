@@ -22,11 +22,12 @@ type ParticleType = 'flow' | 'wind' | 'wave'
  * read at physical speed (Hs 0.05–0.4 m, currents < 0.2 m/s turned into still dots), so they move at a steady
  * on-screen speed that only grows with the magnitude; wind keeps its physical (scaled) speed.
  */
-const STYLE: Record<ParticleType, { secondsPerFrame: number; trail: number; multiplier: number; max: number; fade: string; minAge: number; width: number; screen?: [number, number, number] }> = {
+const STYLE: Record<ParticleType, { secondsPerFrame: number; trail: number; multiplier: number; max: number; fade: string; minAge: number; width: number; screen?: [number, number, number]; crest?: boolean }> = {
   flow: { secondsPerFrame: 55, trail: 7, multiplier: 7, max: 2000, fade: 'rgba(0,0,0,.04)', minAge: 50, width: 1.3, screen: [0.35, 1.6, 0.5] },
   wind: { secondsPerFrame: 6, trail: 7, multiplier: 8, max: 2200, fade: 'rgba(0,0,0,.04)', minAge: 40, width: 1.4 },
   // Wave u/v are the travel direction scaled by Hs (m), not a velocity: the speed only separates calm from rough.
-  wave: { secondsPerFrame: 70, trail: 7, multiplier: 8, max: 2200, fade: 'rgba(0,0,0,.04)', minAge: 50, width: 1.5, screen: [0.45, 1.8, 2] },
+  // Windy-style swell: short crest arcs across the travel direction drifting slowly forward (no streaks).
+  wave: { secondsPerFrame: 70, trail: 1, multiplier: 4, max: 1100, fade: 'rgba(0,0,0,.22)', minAge: 70, width: 1.6, screen: [0.25, 0.8, 2], crest: true },
 }
 
 /**
@@ -178,6 +179,16 @@ export function EnvironmentalParticleOverlay({ layer, type, enabled, waterGeomet
         }
         particle.age += 1
         if (particle.age > particle.maxAge || particle.x < 0 || particle.y < 0 || particle.x > container.clientWidth || particle.y > container.clientHeight || !isWaterPoint(particle.x, particle.y)) { respawn(particle); continue }
+        if (STYLE[type].crest) {
+          // Crest = short arc perpendicular to travel, bulging forward; longer for higher waves.
+          const dx = particle.x - oldX, dy = particle.y - oldY, step = Math.hypot(dx, dy) || 1
+          const ux = dx / step, uy = dy / step, half = 3 + 5 * Math.min(1, Math.hypot(vector.u, vector.v) / 1.5)
+          context.beginPath()
+          context.moveTo(particle.x - uy * half, particle.y + ux * half)
+          context.quadraticCurveTo(particle.x + ux * half * 0.55, particle.y + uy * half * 0.55, particle.x + uy * half, particle.y - ux * half)
+          context.stroke()
+          continue
+        }
         // Elongate only the visual streak, not the Euler step. The water clip
         // above keeps the longer tail off land/islands.
         const trailX = oldX - (particle.x - oldX) * (trailFactor - 1)
