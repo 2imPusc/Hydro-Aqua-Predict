@@ -86,6 +86,76 @@ export type LongForecast = Payload<{
   scoring: LongForecastScore[]
 }>
 
+/** H1.5 scorecard (experiments/shadow_scorecard.py) + live ledger span. */
+export type ScorecardEvidence = 'sufficient' | 'insufficient_evidence'
+export type ScorecardDm = { dm_stat: number | null; p_value: number | null; significant: boolean }
+export type ScorecardGroup = {
+  target: string
+  base_feature_set: string
+  variant: 'with_pH' | 'nopH'
+  horizon_minutes: number
+  n_issued: number
+  n_scored: number
+  n_excluded: number
+  n_no_observation: number
+  n_pending: number
+  n_on_the_fly: number
+  days_scored: number
+  evidence: ScorecardEvidence
+  evidence_reasons: string[]
+  mae: number | null
+  rmse: number | null
+  bias: number | null
+  persistence_mae: number | null
+  skill: number | null
+  coverage_pi80: number | null
+  coverage_pi90: number | null
+  mean_width_pi80: number | null
+  mean_width_pi90: number | null
+  pi80_in_target: boolean | null
+  dm_vs_persistence: (ScorecardDm & { model_better: boolean }) | null
+}
+export type ScorecardPair = {
+  target: string
+  base_feature_set: string
+  horizon_minutes: number
+  n_pairs: number
+  days: number
+  evidence: ScorecardEvidence
+  evidence_reasons: string[]
+  mae_with_pH: number | null
+  mae_nopH: number | null
+  mean_diff: number | null
+  share_with_pH_better: number | null
+  dm: (ScorecardDm & { better: 'with_pH' | 'nopH' | 'no_significant_difference' }) | null
+}
+export type ScorecardLive = {
+  ledger_state: 'missing' | 'empty' | 'active'
+  first_issued_at: string | null
+  latest_issued_at: string | null
+  ledger_days: number
+  gate_days: number
+  gate_progress: number
+}
+export type ShadowScorecard = Payload<{
+  station: string
+  mode: string
+  used_by_alerts: boolean
+  live: ScorecardLive
+  evidence: ScorecardEvidence
+  evidence_reasons: string[]
+  scorecard_age_hours: number | null
+  generated_at: string
+  thresholds: { min_resolved: number; min_days: number; gate_days: number; pi80_target: [number, number] }
+  ledger: { n_forecasts: number; n_scored: number; n_excluded: number; n_no_observation: number; n_pending: number; n_on_the_fly: number; ledger_days: number; scored_days: number; first_issued_at: string | null; last_issued_at: string | null }
+  gate: { days_required: number; ledger_days: number; progress: number; status: 'collecting' | 'ready_for_review' }
+  groups: ScorecardGroup[]
+  paired: ScorecardPair[]
+  weekly: Array<ScorecardGroup & { iso_week: string }>
+  paired_weekly: Array<ScorecardPair & { iso_week: string }>
+  skips: Array<{ target: string; feature_set: string; horizon_minutes: number; reason: string; n: number; last_at: string | null }>
+}>
+
 export type Gate = 'pass' | 'fail' | null
 export type BenchmarkRow = {
   target: string

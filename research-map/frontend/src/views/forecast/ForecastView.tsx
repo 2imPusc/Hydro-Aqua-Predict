@@ -7,6 +7,7 @@ import type { PollState } from '../../hooks/usePolling'
 import { DirectionPanel, PageScroll, ResearchGate, ResearchHeader, Unavailable, useDirection, useResearch } from '../shared/research'
 import { BenchmarkDetails, benchmarkSummary, SkillPanel } from './Benchmark'
 import { ledgerMeta, LiveShadow, useLongForecast } from './LiveShadow'
+import { ShadowScorecard } from './ShadowScorecard'
 
 /** One question: can water temperature be forecast 3–12 h ahead? Figures come from the export rows. */
 function ForecastVerdict({ benchmark, ledger, headline }: { benchmark: PollState<ForecastBenchmark>; ledger: PollState<LongForecast>; headline?: string }) {
@@ -51,6 +52,7 @@ export default function ForecastView() {
       <ResearchHeader code="H1" title="Dự báo ngắn hạn" direction={direction} exportVersion={benchmark.data?.export_version ?? overview.data?.export_version ?? undefined} />
       <ForecastVerdict benchmark={benchmark} ledger={ledger} headline={direction?.headline} />
       <LiveShadow poll={ledger} />
+      <ShadowScorecard station={pilotStation} />
       <ResearchGate poll={benchmark} title="Không có bảng benchmark" skeleton={<Skeleton className="h-72" />}>
         {data => (
           <>

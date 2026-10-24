@@ -95,6 +95,8 @@ class Settings:
     # Read-only research views (app/research.py). Nothing here is ever written by the API.
     research_export_dir: str = os.getenv("RESEARCH_EXPORT_DIR", str(_workspace_root() / "artifacts" / "research-map"))
     hap_runtime_dir: str = os.getenv("RESEARCH_RUNTIME_DIR", str(_workspace_root() / "runtime"))
+    # H1.5 shadow scorecards (experiments/shadow_scorecard.py writes shadow-scorecard-<YYYYMMDD>/scorecard.json here).
+    experiments_dir: str = os.getenv("RESEARCH_EXPERIMENTS_DIR", str(_workspace_root() / "artifacts" / "experiments"))
     weather_snapshots_path: str = os.getenv(
         "WEATHER_SNAPSHOTS_PATH", str(_workspace_root() / "artifacts" / "experiments" / "forecast-v2" / "weather-snapshots.jsonl"))
     sensor_future_manifest_path: str = os.getenv(

@@ -407,6 +407,80 @@ def forecast_long(station: str = DEFAULT_STATION) -> dict:
             "scoring": _scoring(outcomes)}
 
 
+# ---------------------------------------------------------------- H1.5 shadow scorecard
+SCORECARD_DIR_RE = re.compile(r"^shadow-scorecard-\d{8}(-\d{4}(\d{2})?)?$")
+SCORECARD_GATE_DAYS = 28
+LEDGER_HEAD_BYTES = 256 * 1024
+
+
+def _first_issued_at(path: Path, station: str) -> datetime | None:
+    """Earliest ``issued_at`` for ``station`` near the head of an append-only ledger (read-only)."""
+    with path.open("rb") as handle:
+        chunk = handle.read(LEDGER_HEAD_BYTES)
+    for line in chunk.split(b"\n")[:-1]:  # complete lines only
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if record.get("station_serial") == station and (t := _parse_time(record.get("issued_at"))) is not None:
+            return t
+    return None
+
+
+def _live_progress(station: str) -> dict:
+    """Ledger span read now (head + tail only), so gate progress moves between scorecard runs."""
+    path = Path(settings.hap_runtime_dir) / "forecast-shadow" / "long_forecasts.jsonl"
+    empty = {"ledger_state": "missing", "first_issued_at": None, "latest_issued_at": None, "ledger_days": 0.0,
+             "gate_days": SCORECARD_GATE_DAYS, "gate_progress": 0.0}
+    if not path.is_file():
+        return empty
+    first = _first_issued_at(path, station)
+    tail = [t for r in _tail_records(path, settings.ledger_tail_bytes)
+            if r.get("station_serial") == station and (t := _parse_time(r.get("issued_at"))) is not None]
+    if first is None or not tail:
+        return {**empty, "ledger_state": "empty"}
+    latest = max(tail)
+    days = max(0.0, (latest - first).total_seconds() / 86400)
+    return {**empty, "ledger_state": "active", "first_issued_at": first.isoformat(), "latest_issued_at": latest.isoformat(),
+            "ledger_days": round(days, 3), "gate_progress": round(min(1.0, days / SCORECARD_GATE_DAYS), 4)}
+
+
+def _latest_scorecard(station: str) -> tuple[Path | None, dict | None]:
+    root = Path(settings.experiments_dir)
+    if not root.is_dir():
+        return None, None
+    dirs = sorted((p for p in root.iterdir() if p.is_dir() and SCORECARD_DIR_RE.match(p.name) and (p / "scorecard.json").is_file()),
+                  key=lambda p: p.name, reverse=True)
+    for directory in dirs:
+        try:
+            card = _load_json(directory / "scorecard.json")
+        except ValueError:
+            continue  # unreadable file: try the previous run, never repair
+        if card.get("station") == station:
+            return directory, card
+    return None, None
+
+
+@router.get("/forecast/long/scorecard")
+def forecast_long_scorecard(station: str = DEFAULT_STATION) -> dict:
+    """Newest H1.5 scorecard written by ``experiments/shadow_scorecard.py`` plus live ledger progress.
+
+    The scorecard is not recomputed here (the ledger grows ~17k records a day and
+    resolution needs the sensor history); ``scorecard_age_hours`` says how old it is.
+    """
+    live = _live_progress(station)
+    base = {"station": station, "mode": "shadow", "used_by_alerts": False, "live": live}
+    directory, card = _latest_scorecard(station)
+    if card is None:
+        return {**base, **_unavailable("scorecard_missing")}
+    generated = _parse_time(card.get("generated_at"))
+    age = round((_now() - generated).total_seconds() / 3600, 2) if generated else None
+    keep = ("schema_version", "generated_at", "thresholds", "ledger", "gate", "groups", "paired", "weekly", "paired_weekly", "skips")
+    return {**base, "status": "ready", "export_version": directory.name, "evidence": card.get("status"),
+            "evidence_reasons": card.get("evidence_reasons") or [], "scorecard_age_hours": age,
+            **{key: card.get(key) for key in keep}}
+
+
 # ---------------------------------------------------------------- weather snapshot coverage
 _RETRIEVED_RE = re.compile(rb'"retrieved_at":\s*"([^"]+)"')
 _STATION_RE = re.compile(rb'"station":\s*"([^"]+)"')
