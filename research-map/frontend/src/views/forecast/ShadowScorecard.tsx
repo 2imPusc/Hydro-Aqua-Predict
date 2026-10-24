@@ -136,24 +136,31 @@ export function ShadowScorecard({ station }: { station: string }) {
   const thresholds = data?.thresholds
   const gateDays = live?.gate_days ?? thresholds?.gate_days ?? 28
   const noneScored = ready && (data.ledger?.n_scored ?? 0) === 0
+  const stale = ready && (data.scorecard_age_hours ?? 0) > 24
+  // Gate counts days that have forecasts (scorecard); the live read only knows the span, which would count runner gaps.
+  const activeDays = ready ? data.gate?.active_days ?? 0 : null
+  const progress = ready ? data.gate?.progress ?? 0 : null
+  const span = live?.ledger_state === 'active' ? live.ledger_days : 0
 
   return (
     <Panel title="Chấm điểm shadow · gate 4 tuần (H1.5)" icon={<ClipboardCheck size={15} />}
       summary={ready && data.generated_at ? `bảng chấm lúc ${formatTime(data.generated_at, true)} · cách ${formatAge((data.scorecard_age_hours ?? 0) * 3600)}` : undefined}
-      actions={evidence ? <Chip size="xs" tone={evidence.tone}>{evidence.label}</Chip> : data ? <Chip size="xs" tone="neutral">Chưa chấm</Chip> : null}>
+      actions={evidence ? <span className="inline-flex gap-1">{stale && <Chip size="xs" tone="warn" title="Bảng chấm tạo hơn 24 giờ trước; chạy lại experiments/shadow_scorecard.py">bảng chấm cũ</Chip>}<Chip size="xs" tone={evidence.tone}>{evidence.label}</Chip></span> : data ? <Chip size="xs" tone="neutral">Chưa chấm</Chip> : null}>
       {!data && !poll.error && <div className="grid grid-cols-2 gap-2 md:grid-cols-4"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div>}
       {!data && poll.error && <Unavailable compact error={poll.error} onRetry={poll.refresh} />}
       {data && (
         <div className="space-y-2.5">
           <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <Stat label="Số ngày sổ ghi" value={live && live.ledger_state === 'active' ? num(live.ledger_days, 1) : '0'} unit={`/ ${gateDays} ngày`}
-              hint={live?.first_issued_at ? `từ ${formatTime(live.first_issued_at, true)} (đọc trực tiếp)` : live?.ledger_state === 'empty' ? 'sổ ghi rỗng' : 'chưa có sổ ghi'} muted={live?.ledger_state !== 'active'} />
+            <Stat label="Ngày có dự báo" value={activeDays != null ? num(activeDays, 1) : '—'} unit={`/ ${gateDays} ngày`}
+              hint={live?.first_issued_at ? `khoảng từ lần phát đầu ${formatTime(live.first_issued_at, true)}: ${num(span, 1)} ngày (trực tiếp)` : live?.ledger_state === 'empty' ? 'sổ ghi rỗng' : 'chưa có sổ ghi'}
+              muted={activeDays == null || live?.ledger_state !== 'active'} />
             <Stat label="Dự báo đã chấm" value={ready ? (data.ledger?.n_scored ?? 0) : '—'} unit={ready ? `/ ${data.ledger?.n_forecasts ?? 0} đã phát` : undefined}
               hint={ready ? `chờ đến hạn ${data.ledger?.n_pending ?? 0} · loại QC ${data.ledger?.n_excluded ?? 0}` : 'chưa có bảng chấm'} muted={!ready || noneScored} />
             <div className="min-w-0 rounded-[var(--radius-sm)] border border-line bg-surface-2 px-2.5 py-2">
               <div className="text-[11px] font-semibold text-fg-subtle">Tiến độ gate 4 tuần</div>
-              <div className="mt-0.5 text-[18px] font-semibold leading-tight tracking-tight text-fg tabular">{pct(live?.gate_progress ?? 0)}</div>
-              <div className="mt-1"><GateBar progress={live?.gate_progress ?? 0} /></div>
+              <div className="mt-0.5 text-[18px] font-semibold leading-tight tracking-tight text-fg tabular">{progress != null ? pct(progress, 1) : '—'}</div>
+              <div className="mt-1"><GateBar progress={progress ?? 0} /></div>
+              <div className="mt-0.5 truncate text-[10.5px] text-fg-subtle">giờ có dự báo / 24; khoảng trống không tính</div>
             </div>
             <Stat label="Ngưỡng bằng chứng / nhóm" value={`≥ ${thresholds?.min_resolved ?? 200}`} unit={`dự báo · ≥ ${thresholds?.min_days ?? 7} ngày`}
               hint={`PI80 mục tiêu ${pct(thresholds?.pi80_target?.[0] ?? 0.75)}–${pct(thresholds?.pi80_target?.[1] ?? 0.85)}`} muted />

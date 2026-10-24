@@ -155,6 +155,10 @@ def test_not_due_forecasts_stay_pending_and_partial_line_is_ignored(ledger):
         handle.write(b'{"record_id": "partial", "station_serial": "06M')  # runner mid-append
     card = sc.compute_scorecard(ledger, STATION, now=START + pd.Timedelta(hours=2), history_loader=lambda: pytest.fail("not due"))
     assert card["ledger"]["n_pending"] == card["ledger"]["n_forecasts"] == 8
+    # gate counts hours that have forecasts, not the span: gaps (runner stopped) do not advance it
+    assert card["ledger"]["ledger_days"] == 0.75 and card["ledger"]["active_hours"] == 4
+    assert card["gate"]["active_days"] == pytest.approx(4 / 24, abs=1e-3) and card["gate"]["span_days"] == 0.75
+    assert card["gate"]["progress"] == pytest.approx(4 / 24 / 28, abs=1e-4)
 
 
 def test_run_dir_is_never_reused(tmp_path):

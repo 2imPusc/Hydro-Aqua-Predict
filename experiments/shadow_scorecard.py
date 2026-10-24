@@ -303,20 +303,24 @@ def build_scorecard(frame: pd.DataFrame, skips: list[dict], *, station: str, now
                   "dm": "Diebold-Mariano, absolute loss, Newey-West lag h-1 with 1-minute origins, HLN correction; run only with sufficient evidence"}
     if frame.empty:
         ledger = {"n_forecasts": 0, "first_issued_at": None, "last_issued_at": None, "ledger_days": 0.0, "distinct_days": 0,
+                  "active_hours": 0, "active_days": 0.0,
                   "n_scored": 0, "n_excluded": 0, "n_no_observation": 0, "n_pending": 0, "n_on_the_fly": 0}
     else:
         first, last = frame["issued_at"].min(), frame["issued_at"].max()
         status = frame["status"]
+        active_hours = int(frame["issued_at"].dt.floor("h").nunique())  # gaps (runner stopped) do not count
         ledger = {"n_forecasts": int(len(frame)), "first_issued_at": first.isoformat(), "last_issued_at": last.isoformat(),
                   "ledger_days": round((last - first).total_seconds() / 86400, 3), "distinct_days": int(frame["local_date"].nunique()),
+                  "active_hours": active_hours, "active_days": round(active_hours / 24, 3),
                   "n_scored": int(status.eq("scored").sum()), "n_excluded": int(status.eq("excluded_sensor_suspect").sum()),
                   "n_no_observation": int(status.eq("no_observation").sum()), "n_pending": int(status.eq("pending").sum()),
                   "n_on_the_fly": int((frame["outcome_source"] == "on_the_fly").sum())}
     scored_days = int(frame.loc[frame["status"].eq("scored"), "local_date"].nunique()) if not frame.empty else 0
     overall_evidence = _evidence(ledger["n_scored"], scored_days)
-    gate = {"days_required": GATE_DAYS, "ledger_days": ledger["ledger_days"],
-            "progress": round(min(1.0, ledger["ledger_days"] / GATE_DAYS), 4),
-            "status": "ready_for_review" if ledger["ledger_days"] >= GATE_DAYS else "collecting",
+    gate = {"days_required": GATE_DAYS, "active_days": ledger["active_days"], "span_days": ledger["ledger_days"],
+            "progress": round(min(1.0, ledger["active_days"] / GATE_DAYS), 4),
+            "status": "ready_for_review" if ledger["active_days"] >= GATE_DAYS else "collecting",
+            "basis": "active_days = hours with >= 1 issued forecast / 24 (runner gaps do not count); span_days = last - first issued_at",
             "note": "H1.5 gate: >= 4 weeks of ledger and stable metrics (roadmap); the decision itself stays with the owner."}
 
     groups, weekly, paired, paired_weekly = [], [], [], []
@@ -363,10 +367,12 @@ def render_markdown(card: dict) -> str:
              f"- Tạo lúc: {card['generated_at']} · chế độ shadow (không dùng cho cảnh báo)",
              f"- Trạng thái: **{card['status']}**" + (f" ({', '.join(card['evidence_reasons'])})" if card["evidence_reasons"] else ""),
              f"- Sổ ghi: {ledger['n_forecasts']} dự báo, {ledger['first_issued_at']} → {ledger['last_issued_at']} "
-             f"({ledger['ledger_days']} ngày, {ledger['distinct_days']} ngày lịch)",
+             f"(khoảng {ledger['ledger_days']} ngày; {ledger['active_hours']} giờ có dự báo = {ledger['active_days']} ngày; "
+             f"{ledger['distinct_days']} ngày lịch)",
              f"- Đã chấm: {ledger['n_scored']} (trong đó {ledger['n_on_the_fly']} đối chiếu tại chỗ, chưa có trong long_outcomes) · "
              f"loại QC {ledger['n_excluded']} · không có quan trắc {ledger['n_no_observation']} · chờ {ledger['n_pending']}",
-             f"- Gate H1.5 (≥ {gate['days_required']} ngày sổ ghi): {gate['status']}, tiến độ {_md_pct(gate['progress'])}",
+             f"- Gate H1.5 (≥ {gate['days_required']} ngày có dự báo, khoảng trống không tính): {gate['status']}, "
+             f"tiến độ {_md_pct(gate['progress'])}",
              f"- Ngưỡng bằng chứng: ≥ {card['thresholds']['min_resolved']} dự báo đã chấm và ≥ {card['thresholds']['min_days']} ngày; "
              f"PI80 mục tiêu {card['thresholds']['pi80_target'][0]}–{card['thresholds']['pi80_target'][1]}", "",
              "## Theo nhóm (toàn kỳ)", "",

@@ -147,8 +147,9 @@ export type ShadowScorecard = Payload<{
   scorecard_age_hours: number | null
   generated_at: string
   thresholds: { min_resolved: number; min_days: number; gate_days: number; pi80_target: [number, number] }
-  ledger: { n_forecasts: number; n_scored: number; n_excluded: number; n_no_observation: number; n_pending: number; n_on_the_fly: number; ledger_days: number; scored_days: number; first_issued_at: string | null; last_issued_at: string | null }
-  gate: { days_required: number; ledger_days: number; progress: number; status: 'collecting' | 'ready_for_review' }
+  ledger: { n_forecasts: number; n_scored: number; n_excluded: number; n_no_observation: number; n_pending: number; n_on_the_fly: number; ledger_days: number; active_hours: number; active_days: number; scored_days: number; first_issued_at: string | null; last_issued_at: string | null }
+  /** progress = active_days / days_required (hours with forecasts / 24; runner gaps do not count). */
+  gate: { days_required: number; active_days: number; span_days: number; progress: number; status: 'collecting' | 'ready_for_review' }
   groups: ScorecardGroup[]
   paired: ScorecardPair[]
   weekly: Array<ScorecardGroup & { iso_week: string }>

@@ -428,7 +428,11 @@ def _first_issued_at(path: Path, station: str) -> datetime | None:
 
 
 def _live_progress(station: str) -> dict:
-    """Ledger span read now (head + tail only), so gate progress moves between scorecard runs."""
+    """Ledger span read now (head + tail only).
+
+    ``gate_progress`` here is span-based (an upper bound: runner gaps count); the
+    scorecard's ``gate.progress`` counts only hours with forecasts and is the one to judge by.
+    """
     path = Path(settings.hap_runtime_dir) / "forecast-shadow" / "long_forecasts.jsonl"
     empty = {"ledger_state": "missing", "first_issued_at": None, "latest_issued_at": None, "ledger_days": 0.0,
              "gate_days": SCORECARD_GATE_DAYS, "gate_progress": 0.0}
