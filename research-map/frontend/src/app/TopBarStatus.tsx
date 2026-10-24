@@ -21,8 +21,10 @@ const RANK: Record<Tone, number> = { danger: 4, warn: 3, mock: 2, info: 1, neutr
  * is not fresh. Phones get one summary chip (worst state) with the full list
  * in its tooltip and accessible name.
  */
-export function TopBarStatus() {
-  const { status, mode, scenario, pilotStation } = useLiveData()
+export function TopBarStatus({ mockApplies = true }: { mockApplies?: boolean }) {
+  const { status, mode: dataMode, scenario, pilotStation } = useLiveData()
+  // The mock scenario only drives the map advisory; other pages show their own (live or replay) data.
+  const mode = mockApplies ? dataMode : 'live'
   const now = useNow(15_000)
   const elapsed = status.updatedAt ? (now - status.updatedAt) / 1000 : 0
 

@@ -5,4 +5,6 @@ import type { ActiveStormsResponse, StationHazardsResponse } from '../types/aler
 type Signal = AbortSignal | undefined
 
 export const getActiveStorms = (signal?: Signal) => getJson<ActiveStormsResponse>('/research/storms/active', signal)
-export const getStationHazards = (signal?: Signal) => getJson<StationHazardsResponse>('/research/hazards/stations', signal)
+export type HazardSource = 'live' | 'replay'
+export const getStationHazards = (signal?: Signal, source: HazardSource = 'live', daysBefore = 1) =>
+  getJson<StationHazardsResponse>(source === 'replay' ? `/research/hazards/stations?source=replay&days_before=${daysBefore}` : '/research/hazards/stations', signal)

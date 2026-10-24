@@ -80,6 +80,20 @@ AQUACULTURE_THRESHOLDS = {
     }
 }
 
+# Mock scenarios: wind at a sheltered / semi-sheltered cage is a fraction of the open-water wind (theory
+# exposure run, site_exposure_layer). Sensor values stay shared — every point reuses the one NB1 sensor.
+MOCK_WIND_FACTOR = {"exposed": 1.0, "semi": 0.7, "sheltered": 0.45}
+
+
+def _exposure_classes() -> dict[str, str]:
+    try:
+        from app.site_exposure_layer import site_exposure
+        body = site_exposure()
+    except Exception:
+        return {}
+    return {str(st["id"]): st["exposure_class"] for st in body.get("stations") or [] if st.get("id") and st.get("exposure_class")}
+
+
 def _condition(metrics: dict, weather: dict, nh4_scale: float, species: str = "default", nh3_error: str | None = None) -> tuple[str, list[dict]]:
     thresholds = AQUACULTURE_THRESHOLDS.get(species, AQUACULTURE_THRESHOLDS["default"])
     nh3 = _emerson_nh3(metrics.get("NH4"), metrics.get("pH"), metrics.get("Temperature"), nh4_scale) if not nh3_error else None if not nh3_error else None
@@ -328,7 +342,8 @@ def build_aquaculture_artifacts(repository: Any, cache_dir: str, station_serials
     
     mock_inputs = {
         "normal": ({"NH4": 0.7, "pH": 7.9, "Temperature": 28.0, "TSS": 10.0}, {"rain_6h_mm": 0.0, "wind_6h_kmh": 12.0}, "complete"),
-        "rain_wind_watch": ({"NH4": 0.8, "pH": 7.9, "Temperature": 28.5, "TSS": 25.0}, {"rain_6h_mm": 18.0, "wind_6h_kmh": 42.0}, "complete"),
+        # wind-led: open sites cross the cobia wind limit (40 km/h), sheltered ones stay below it
+        "rain_wind_watch": ({"NH4": 0.8, "pH": 7.9, "Temperature": 28.5, "TSS": 25.0}, {"rain_6h_mm": 12.0, "wind_6h_kmh": 50.0}, "complete"),
         "nh3_watch": ({"NH4": 400.0, "pH": 8.5, "Temperature": 31.5, "TSS": 30.0}, {"rain_6h_mm": 1.0, "wind_6h_kmh": 15.0}, "complete"),
         "temperature_warning": ({"NH4": 0.7, "pH": 8.0, "Temperature": 34.5, "TSS": 15.0}, {"rain_6h_mm": 0.0, "wind_6h_kmh": 5.0}, "complete"),
         "extreme_hazard": ({"NH4": 95.0, "pH": 8.6, "Temperature": 35.0, "TSS": 80.0}, {"rain_6h_mm": 45.0, "wind_6h_kmh": 65.0}, "complete"),
@@ -336,9 +351,10 @@ def build_aquaculture_artifacts(repository: Any, cache_dir: str, station_serials
         "missing_sensor_data": ({"pH": 8.0, "Temperature": 29.0}, {"rain_6h_mm": 5.0, "wind_6h_kmh": 20.0}, "partial"),
     }
     
+    exposure = _exposure_classes()
     for scenario, (metrics_val, mock_weather, m_status) in mock_inputs.items():
         mock_features = []
-        for i, rec in enumerate(registry):
+        for rec in registry:
             st_lat = rec["latitude"]
             st_lon = rec["longitude"]
             station_id = rec["station"]
@@ -347,17 +363,15 @@ def build_aquaculture_artifacts(repository: Any, cache_dir: str, station_serials
             st_metrics = copy.deepcopy(metrics_val)
             st_weather = copy.deepcopy(mock_weather)
             
-            if i % 3 == 1:
-                if "Temperature" in st_metrics: st_metrics["Temperature"] -= 3.0
-                if "wind_6h_kmh" in st_weather: st_weather["wind_6h_kmh"] *= 0.4
-                if "pH" in st_metrics: st_metrics["pH"] = 7.5
-            elif i % 3 == 2:
-                if "NH4" in st_metrics: st_metrics["NH4"] = 0.1
-                if "Temperature" in st_metrics: st_metrics["Temperature"] = 28.0
-                if "rain_6h_mm" in st_weather: st_weather["rain_6h_mm"] = 0.0
-                if "wind_6h_kmh" in st_weather: st_weather["wind_6h_kmh"] = 10.0
-                
+            # Per-site difference comes from the cage's exposure (open vs sheltered), not its list position.
+            exposure_class = exposure.get(str(station_id))
+            wind_factor = MOCK_WIND_FACTOR.get(exposure_class or "", 1.0)
+            if "wind_6h_kmh" in st_weather:
+                st_weather["wind_6h_kmh"] = round(st_weather["wind_6h_kmh"] * wind_factor, 1)
+
             feature = _feature(st_lon, st_lat, station_id, "mock", scenario, st_metrics, st_weather, now.isoformat(), nh4_scale, species, data_status=m_status, pilot_reference=None)
+            feature["properties"]["exposure_class"] = exposure_class
+            feature["properties"]["mock_wind_factor"] = wind_factor
             mock_features.append(feature)
             
         _write(_path(cache_dir, "mock", scenario), {

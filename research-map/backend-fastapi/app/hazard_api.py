@@ -9,7 +9,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from .settings import settings
 
@@ -248,14 +248,65 @@ def _storm_watch_from_summary(config: dict | None) -> dict | None:
             "data_status": body.get("data_status", "unavailable"), "site_note": "basin_summary_site_not_per_station"}
 
 
+# --- storm replay (read-only experiment output) ---------------------------------------------------------
+# experiments/hazard_runner_replay.py --wind-source best_track writes hazard-replay-*/records.jsonl: a past
+# storm's best-track wind at each cage run through the same runner. Shown only on request, always labelled.
+REPLAY_RUN = re.compile(r"^hazard-replay-[0-9a-z-]+$")
+REPLAY_SCENARIO = "yagi_2024"
+REPLAY_LANDFALL = datetime(2024, 9, 7, tzinfo=timezone.utc)  # issue dates are 00 UTC, landfall day = offset 0
+REPLAY_DAYS_BEFORE = (3, 2, 1, 0)
+
+
+def _replay_run() -> Path | None:
+    root = Path(settings.experiments_dir)
+    if not root.is_dir():
+        return None
+    for run in sorted((d for d in root.iterdir() if d.is_dir() and REPLAY_RUN.match(d.name)), key=lambda d: d.name, reverse=True):
+        try:
+            manifest = json.loads((run / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if manifest.get("yagi_wind_source") == "best_track" and (run / "records.jsonl").is_file():
+            return run
+    return None
+
+
+def _read_replay(run: Path, issue: datetime) -> list[dict]:
+    out = []
+    with (run / "records.jsonl").open(encoding="utf-8") as fh:
+        for line in fh:
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(rec, dict) and (rec.get("replay") or {}).get("scenario") == REPLAY_SCENARIO                     and rec.get("station") and rec.get("hazard") and _parse_ts(rec.get("issued_at")) == issue:
+                out.append(rec)
+    return out
+
+
 @router.get("/hazards/stations")
-def station_hazards() -> dict:
+def station_hazards(source: str = Query("live", pattern="^(live|replay)$"),
+                    days_before: int = Query(1, ge=0, le=3)) -> dict:
+    if source == "replay":
+        issue = REPLAY_LANDFALL - timedelta(days=days_before)
+        run = _replay_run()
+        records = _read_replay(run, issue) if run else []
+        if not records:
+            return {"status": "unavailable", "reason": "no_storm_replay", "source": "replay", "stations": [],
+                    "ledger_files": [], **FLAGS}
+        # "now" = the replay issue time, so the records are not marked stale; the page labels it as replay.
+        body = _station_payload(records, [f"{run.name}/records.jsonl"], issue, live_watch=False)
+        return {**body, "source": "replay", "replay_run": run.name, "replay_days_before": days_before,
+                "replay_days_available": list(REPLAY_DAYS_BEFORE)}
     folder = _hazard_shadow_dir()
-    now = _now()
     records, files = _read_ledger(folder)
     if not records:
         return {"status": "unavailable", "reason": "no_hazard_ledger" if not files else "empty_hazard_ledger",
-                "stations": [], "ledger_files": files, **FLAGS}
+                "stations": [], "ledger_files": files, "source": "live", **FLAGS}
+    return {**_station_payload(records, files, _now(), live_watch=True), "source": "live"}
+
+
+def _station_payload(records: list[dict], files: list[str], now: datetime, *, live_watch: bool) -> dict:
 
     by_station: dict[str, list[dict]] = {}
     for rec in records:
@@ -293,7 +344,7 @@ def station_hazards() -> dict:
         if watch_recs:
             newest = max(watch_recs, key=lambda r: _parse_ts(r["issued_at"]))
             watch = _storm_watch_from_record(newest, now, cfg)
-        else:
+        elif live_watch:  # the live basin summary must never sit next to replayed tiers
             if summary_watch is None:
                 summary_watch = {"v": _storm_watch_from_summary(default_cfg)}
             watch = summary_watch["v"]

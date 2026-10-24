@@ -157,3 +157,43 @@ def test_storm_watch_falls_back_to_storms_active(env):
     sw = station(get(env))["storm_watch"]
     assert sw["source"] == "storms_active" and sw["p_within_500km_120h"] == 0.12
     assert sw["data_status"] == "fresh" and sw["site_note"] == "basin_summary_site_not_per_station"
+
+
+def _replay_run(root, name, wind_source, records):
+    run = root / name
+    run.mkdir(parents=True)
+    (run / "manifest.json").write_text(json.dumps({"yagi_wind_source": wind_source}), encoding="utf-8")
+    with (run / "records.jsonl").open("w", encoding="utf-8") as fh:
+        for r in records:
+            fh.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def test_storm_replay_is_opt_in_labelled_and_never_mixed_with_live(tmp_path, monkeypatch, env):
+    experiments = tmp_path / "experiments"
+    monkeypatch.setattr(hazard_api, "settings", replace(hazard_api.settings, experiments_dir=str(experiments)))
+    landfall = datetime(2024, 9, 7, tzinfo=timezone.utc)
+    replay = {"replay": {"label": "best_track_as_forecast", "scenario": "yagi_2024", "wind_source": "best_track"}}
+    good = [rec(issued=landfall - timedelta(days=1), lead=0, tier=2, value=8, **replay),
+            rec(issued=landfall, lead=0, tier=3, value=10, **replay)]
+    _replay_run(experiments, "hazard-replay-20261024a", "era5", [rec(issued=landfall, tier=1, **replay)])
+    _replay_run(experiments, "hazard-replay-20261024b", "best_track", good)
+    write(env["dir"], NOW.strftime("%Y%m%d"), [rec()])
+
+    live = get(env)
+    assert live["source"] == "live" and not live["replay"] and station(live)["max_tier"] == 0
+
+    body = env["client"].get("/api/v1/research/hazards/stations?source=replay&days_before=0").json()
+    nb1 = station(body)
+    assert body["source"] == "replay" and body["replay"] and body["replay_run"] == "hazard-replay-20261024b"
+    assert body["issued_at"] == "2024-09-07T00:00:00Z" and nb1["max_tier"] == 3 and nb1["data_status"] == "fresh"
+    assert nb1["storm_watch"] is None                       # the live basin summary never sits next to replayed tiers
+    assert body["used_by_alerts"] is False and body["notification_eligible"] is False
+    day_before = env["client"].get("/api/v1/research/hazards/stations?source=replay&days_before=1").json()
+    assert station(day_before)["max_tier"] == 2
+    assert env["client"].get("/api/v1/research/hazards/stations?source=other").status_code == 422
+
+
+def test_storm_replay_unavailable_without_best_track_run(tmp_path, monkeypatch, env):
+    monkeypatch.setattr(hazard_api, "settings", replace(hazard_api.settings, experiments_dir=str(tmp_path / "none")))
+    body = env["client"].get("/api/v1/research/hazards/stations?source=replay").json()
+    assert body["status"] == "unavailable" and body["reason"] == "no_storm_replay"

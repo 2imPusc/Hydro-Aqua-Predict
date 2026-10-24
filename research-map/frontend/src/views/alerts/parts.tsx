@@ -2,6 +2,11 @@ import type { ReactNode } from 'react'
 import { Ban, BellOff, CircleCheck, Eye, History, OctagonAlert, Rewind, Settings2, Siren, Tornado, TriangleAlert } from 'lucide-react'
 import { Chip, Disclosure } from '../../components/ui'
 import type { DataStatus, StationAlerts, StationHazard, StationOutlookDay, StationStormWatch } from '../../types/alerts'
+
+const REPLAY_LABEL: Record<string, string> = {
+  reanalysis_as_forecast: 'tái phân tích ERA5 chạy lại như bản tin',
+  best_track_as_forecast: 'gió theo đường đi thực của bão, chạy lại như bản tin',
+}
 import {
   BAR, EXPOSURE_HINT, EXPOSURE_LABEL, STATUS_LABEL, dayLabel, hazardName, hazardValue, localTime, localToday, shortName, skipText,
   tierClass, tierLabel, tierTone, topHazard, usableTier, type TierMeta,
@@ -157,7 +162,7 @@ export function StationDetails({ station, tiers }: { station: StationAlerts; tie
       ) : <p className="m-0">{skipText(station.reason) || 'Không có bản ghi.'}</p>}
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
         <dt className="text-fg-subtle">Đầu vào</dt><dd className="m-0 break-words text-fg">{inputs.join(' · ') || '—'}</dd>
-        {station.replay && <><dt className="text-fg-subtle">Phát lại</dt><dd className="m-0 text-fg">{station.replay_labels?.join(', ') || 'có'} — không phải bản tin hiện tại</dd></>}
+        {station.replay && <><dt className="text-fg-subtle">Phát lại</dt><dd className="m-0 text-fg">{station.replay_labels?.map(label => REPLAY_LABEL[label] ?? label).join(', ') || 'có'} — không phải bản tin hiện tại</dd></>}
         <dt className="text-fg-subtle">Lần chạy</dt><dd className="m-0 text-fg">{localTime(station.issued_at)}</dd>
         <dt className="text-fg-subtle">Bộ ngưỡng</dt><dd className="m-0 text-fg"><code>{station.config_version ?? '—'}</code></dd>
         {station.storm_watch && <><dt className="text-fg-subtle">Theo dõi bão</dt><dd className="m-0 text-fg">
@@ -221,7 +226,8 @@ export function StationCard({ station, tiers, id }: { station: StationAlerts; ti
       )}
       <OutlookStrip days={station.outlook} tiers={tiers} stationName={name} />
       <div className="flex flex-wrap items-center gap-1.5">
-        <StatusChip status={station.data_status} ageHours={station.age_hours} />
+        {/* a replayed run has no "age": only the replay label applies */}
+        {!station.replay && <StatusChip status={station.data_status} ageHours={station.age_hours} />}
         <StormChip watch={station.storm_watch} stationStatus={station.data_status} />
         {station.replay && <ReplayChip />}
       </div>

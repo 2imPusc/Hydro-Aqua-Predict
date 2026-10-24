@@ -87,4 +87,6 @@ export type StationHazardsResponse = {
   /** Additive (Track G). */
   generated_at?: string; config_versions?: string[]; tiers?: AlertConfig['tiers']; stale_after_hours?: number
   ledger_files?: string[]; replay?: boolean
+  /** Storm replay (opt-in): which past-storm day is shown. */
+  source?: 'live' | 'replay'; replay_run?: string; replay_days_before?: number; replay_days_available?: number[]
 }

@@ -1,9 +1,9 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { SYNC_EVENT } from '../../app/useSync'
 import { BellRing, Rewind } from 'lucide-react'
-import { getStationHazards } from '../../api/hazards'
+import { getStationHazards, type HazardSource } from '../../api/hazards'
 import { describeApiError } from '../../api/client'
-import { EmptyState, Skeleton } from '../../components/ui'
+import { EmptyState, Segmented, Skeleton } from '../../components/ui'
 import { usePolling } from '../../hooks/usePolling'
 import type { StationAlerts, StationHazardsResponse } from '../../types/alerts'
 import { PageScroll } from '../shared/research'
@@ -13,6 +13,7 @@ import { HATCH, ShadowChip, StationCard, TierIcon } from './parts'
 const REASON: Record<string, string> = {
   no_hazard_ledger: 'Bộ chạy cảnh báo (shadow) chưa ghi lượt nào. Khi bật, trang này hiện bậc nguy cơ 5 ngày tới của 14 điểm nuôi: gió bão, sóng, nắng nóng, rét, dịch bệnh.',
   empty_hazard_ledger: 'Sổ cảnh báo có nhưng chưa có bản ghi đọc được.',
+  no_storm_replay: 'Chưa có lần chạy phát lại bão (experiments/hazard_runner_replay.py --wind-source best_track).',
 }
 const cardId = (station: StationAlerts) => `alert-station-${station.id}`
 
@@ -50,6 +51,8 @@ function StationTiles({ stations, tiers }: { stations: StationAlerts[]; tiers: T
 }
 
 /** Answer-first summary: how many stations need preparing today, then the count per tier / data state. */
+const DAYS_LABEL: Record<number, string> = { 3: '3 ngày trước', 2: '2 ngày trước', 1: '1 ngày trước', 0: 'Ngày bão vào' }
+
 function Summary({ data, stations, tiers }: { data: StationHazardsResponse; stations: StationAlerts[]; tiers: TierMeta[] }) {
   const counts = new Map<string, number>()
   for (const s of stations) {
@@ -76,7 +79,9 @@ function Summary({ data, stations, tiers }: { data: StationHazardsResponse; stat
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-[240px] flex-[1_1_340px]">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="alerts-q" className="m-0 text-[13px] font-medium text-fg-muted">Hôm nay có trạm nào cần chú ý?</h2>
+            <h2 id="alerts-q" className="m-0 text-[13px] font-medium text-fg-muted">{data.source === 'replay'
+              ? `Phát lại bão · ${(DAYS_LABEL[data.replay_days_before ?? 1] ?? '').toLowerCase()}: trạm nào cần chú ý?`
+              : 'Hôm nay có trạm nào cần chú ý?'}</h2>
             <ShadowChip />
           </div>
           <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -85,7 +90,7 @@ function Summary({ data, stations, tiers }: { data: StationHazardsResponse; stat
           </div>
           <p className="m-0 mt-1.5 max-w-[62ch] text-[13px] leading-snug text-fg">{answer}</p>
           <p className="m-0 mt-1 text-[11.5px] text-fg-subtle">
-            Lần chạy {localTime(data.issued_at)} · bộ ngưỡng <code>{data.config_version ?? '—'}</code> · quá {data.stale_after_hours ?? 3} giờ coi là cũ
+            {data.source === 'replay' ? 'Bản tin phát lại' : 'Lần chạy'} {localTime(data.issued_at)} · bộ ngưỡng <code>{data.config_version ?? '—'}</code>{data.source === 'replay' ? '' : ` · quá ${data.stale_after_hours ?? 3} giờ coi là cũ`}
           </p>
         </div>
         <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-2">
@@ -105,7 +110,10 @@ function Summary({ data, stations, tiers }: { data: StationHazardsResponse; stat
 }
 
 export default function AlertsView() {
-  const poll = usePolling(getStationHazards, { intervalMs: 5 * 60_000, maxErrorRetries: 3, retryBaseMs: 3_000, clearOnError: true })
+  const [source, setSource] = useState<HazardSource>('live')
+  const [daysBefore, setDaysBefore] = useState('1')
+  const fetcher = useCallback((signal?: AbortSignal) => getStationHazards(signal, source, Number(daysBefore)), [source, daysBefore])
+  const poll = usePolling(fetcher, { deps: [source, daysBefore], intervalMs: 5 * 60_000, maxErrorRetries: 3, retryBaseMs: 3_000, clearOnError: true })
   useEffect(() => {
     const onSync = () => poll.refresh()
     window.addEventListener(SYNC_EVENT, onSync)
@@ -124,7 +132,7 @@ export default function AlertsView() {
       : <><Skeleton className="h-36" /><Skeleton className="h-64" /></>
   } else if (data.status !== 'ready') {
     body = (
-      <EmptyState icon={<BellRing size={22} />} title="Chưa bật cảnh báo theo trạm" description={REASON[data.reason ?? ''] ?? 'Không đọc được sổ cảnh báo.'}>
+      <EmptyState icon={<BellRing size={22} />} title={source === 'replay' ? 'Chưa có bản phát lại bão' : 'Chưa bật cảnh báo theo trạm'} description={REASON[data.reason ?? ''] ?? 'Không đọc được sổ cảnh báo.'}>
         <p className="m-0 mt-2 max-w-md text-[12px] text-fg-subtle">Bật bằng cờ <code className="font-mono">HAZARD_RUNNER_ENABLED</code> trên máy chạy shadow. Ngưỡng các bậc chỉnh ở <a className="font-semibold text-accent underline-offset-2 hover:underline" href="#/settings/alerts">Cấu hình cảnh báo</a>.</p>
       </EmptyState>
     )
@@ -134,7 +142,9 @@ export default function AlertsView() {
         {data.replay && (
           <div role="note" className="mock-stripes flex items-start gap-2 rounded-[var(--radius-md)] border border-[var(--mock-line)] bg-mock-bg px-3.5 py-2.5 text-[13px] text-fg">
             <Rewind size={16} className="mt-0.5 flex-none text-mock" aria-hidden />
-            <span><span className="font-semibold text-mock">Dữ liệu phát lại, không phải hiện tại.</span> {stations.every(s => s.replay || !s.issued_at) ? 'Các trạm' : 'Một số trạm (có nhãn "Phát lại")'} dùng gió/nhiệt độ quá khứ (tái phân tích) chạy lại như bản tin; bậc chỉ minh hoạ logic cảnh báo.</span>
+            <span><span className="font-semibold text-mock">Dữ liệu phát lại, không phải hiện tại.</span> {data.source === 'replay'
+              ? 'Một cơn bão đã qua: gió tại từng lồng tính từ đường đi thực của bão, chạy lại như bản tin. Bậc chỉ minh hoạ logic cảnh báo; không gửi cho người nuôi.'
+              : `${stations.every(s => s.replay || !s.issued_at) ? 'Các trạm' : 'Một số trạm (có nhãn "Phát lại")'} dùng gió/nhiệt độ quá khứ (tái phân tích) chạy lại như bản tin; bậc chỉ minh hoạ logic cảnh báo.`}</span>
           </div>
         )}
         <Summary data={data} stations={stations} tiers={tiers} />
@@ -148,6 +158,14 @@ export default function AlertsView() {
   return (
     <PageScroll>
       <h1 className="sr-only">Cảnh báo theo trạm</h1>
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented label="Nguồn cảnh báo" value={source} onChange={setSource}
+          options={[{ value: 'live', label: 'Hiện tại' }, { value: 'replay', label: 'Phát lại bão', tone: 'mock' }]} />
+        {source === 'replay' && (
+          <Segmented label="Thời điểm phát lại" value={daysBefore} onChange={setDaysBefore}
+            options={['3', '2', '1', '0'].map(day => ({ value: day, label: DAYS_LABEL[Number(day)], tone: 'mock' as const }))} />
+        )}
+      </div>
       {body}
     </PageScroll>
   )

@@ -79,7 +79,7 @@ export function Shell({ route, theme, onToggleTheme, children }: { route: Route;
             <div className="hidden text-[11.5px] leading-tight text-fg-muted lg:block">Hydro-Aqua · bản đồ nghiên cứu Cát Bà</div>
           </div>
           <div className="ml-auto flex min-w-0 flex-none items-center gap-2 md:flex-initial">
-            <TopBarStatus />
+            <TopBarStatus mockApplies={route.view === 'monitor'} />
             <SyncButton />
             <span className="mx-1 hidden h-6 w-px bg-line md:block" aria-hidden />
             <IconButton label={theme === 'dark' ? 'Chuyển giao diện sáng' : 'Chuyển giao diện tối'} onClick={onToggleTheme} data-testid="theme-toggle">

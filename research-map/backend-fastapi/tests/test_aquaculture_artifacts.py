@@ -28,3 +28,17 @@ def test_species_names_are_utf8_vietnamese_not_mojibake():
     assert AQUACULTURE_THRESHOLDS["oyster"]["name"] == "Hàu"
     raw = (Path(__file__).parents[1] / "app" / "aquaculture_artifacts.py").read_bytes().decode("utf-8")
     assert "Ã" not in raw
+
+
+def test_mock_severity_follows_cage_exposure_not_list_position(tmp_path: Path, monkeypatch):
+    from app import aquaculture_artifacts as aa
+    classes = {"NB1": "exposed", "NB2": "sheltered", "NB3": "semi", "NB4": "exposed"}
+    monkeypatch.setattr(aa, "_exposure_classes", lambda: classes)
+    build_aquaculture_artifacts(Repo(), str(tmp_path), ("06M26042804",), 20.7, 107.0, .001)
+    mock = load_aquaculture_artifact(str(tmp_path), "mock", "rain_wind_watch")
+    by_id = {f["properties"]["station_serial"]: f["properties"] for f in mock["features"] if f["properties"].get("station_serial") in classes}
+    assert by_id, "registry stations missing"
+    for sid, props in by_id.items():
+        assert props["exposure_class"] == classes[sid]
+        expected = "WATCH" if classes[sid] == "exposed" else "NORMAL"   # 50 km/h open water; ×0.7 / ×0.45 inside
+        assert props["severity"] == expected, (sid, props["severity"])
