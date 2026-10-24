@@ -145,3 +145,15 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định:** khi có file đăng nhập Copernicus, dòng chảy (GLO12 PT1H) và sóng (MFWAM PT3H) trên bản đồ lấy từ CMEMS; mực nước, mưa, gió vẫn từ Open-Meteo. File đăng nhập gắn chỉ-đọc vào worker, không chép vào `.env` (chủ dự án đồng ý 24/10).
 - **Lý do:** cùng mô hình gốc với Open-Meteo marine nhưng có phiên bản dataset và tài liệu kiểm chứng (RL-44, RL-49); một lần tải cho cả vùng.
 - **Hệ quả:** chú giải ghi nguồn theo dữ liệu thực; `zos` (so với geoid) không dùng cho lớp "mực nước so với mực TB" (RL-51).
+
+## #25 — 2026-10-24 · Nhật ký sự kiện ngoài lồng: đường ghi thứ hai của API
+
+- **Quyết định:** API research-map được ghi vào `runtime/events/` (ngoài Postgres): mỗi sự kiện một file JSON tạo độc quyền; sửa bằng sự kiện mới có `supersedes`, mỗi sự kiện chỉ bị thay một lần (file `.superseded.claim`). Docker gắn `runtime/events` ghi được cho `api`.
+- **Lý do:** ground truth cho H2.4/H2.5 phải bất biến và đọc được ngoài stack (CSV, script) giống các sổ shadow.
+- **Hệ quả:** `runtime/events/` thuộc danh sách append-only (AGENTS.md); file `.claim` là một phần kho, không xoá. Phân quyền người ghi để sau (RL-56).
+
+## #26 — 2026-10-24 · Bản tin thời tiết B5: hai nguồn thu, hợp nhất ưu tiên task
+
+- **Quyết định:** ngoài task `HAP-WeatherSnapshot`, worker research-map ghi bản tin NB1 mỗi giờ vào file riêng (`worker-capture/`, nhãn `capture_source`). B5 hợp nhất theo trạm × giờ phát, bản của task được ưu tiên. H2.2 chỉ dùng bản `captured_live`. Sẵn sàng khi cửa sổ 63 ngày có ≥ 57 ngày đủ (ngày đủ khi ≥ 90 % origin có bản tin nhân quả).
+- **Lý do:** một nguồn thu duy nhất lỡ khi máy ngủ / mất mạng (độ phủ 7 ngày ~50 %); nguồn thứ hai chạy trong Docker độc lập, không sửa file cũ.
+- **Hệ quả:** báo cáo độ phủ tuần `forecast_snapshot_coverage.py --weekly`; ngày dự kiến H2.2 hiện trên trang Thời tiết (RL-59).

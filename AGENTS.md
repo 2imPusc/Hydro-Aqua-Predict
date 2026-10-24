@@ -54,14 +54,14 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 161 tests; requires_data ones skip without data/
+.venv\Scripts\python -m pytest -q                       # 799 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
 powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1   # api :8010, vite :5173 (5174 if taken), postgres :5434 (docker)
 .venv\Scripts\python scripts\export_research_map_artifacts.py   # research-map H1–H4 JSON -> artifacts/research-map/<stamp>/ (newest served)
 .venv\Scripts\python scripts\check_isolation.py         # no imports/paths escape the repo
-cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (43)
+cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (155)
 ```
 
 `GREENLAB_FETCH_MODE=cache` gives a stable offline run from local history (no API calls);
@@ -108,9 +108,9 @@ CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests,
 ## Hard rules
 
 1. **Never delete, overwrite or truncate** anything in `data/`, `artifacts/`, `runtime/`,
-   `research-map/cache/`, or the research-map Postgres volume. Sensor history and
-   snapshot JSONL files are append-only. Before any risky git op (`clean`, `reset --hard`,
-   `checkout -- .`, worktree removal) stop and confirm — `data/` is gitignored, so git
+   `research-map/cache/`, or the research-map Postgres volume. Sensor history, snapshot
+   JSONL files and `runtime/events/` (field events + `.superseded.claim` files) are
+   append-only. Before any risky git op (`clean`, `reset --hard`, `checkout -- .`, worktree removal) stop and confirm — `data/` is gitignored, so git
    cannot restore it.
 2. **Paths only via `core/paths.py`.** No `Path(__file__).parents[N]` walking to data,
    no cwd-relative `"data/..."` strings in new code. Experiment outputs go to

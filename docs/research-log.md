@@ -668,3 +668,46 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Bản đồ mặc định:** vùng HSI lịch sử (nền = phân loại phù hợp, chưa kiểm chứng) có viền đậm theo hiện trạng nuôi lúc này của điểm trong vùng (cảm biến + dự báo mưa, gió 6 giờ); dải độ sâu GEBCO bật lại như trước; lớp độ tin cậy NB1 (H4) chuyển thành tuỳ chọn vì chỉ phủ quanh trạm quan trắc Quảng Ninh.
 - **Sóng:** hạt sóng vẽ thành gợn ngắn vuông góc với hướng truyền, trôi chậm (kiểu Windy), gợn dài hơn khi sóng cao.
 - **Lưu ý:** pH cảm biến ~6,66 vẫn là trôi đầu dò đã biết (H1 pH drift), không phải nước thật chua.
+
+## RL-54 · 2026-10-24 · H1 chạy lại trên lịch sử đến 24/10 (lockbox 10–24/10)
+
+- **Thiết lập:** `sensor-history-20261024` (204.861 dòng, 29/05 → 24/10, sha256 dad97fd3…); bản tin dựng lại mở rộng tới 24/10 (trùng khớp bản cũ trên phần chồng lấn); ridge; 5 fold × 7 ngày + lockbox 14 ngày; gate #16; cửa sổ lockbox giống nhau giữa các bộ đặc trưng.
+- **Nhiệt độ:** đạt gate ở mọi chân trời 15 phút–12 giờ với mọi bộ (B0, B4, B4_nopH, B5, B5_nopH). Skill B5: 14,9 / 18,3 / 23,4 / 33,0 / 41,3 / 46,4 % (RL-08: 13,5…45,5 %); MAE B5 12 h 1,29 °C (persistence 2,40). Thời tiết so với B4: −6,5 % MAE (3 h, p = 0,013), −11,0 % (6 h), −11,5 % (12 h). Bỏ pH làm MAE tăng 1–5,6 % (DM p ≤ 0,008) dù lockbox nằm trọn trong giai đoạn pH trôi → tiêu chí đổi sang nopH của RL-18 không đạt; runtime giữ nguyên. Lag pH trôi tương quan −0,81 với nhiệt độ trong ngày → lợi ích có thể đảo dấu khi hiệu chuẩn lại đầu dò.
+- **pH:** trôi nặng hơn RL-13 (trung vị 7,96 → 7,00 sau 19/09, 6,91 trong lockbox; 68 % lockbox ngoài 7,0–8,6; 15/15 ngày SUSPECT; luật tốc độ không bắt được trôi chậm). B0 60 phút "đạt gate" chỉ là quán tính của tín hiệu đầu dò; có QC (`--ph-qc`) chỉ còn 22 % mốc → không đạt. Không có dự báo pH có ý nghĩa khi đầu dò trôi.
+- **NH4:** B4 lockbox +22/+18 % nhưng 1/5 fold → không đạt (NH4 nhảy bậc 16/09, lockbox tăng 1,9 → 10,2). **TSS:** thua persistence mọi ô (lockbox gần đứng yên ~3 mg/L).
+- **Khuyến nghị:** giữ bundle nhiệt độ có pH làm chính, nopH song song; chuyển nopH khi hiệu chuẩn/thay đầu dò pH; huấn luyện lại cả hai biến thể trên lịch sử 24/10 (chờ chủ dự án); NH4/TSS giữ persistence.
+- **Artifact:** `forecast-h1-rerun-20261024-{Temperature,pH,pH-qc,pH-drift,NH4,TSS}/`; `experiments/forecast_gate16_report.py`, `experiments/ph_drift_report.py`.
+
+## RL-55 · 2026-10-24 · H1.5 bảng chấm điểm shadow
+
+- `experiments/shadow_scorecard.py` chỉ đọc sổ `long_*.jsonl`, ghép kết quả bằng `core.forecast_evaluation.long_outcome` (±2 phút, dùng chung với runner). Nhóm B4/B5 × pH/nopH × 180/360/720 phút và theo tuần ISO: MAE, MAE persistence, skill, độ phủ và độ rộng PI80/PI90, chênh lệch cặp pH−nopH; DM chỉ khi ≥ 200 dự báo đã chấm trong ≥ 7 ngày; gate 28 ngày tính bằng số giờ có dự báo / 24. Endpoint `/api/v1/research/forecast/long/scorecard`; khối "Chấm điểm shadow" trên trang H1.
+- `HAP-ShadowRunner` bật 24/10 05:18 UTC (live GreenLab, wrapper `scripts/run_shadow_runner.ps1`). 13:04 giờ VN: 84 dự báo, 0 đã chấm (mốc 3 h đầu tiên đến hạn 08:19 UTC) → `insufficient_evidence`.
+- **Sự cố đầu tiên:** runner dừng phát 05:28–06:08 UTC vì endpoint "latest" của GreenLab lỗi → rơi về cache cũ → guard chặn (đúng thiết kế), tự hồi phục. Sổ dài cần lịch sử gần: `refresh_recent_history` nạp hôm qua + hôm nay bằng DataByDate mỗi 15 phút vào `live-cache/`. Thời gian một lượt giảm ~40 s → ~2 s nhờ cache phân tích theo file trong `load_cached_history`.
+- **Tiếp theo:** chấm điểm hằng ngày; đánh giá ở 7 và 28 ngày (~21/11).
+
+## RL-56 · 2026-10-24 · Nhật ký sự kiện ngoài lồng (ground truth H2.4/H2.5)
+
+- Trang Cấu hình → "Nhật ký sự kiện" (`#/settings/events`); API `/api/v1/events` (POST, GET, `export.csv`). Mỗi sự kiện một file JSON trong `runtime/events/`, tạo độc quyền (không ghi đè); sửa = sự kiện mới có `supersedes`, mỗi sự kiện chỉ bị thay một lần (file khóa `.superseded.claim`). Logic ở `core/field_events.py`; loại sự kiện theo `docs/guide/09-ground-truth-protocol.md`.
+- H2.4 cần ≥ 10 sự kiện; hiện 0. Đây là đường ghi thứ hai của API (decisions #25).
+
+## RL-57 · 2026-10-24 · H2.5 xác suất sự kiện nhiệt độ trong 24 h (không cần DO)
+
+- E1 ngày nóng (TB ngày ≥ 31 °C), E2 tăng ≥ 1,5 °C trong 6 h, E3 giảm ≥ 1,5 °C trong 6 h; định nghĩa cố định trong commit 78bba6e trước khi fit. Logistic trên trạng thái sensor / + thời tiết dựng lại / + Platt; lockbox 10–23/10; bootstrap khối 3 ngày.
+- E1: `insufficient_evidence` (lockbox 0 ngày nóng; fold trượt thắng khí hậu, không thắng persistence). E2: `insufficient_evidence` (lockbox 55/55 ngày là sự kiện). E3: chỉ thắng khí hậu (BSS 0,44 [0,37; 0,51]), không thắng persistence (−0,25 [−2,92; 0,33]). Thời tiết (kể cả ERA5) không thêm gì so với trạng thái sensor.
+- **Cờ dữ liệu:** biên độ ngày–đêm của sensor nhiệt độ tăng ~5 lần từ giữa 08 (0,5–1,2 → 3,7–4,05 °C), lớn hơn biên độ không khí ERA5 (3,0–3,5 °C); đỉnh 11–14 h; tương quan với mực nước giảm 0,5–0,6 → 0,02. Cần hỏi đơn vị vận hành: độ sâu / vị trí / vỏ đầu dò có đổi quanh 15–20/08, hay bị bám bẩn. Ảnh hưởng H1.2, A1 và conformal.
+- **Tiếp theo:** ngưỡng tương đối theo chu kỳ ngày–đêm, đặt trước, chạy lại.
+
+## RL-58 · 2026-10-24 · H2.3 độ trễ mưa → cảm biến tại NB1
+
+- ERA5 ghim (`models=era5`) 28/05–18/10; trung vị giờ (≥ 30 phút hợp lệ), loại ngày `sensor_day_health` không OK; tách 2 chế độ quanh bước nhảy 31/07; trừ trung vị trượt 7 ngày, chu kỳ ngày, 5 thành phần triều, mực nước mô hình. Distributed-lag 0–72 h (9 khoảng) + CCF; bootstrap khối 48 h; hoán vị dịch vòng (p nhỏ nhất 0,002); sự kiện ≥ 10 mm/6 h cách nhau 72 h (12 sự kiện, 1 "sạch").
+- **Nhiệt độ (đối chứng dương):** giảm 0,08–0,20 °C mỗi 10 mm (tùy sản phẩm mưa), đỉnh trễ 6–11 h, DLM/CCF p = 0,002 → `detectable_effect`; giữ nguyên qua các phân tích độ nhạy.
+- **NH4:** không có tác động tuyến tính (p = 0,46) → `insufficient_evidence`; so sánh sự kiện gợi ý tăng +11 % (1–6 h) và +22 % (25–48 h) nhưng sự kiện chồng nhau. **TSS:** p = 0,88, CI quá rộng (+17 %/10 mm ≈ +75 % cho trận lớn nhất) → `insufficient_evidence`.
+- **Quy tắc kết luận:** quy tắc gốc (đặt trước) đòi cả cửa sổ sự kiện sạch loại trừ 0 — đối chứng nhiệt độ không đạt vì chỉ có 1 sự kiện sạch; quy tắc sửa (sau lượt debug, ghi rõ) cho phép hai kiểm định toàn cục cùng dấu. Cả hai kết luận nằm trong `dlm_tests.csv`. NH4/TSS bị hạ từ `no_detectable_effect` xuống `insufficient_evidence` vì mô hình tuyến tính không đủ lực với mưa dạng đợt.
+- **Phát hiện mới:** NH4 và TSS cùng tụt bậc ~13:30–14:00 ngày 31/07 (NH4 ~106 → 5,3, ÷20; TSS ~70 → 10–15 → 3–4); nhiệt độ, pH không đổi → nhiều khả năng bảo dưỡng / hiệu chuẩn / đổi thang đo; cần hỏi GreenLab. Chưa có trong RL-02/RL-10.
+- **Dữ liệu mới:** `data/hazards/era5/openmeteo_era5_precip_nb1_1982_20261018.csv` (write-once); `hazard_data.latest_precip("era5")` giờ trỏ file này. Lệnh ablation cũ trong cùng script vẫn gọi archive không có `models=` (best_match) — mới chỉ ghi chú.
+
+## RL-59 · 2026-10-24 · H2.1 nguồn bản tin thứ hai và độ phủ B5
+
+- Worker research-map thu bản tin NB1 mỗi giờ (cùng định dạng, `capture_source = research_map_worker`) vào `artifacts/experiments/forecast-v2/worker-capture/weather-snapshots-worker.jsonl` (append-only). B5 hợp nhất theo trạm × giờ phát (task Windows ưu tiên, worker lấp chỗ thiếu); `core/b5_coverage.py`; endpoint `/api/v1/research/weather/b5-coverage`; thẻ độ phủ trên trang Thời tiết; `forecast_sensor_v2.py --extra-snapshots`.
+- **Số liệu (24/10 06:30 UTC, `b5-coverage-20261024-0630`):** 405 bản tin; độ phủ 7 ngày 50 %, từ đầu 18,8 %; origin B5 đủ điều kiện 28.288/204.005; 15/63 ngày đủ; tốc độ 14 ngày gần nhất 64 % < 90 % → chưa có ngày dự kiến; sớm nhất 09/12/2026 nếu không lỡ thêm ngày nào. 144 bản tin 01/08–26/09 thiếu `provenance_class` nên không được tính (chờ chủ dự án quyết). Sửa lỗi `coverage()` cũ (`frame_missing_station`).
+- Wake timers đã bật (RTCWAKE AC/DC) để task mỗi giờ không lỡ khi máy ngủ.
