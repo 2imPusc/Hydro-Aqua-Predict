@@ -27,7 +27,7 @@ class Provenance(BaseModel):
 
 
 class LayerPayload(BaseModel):
-    layer: Literal["wind", "rain", "wave", "current", "sea_level", "mixed_layer_depth", "bathymetry", "advisory_forecast"]
+    layer: Literal["wind", "rain", "wave", "current", "sea_level", "sst", "air_temp", "mixed_layer_depth", "bathymetry", "advisory_forecast"]
     status: ContextStatus
     kind: Literal["regional_point", "regional_grid", "vector_grid", "scalar_grid", "raster", "wms_layer", "point_cloud", "unavailable"]
     reason_code: str | None = None

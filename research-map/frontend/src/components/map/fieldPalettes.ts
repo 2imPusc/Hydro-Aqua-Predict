@@ -2,7 +2,7 @@
  * Fixed-scale colour ramps for the regional weather / ocean fields (Windy-style: the same colour always
  * means the same value, so two snapshots can be compared by eye). Stops are [value, r, g, b, alpha 0–1].
  */
-export type FieldId = 'rain' | 'rain6h' | 'wind' | 'wave' | 'current' | 'sea_level'
+export type FieldId = 'rain' | 'rain6h' | 'wind' | 'wave' | 'current' | 'sea_level' | 'sst' | 'air_temp'
 type Stop = [number, number, number, number, number]
 export type Palette = { id: FieldId; title: string; unit: string; stops: Stop[]; ticks: number[]; digits: number }
 
@@ -23,6 +23,14 @@ export const PALETTES: Record<FieldId, Palette> = {
     [0.45, 225, 205, 70, 0.82], [0.6, 235, 145, 55, 0.84], [0.8, 215, 75, 60, 0.86], [1, 160, 40, 105, 0.88]] },
   sea_level: { id: 'sea_level', title: 'Mực nước so với mực TB', unit: 'm', digits: 2, ticks: [-1.5, -0.75, 0, 0.75, 1.5], stops: [
     [-1.5, 43, 90, 168, 0.65], [-0.75, 91, 149, 209, 0.6], [0, 232, 238, 242, 0.45], [0.75, 232, 161, 106, 0.6], [1.5, 196, 80, 47, 0.68]] },
+  // Heat map (Windy-style temperature ramp). Water: the colour turns orange at 31 °C, red at 33 °C and dark red at
+  // 34 °C, the cobia heat watch / stress / severe levels (docs/guide/27), so a hot bay reads at a glance.
+  sst: { id: 'sst', title: 'Nhiệt độ nước mặt', unit: '°C', digits: 1, ticks: [18, 22, 26, 29, 31, 33, 35], stops: [
+    [18, 60, 80, 170, 0.74], [22, 50, 140, 200, 0.74], [25, 70, 185, 160, 0.74], [27, 165, 210, 90, 0.76], [29, 240, 215, 70, 0.78],
+    [31, 245, 150, 50, 0.8], [33, 220, 50, 45, 0.84], [34, 160, 25, 60, 0.86], [35, 110, 20, 70, 0.88]] },
+  air_temp: { id: 'air_temp', title: 'Nhiệt độ không khí 2 m', unit: '°C', digits: 1, ticks: [10, 15, 20, 25, 30, 35, 40], stops: [
+    [10, 70, 70, 170, 0.68], [15, 50, 130, 200, 0.68], [20, 70, 185, 160, 0.68], [25, 190, 215, 80, 0.7], [28, 240, 210, 70, 0.72],
+    [31, 245, 150, 50, 0.74], [35, 215, 55, 45, 0.78], [40, 130, 25, 70, 0.82]] },
 }
 
 /** RGBA (0–255) for a value; clamps outside the ramp. */

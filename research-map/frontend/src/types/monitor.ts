@@ -1,4 +1,4 @@
-export type LayerName = 'wind' | 'rain' | 'wave' | 'current' | 'sea_level' | 'mixed_layer_depth' | 'bathymetry' | 'advisory_forecast'
+export type LayerName = 'wind' | 'rain' | 'wave' | 'current' | 'sea_level' | 'sst' | 'air_temp' | 'mixed_layer_depth' | 'bathymetry' | 'advisory_forecast'
 export type Layer = { layer: LayerName; status: 'fresh' | 'stale' | 'unavailable'; kind: string; reason_code?: string; provenance?: { source: string; provider: string; product_id?: string; grid_resolution: string; display_grid_resolution?: string; source_grid_resolution?: string; temporal_mode?: string; valid_at?: string; retrieved_at: string; direction_convention?: string }; geojson?: GeoJSON.FeatureCollection; raster?: Record<string, unknown>; data?: unknown }
 export type Snapshot = { snapshot_id: string; status: 'fresh' | 'stale' | 'unavailable'; retrieved_at: string; age_seconds: number; bbox: number[]; domain_id?: string; geometry_hash?: string; layers: Layer[] }
 export type HsiZones = { observed_at: string | null; mode: string; status?: 'building' | 'ready'; features: GeoJSON.Feature[] }

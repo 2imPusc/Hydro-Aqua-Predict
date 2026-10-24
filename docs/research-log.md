@@ -711,3 +711,9 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - Worker research-map thu bản tin NB1 mỗi giờ (cùng định dạng, `capture_source = research_map_worker`) vào `artifacts/experiments/forecast-v2/worker-capture/weather-snapshots-worker.jsonl` (append-only). B5 hợp nhất theo trạm × giờ phát (task Windows ưu tiên, worker lấp chỗ thiếu); `core/b5_coverage.py`; endpoint `/api/v1/research/weather/b5-coverage`; thẻ độ phủ trên trang Thời tiết; `forecast_sensor_v2.py --extra-snapshots`.
 - **Số liệu (24/10 06:30 UTC, `b5-coverage-20261024-0630`):** 405 bản tin; độ phủ 7 ngày 50 %, từ đầu 18,8 %; origin B5 đủ điều kiện 28.288/204.005; 15/63 ngày đủ; tốc độ 14 ngày gần nhất 64 % < 90 % → chưa có ngày dự kiến; sớm nhất 09/12/2026 nếu không lỡ thêm ngày nào. 144 bản tin 01/08–26/09 thiếu `provenance_class` nên không được tính (chờ chủ dự án quyết). Sửa lỗi `coverage()` cũ (`frame_missing_station`).
 - Wake timers đã bật (RTCWAKE AC/DC) để task mỗi giờ không lỡ khi máy ngủ.
+
+## RL-60 · 2026-10-24 · Bản đồ nhiệt trên bản đồ giám sát
+
+- Hai lớp màu mới trong nhóm "Thời tiết & biển (toàn vùng)", mỗi lúc một lớp như các lớp khác: **Nhiệt độ nước** (SST Open-Meteo marine, chỉ ô có mặt nước) và **Nhiệt độ không khí** (2 m, cả đất liền); cùng lưới 0,125°, cùng nhịp mỗi giờ, không tốn thêm lượt gọi.
+- Thang màu cố định: nước chuyển cam ở 31 °C, đỏ ở 33 °C, đỏ sẫm ở 34 °C, đúng các mốc theo dõi / stress / nặng của cá giò (docs/guide/27). Chỉ để quan sát; không đưa vào cảnh báo.
+- Kiểm tra 24/10 14:07: SST mô hình 29,3–30,7 °C, cảm biến NB1 30,3 °C (cùng dải); không khí 25,2–32,7 °C.

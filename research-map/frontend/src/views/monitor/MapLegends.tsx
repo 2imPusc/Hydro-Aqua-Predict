@@ -27,6 +27,8 @@ function FieldLegend({ id, layer }: { id: keyof typeof PALETTES; layer?: Layer }
     wave: 'Hạt trắng chạy theo hướng sóng; chỉ trên mặt nước.',
     current: 'Hạt trắng theo hướng dòng; mô hình ~8–9 km không thấy dòng siết ở luồng hẹp.',
     sea_level: 'Dương = cao hơn mực nước trung bình (triều + nước dâng).',
+    sst: 'Mốc cá giò: 31 °C theo dõi · 33 °C stress · 34 °C nặng (theo ngày, lý thuyết). Mô hình ngoài khơi thường đọc thấp hơn trong vịnh; cảm biến NB1 là số đo thật.',
+    air_temp: 'Chỉ để quan sát; cảnh báo nhiệt dùng nhiệt độ nước.',
   }
   return <GradientLegend title={`${palette.title} (${palette.unit})`} gradient={paletteGradient(palette)}
     ticks={palette.ticks.map(v => num(v, 2).replace(/,00$/, '').replace(/(,\d)0$/, '$1'))}
@@ -74,7 +76,7 @@ function ExposureLegend({ theme, exposure }: { theme: Theme; exposure: SiteExpos
 export const MapLegends = memo(function MapLegends({ enabled, environmentLayers, mockMode, theme, gebco, etopo, advisoryStale, exposure }: { enabled: EnabledLayers; environmentLayers: Layer[]; mockMode: boolean; theme: Theme; gebco: GebcoManifest | null; etopo: EtopoManifest | null; advisoryStale: boolean; exposure: SiteExposure | null }) {
   const [open, setOpen] = useState(() => !isCompactScreen())
   const field = activeField(enabled)
-  const fieldLayer = environmentLayers.find(layer => layer.layer === ({ rain: 'rain', rain6h: 'advisory_forecast', wind: 'wind', wave: 'wave', current: 'current', sea_level: 'sea_level' } as const)[field ?? 'rain'])
+  const fieldLayer = environmentLayers.find(layer => layer.layer === ({ rain: 'rain', rain6h: 'advisory_forecast', wind: 'wind', wave: 'wave', current: 'current', sea_level: 'sea_level', sst: 'sst', air_temp: 'air_temp' } as const)[field ?? 'rain'])
   const bathyBands = enabled.bathymetry_bands && !enabled.bathymetry_slope
   return (
     <section aria-label="Chú giải" className={`glass pointer-events-auto ${LEFT_PANEL_WIDTH} flex-none overflow-hidden rounded-[var(--radius-lg)]`}>

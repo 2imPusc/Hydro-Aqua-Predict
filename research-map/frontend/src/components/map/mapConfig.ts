@@ -13,7 +13,7 @@ export const lodForZoom = (zoom: number): Lod => (zoom >= 13 ? 'high' : zoom >= 
 
 export const LABEL: Record<LayerName, string> = {
   wind: 'Gió', rain: 'Mưa', wave: 'Sóng', current: 'Dòng chảy',
-  sea_level: 'Mực nước / SSH', mixed_layer_depth: 'Mixed-layer depth', bathymetry: 'Bathymetry & slope',
+  sea_level: 'Mực nước / SSH', sst: 'Nhiệt độ nước mặt', air_temp: 'Nhiệt độ không khí', mixed_layer_depth: 'Mixed-layer depth', bathymetry: 'Bathymetry & slope',
   advisory_forecast: 'Dự báo khuyến nghị',
 }
 

@@ -122,7 +122,7 @@ def _regional_points(bbox: list[float] | tuple[float, ...], step: float, water) 
 
 
 async def fetch_open_meteo_context(latitude: float, longitude: float, stale_minutes: int, client: httpx.AsyncClient | None = None, bbox: list[float] | None = None, buffer_m: int = 5_000, *, region_step: float = 0.125, region_water=None) -> list[dict[str, Any]]:
-    """Fetch the regional environment grid (rain, wind, wave, current, sea level, 6 h advisory input).
+    """Fetch the regional environment grid (rain, wind, wave, current, sea level, SST, air temperature, 6 h advisory input).
 
     With a bbox, Open-Meteo is sampled on a regular lattice of ``region_step`` degrees (~13 km for 0.125°,
     close to the ECMWF IFS / marine model grids) over the whole region; the browser draws a smooth field
@@ -139,8 +139,8 @@ async def fetch_open_meteo_context(latitude: float, longitude: float, stale_minu
         marine_nodes = [node for node in nodes if node[2]]
         # Open-Meteo counts every location as one call: weather for all nodes, marine only for water nodes.
         for points, url, hourly, sink, extra in (
-            (nodes, OPEN_METEO_WEATHER, "wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation", weather_payloads, {}),
-            (marine_nodes, OPEN_METEO_MARINE, "wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction,sea_level_height_msl", marine_payloads, {"cell_selection": "sea"}),
+            (nodes, OPEN_METEO_WEATHER, "wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,temperature_2m", weather_payloads, {}),
+            (marine_nodes, OPEN_METEO_MARINE, "wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction,sea_level_height_msl,sea_surface_temperature", marine_payloads, {"cell_selection": "sea"}),
         ):
             for offset in range(0, len(points), 80):
                 batch = points[offset:offset + 80]
@@ -158,6 +158,8 @@ async def fetch_open_meteo_context(latitude: float, longitude: float, stale_minu
         wave_features: list[dict[str, Any]] = []
         current_features: list[dict[str, Any]] = []
         sea_level_features: list[dict[str, Any]] = []
+        air_temp_features: list[dict[str, Any]] = []
+        sst_features: list[dict[str, Any]] = []
         advisory_features: list[dict[str, Any]] = []
         weather_valid, marine_valid = None, None
         current_units: set[str] = set()
@@ -202,6 +204,9 @@ async def fetch_open_meteo_context(latitude: float, longitude: float, stale_minu
             rain_value = _number(weather_hourly["precipitation"][weather_index])
             if rain_value is not None:
                 rain_features.append(_sample_feature(requested_lon, requested_lat, {**base_props, "value": rain_value, "variable": "precipitation", "unit": "mm/h"}))
+            air_temp = _number(weather_hourly.get("temperature_2m", [None] * (weather_index + 1))[weather_index])
+            if air_temp is not None:
+                air_temp_features.append(_sample_feature(requested_lon, requested_lat, {**base_props, "value": air_temp, "variable": "temperature_2m", "unit": "°C"}))
 
         for (requested_lon, requested_lat, _), marine in zip(marine_nodes, marine_payloads):
             marine_hourly = marine["hourly"]
@@ -212,6 +217,9 @@ async def fetch_open_meteo_context(latitude: float, longitude: float, stale_minu
             sea_level_value = _number(marine_hourly["sea_level_height_msl"][marine_index])
             if sea_level_value is not None:
                 sea_level_features.append(_sample_feature(requested_lon, requested_lat, {**base_props, "value": sea_level_value, "variable": "sea_level_height_msl", "unit": "m"}))
+            sst_value = _number(marine_hourly.get("sea_surface_temperature", [None] * (marine_index + 1))[marine_index])
+            if sst_value is not None:
+                sst_features.append(_sample_feature(requested_lon, requested_lat, {**base_props, "value": sst_value, "variable": "sea_surface_temperature", "unit": "°C"}))
             wave_from = _number(marine_hourly["wave_direction"][marine_index])
             wave_height = _number(marine_hourly["wave_height"][marine_index])
             wave_period = _number(marine_hourly["wave_period"][marine_index])
@@ -262,6 +270,11 @@ async def fetch_open_meteo_context(latitude: float, longitude: float, stale_minu
                   source_resolution=current_source_resolution, reason="copernicus_grid_not_configured"),
             layer("sea_level", scalar, sea_level_features, source="Open-Meteo marine forecast grid", product="open-meteo-marine", valid_at=marine_valid, convention="not_applicable",
                   source_resolution=sea_level_source_resolution, reason="copernicus_ssh_grid_not_configured"),
+            # Heat map: model SST (water, what the fish feel) and 2 m air temperature. Observation-only context.
+            layer("sst", scalar, sst_features, source="Open-Meteo marine forecast grid", product="open-meteo-marine", valid_at=marine_valid, convention="not_applicable",
+                  source_resolution=sea_level_source_resolution),
+            layer("air_temp", scalar, air_temp_features, source="Open-Meteo forecast grid", product="open-meteo-weather", valid_at=weather_valid, convention="not_applicable",
+                  source_resolution=weather_source_resolution),
             {"layer": "advisory_forecast", "status": "fresh", "kind": "point_cloud", "reason_code": None,
              "provenance": _provenance(source="Open-Meteo 6h forecast", product_id="open-meteo-weather", resolution=resolution, retrieved_at=retrieved_at, valid_at=weather_valid,
                                        payload_hash=payload_hash, stale_minutes=stale_minutes, convention="not_applicable", temporal_mode="6h_forward_aggregation",

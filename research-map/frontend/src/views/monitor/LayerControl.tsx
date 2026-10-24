@@ -46,6 +46,8 @@ const FIELD_TOGGLES: Array<{ key: LayerKey; layer: string; label: string; hint: 
   { key: 'wind_particles', layer: 'wind', label: 'Gió', hint: 'màu = tốc độ · hạt trắng = hướng' },
   { key: 'wave', layer: 'wave', label: 'Sóng', hint: 'màu = độ cao · hạt trắng = hướng' },
   { key: 'sea_level', layer: 'sea_level', label: 'Mực nước', hint: 'so với mực nước trung bình' },
+  { key: 'sst', layer: 'sst', label: 'Nhiệt độ nước', hint: 'bản đồ nhiệt mặt nước · cam/đỏ = ngưỡng nhiệt cá giò' },
+  { key: 'air_temp', layer: 'air_temp', label: 'Nhiệt độ không khí', hint: 'bản đồ nhiệt 2 m, cả trên đất liền' },
   { key: 'flow_streamlines', layer: 'current', label: 'Dòng chảy', hint: 'màu = tốc độ · hạt = hướng · tia quanh trạm' },
 ]
 

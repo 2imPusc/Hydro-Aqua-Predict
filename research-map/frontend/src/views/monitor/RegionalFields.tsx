@@ -32,6 +32,8 @@ export function activeField(enabled: EnabledLayers): FieldId | null {
   if (enabled.rain) return 'rain'
   if (enabled.wave) return 'wave'
   if (enabled.sea_level) return 'sea_level'
+  if (enabled.sst) return 'sst'
+  if (enabled.air_temp) return 'air_temp'
   if (enabled.advisory_forecast) return 'rain6h'
   if (enabled.wind_particles) return 'wind'
   if (enabled.flow_streamlines) return 'current'
@@ -50,6 +52,7 @@ export const RegionalFields = memo(function RegionalFields({ enabled, layers, re
   const byName = useMemo(() => new Map(layers.map(layer => [layer.layer, layer])), [layers])
   const field = activeField(enabled)
   const rain = byName.get('rain'), wave = byName.get('wave'), sea = byName.get('sea_level'), wind = byName.get('wind'), current = byName.get('current'), advisory = byName.get('advisory_forecast')
+  const sst = byName.get('sst'), airTemp = byName.get('air_temp')
   const advisoryPoints = useMemo(() => (Array.isArray(advisory?.data) ? advisory!.data as AdvisoryPoint[] : []), [advisory])
   const advisoryNodes = useMemo<FieldNode[]>(() => advisoryPoints.map(p => ({ lon: p.lon, lat: p.lat, value: p.rain_6h_mm,
     label: p.wind_6h_kmh != null ? `Gió mạnh nhất 6 giờ tới: ${Math.round(p.wind_6h_kmh)} km/h` : 'Thiếu chuỗi 6 giờ' })), [advisoryPoints])
@@ -58,6 +61,8 @@ export const RegionalFields = memo(function RegionalFields({ enabled, layers, re
   return <>
     {field === 'rain' && usable(rain) && <FieldOverlay nodes={nodesOf(rain)} step={stepOf(rain, region)} palette={PALETTES.rain} source={sourceOf(rain)} dataKey={`${dataKey}-rain`} />}
     {field === 'sea_level' && usable(sea) && <FieldOverlay nodes={nodesOf(sea)} step={stepOf(sea, region)} palette={PALETTES.sea_level} clip={water} source={sourceOf(sea)} dataKey={`${dataKey}-sea`} />}
+    {field === 'sst' && usable(sst) && <FieldOverlay nodes={nodesOf(sst)} step={stepOf(sst, region)} palette={PALETTES.sst} clip={water} source={sourceOf(sst)} dataKey={`${dataKey}-sst`} />}
+    {field === 'air_temp' && usable(airTemp) && <FieldOverlay nodes={nodesOf(airTemp)} step={stepOf(airTemp, region)} palette={PALETTES.air_temp} source={sourceOf(airTemp)} dataKey={`${dataKey}-air`} />}
     {field === 'wave' && usable(wave) && <>
       <FieldOverlay nodes={nodesOf(wave)} step={stepOf(wave, region)} palette={PALETTES.wave} clip={water} source={sourceOf(wave)} dataKey={`${dataKey}-wave`} />
       <EnvironmentalParticleOverlay type="wave" layer={wave} enabled waterGeometry={water} color={PARTICLE_ON_FIELD} gridStepDeg={stepOf(wave, region)} />

@@ -10,7 +10,7 @@ import type { Lod } from '../../components/map/mapConfig'
 export type LayerKey =
   | 'hsi_zones' | 'context_buffer' | 'station_network'
   | 'flow_streamlines' | 'wind_particles'
-  | 'rain' | 'wave' | 'sea_level' | 'mixed_layer_depth' | 'advisory_forecast'
+  | 'rain' | 'wave' | 'sea_level' | 'sst' | 'air_temp' | 'mixed_layer_depth' | 'advisory_forecast'
   | 'depth_isobands' | 'depth_isobaths' | 'depth_etopo' | 'depth_slope'
   | 'bathymetry_bands' | 'bathymetry_contours' | 'bathymetry_slope'
   | 'site_exposure' | 'reliability_zones'
@@ -21,7 +21,7 @@ export const DEFAULT_LAYERS: EnabledLayers = {
   // Default view (owner 2026-10-24): historical HSI zones, each outlined with its current farming status.
   hsi_zones: true, context_buffer: true, station_network: true,
   flow_streamlines: false, wind_particles: false,
-  rain: false, wave: false, sea_level: false, mixed_layer_depth: false, advisory_forecast: false,
+  rain: false, wave: false, sea_level: false, sst: false, air_temp: false, mixed_layer_depth: false, advisory_forecast: false,
   // GEBCO 2024 depth (with TID confidence) covers Cat Ba / Ha Long / Bai Tu Long; Copernicus SDB only the HP tidal flats.
   // ETOPO 2022 is kept as an optional comparison layer, off by default.
   // H4 NB1-reliability zones: optional (they only cover areas near observed QN stations).
@@ -34,7 +34,7 @@ export const DEFAULT_LAYERS: EnabledLayers = {
 }
 /** Scalar/vector environmental layers are mutually exclusive to keep the map legible. */
 /** Colour-field layers: one at a time (Windy-style), so the map never stacks two colour scales. */
-export const ENVIRONMENT_LAYERS = ['rain', 'wave', 'sea_level', 'mixed_layer_depth', 'advisory_forecast', 'wind_particles', 'flow_streamlines'] as const
+export const ENVIRONMENT_LAYERS = ['rain', 'wave', 'sea_level', 'sst', 'air_temp', 'mixed_layer_depth', 'advisory_forecast', 'wind_particles', 'flow_streamlines'] as const
 
 const ONE_SHOT = { keepPreviousData: true, maxErrorRetries: 6, retryBaseMs: 5_000 } as const
 
