@@ -66,3 +66,4 @@ def test_capture_converts_provider_local_time_to_utc(tmp_path, monkeypatch):
     record = json.loads(path.read_text(encoding="utf-8"))
     assert record["valid_at"] == "2026-07-31T17:00:00+00:00"
     assert len(record["raw_payload_hash"]) == 64
+    assert record["capture_source"] == "hap_weather_snapshot_task" and record["provenance_class"] == "captured_live"

@@ -240,3 +240,38 @@ def test_end_window_keeps_fold_labels_out_of_lockbox(tmp_path, horizon):
     check = json.loads((tmp_path / "w" / "fold_label_check.json").read_text())
     assert check and all(row["max_fold_valid_at"] < row["lockbox_start"] for row in check)
     assert all(row["lockbox_start"] < "2026-02-25T17:00" for row in check)
+
+
+def test_b5_extra_snapshots_union_fills_missed_issue_hours(tmp_path):
+    """H2.1: --extra-snapshots (research-map worker) adds origins only where the primary capture has none."""
+    import json
+    from experiments.forecast_sensor_v2 import run_benchmark
+
+    path = _synthetic_csv(tmp_path)
+    issues = pd.date_range("2026-01-01 00:20", "2026-03-18", freq="h", tz="UTC")
+
+    def rows(times, source=None):
+        out = []
+        for issued in times:
+            for step in range(3):
+                record = {"station": "s", "provider": "open_meteo", "product": "p", "issued_at": issued.isoformat(), "retrieved_at": issued.isoformat(),
+                          "valid_at": (issued.floor("h") + pd.Timedelta(hours=step)).isoformat(), "features": {"precipitation": 0.1 * step}, "provenance_class": "captured_live"}
+                if source:
+                    record["capture_source"] = source
+                out.append(json.dumps(record))
+        return "\n".join(out) + "\n"
+
+    primary, worker = tmp_path / "primary.jsonl", tmp_path / "worker.jsonl"
+    half = issues < pd.Timestamp("2026-02-08", tz="UTC")
+    primary.write_text(rows(issues[half]), encoding="utf-8")
+    # second half from the worker only, plus 48 worker issues inside hours the primary already has (dropped)
+    worker.write_text(rows(issues[~half] + pd.Timedelta(minutes=5), "research_map_worker")
+                      + rows(issues[half][:48] + pd.Timedelta(minutes=9), "research_map_worker"), encoding="utf-8")
+    common = dict(fast=True, write_predictions=True, selected_feature_sets=("B5_external_as_issued",), selected_models=("ridge",),
+                  selected_targets=("Temperature",), selected_horizons=(60,), prediction_models=("ridge",))
+    only = run_benchmark(path, "s", tmp_path / "primary", primary, **common)
+    both = run_benchmark(path, "s", tmp_path / "union", primary, extra_snapshot_paths=(worker,), **common)
+    assert only["external_snapshots_extra"] == [] and both["external_snapshots_extra"] == [str(worker)]
+    n_only = len(pd.read_parquet(tmp_path / "primary" / "predictions.parquet"))
+    n_both = len(pd.read_parquet(tmp_path / "union" / "predictions.parquet"))
+    assert n_both > n_only

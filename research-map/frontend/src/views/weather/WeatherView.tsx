@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { CalendarClock, CloudSun, Eye } from 'lucide-react'
-import { getHazards, getWeatherStatus, researchReason } from '../../api/research'
+import { getB5Coverage, getHazards, getWeatherStatus, researchReason } from '../../api/research'
 import { useLiveData } from '../../app/LiveDataContext'
 import { HeatStrip, type HeatRow } from '../../components/charts'
 import { Chip, Disclosure, KeyValue, Panel, Skeleton, Stat, Verdict, type VerdictStatus } from '../../components/ui'
@@ -9,6 +9,7 @@ import type { PollState } from '../../hooks/usePolling'
 import { num, pct, pValue } from '../../lib/format'
 import type { WeatherHour, WeatherStatus } from '../../types/research'
 import { DirectionPanel, FindingList, PageScroll, ResearchHeader, Unavailable, useDirection, useResearch } from '../shared/research'
+import { B5CoverageCard } from './B5CoverageCard'
 import { HazardCard } from './HazardCard'
 
 const TZ = 'Asia/Ho_Chi_Minh'
@@ -107,12 +108,14 @@ export default function WeatherView() {
   const gainSource = direction?.findings.find(item => item.includes('B5'))
   const ready = status.data?.status === 'ready' ? status.data : null
   const hazards = useResearch(signal => getHazards(signal), [])
+  const b5 = useResearch(signal => getB5Coverage(pilotStation, signal), [pilotStation], { intervalMs: 15 * 60_000, keepPreviousData: true })
 
   return (
     <PageScroll>
       <ResearchHeader code="H2" title="Thời tiết & khuyến cáo" direction={direction} exportVersion={overview.data?.export_version ?? undefined} />
       <WeatherVerdict status={status} />
       {ready && <CoveragePanel data={ready} />}
+      <B5CoverageCard poll={b5} />
       <HazardCard poll={hazards} />
       <Panel title="Thời tiết giúp dự báo nhiệt độ nước bao nhiêu?" icon={<CloudSun size={15} />}>
         {gains.length ? (

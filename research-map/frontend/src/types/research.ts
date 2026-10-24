@@ -148,6 +148,50 @@ export type WeatherStatus = Payload<{
   used_by_alerts: boolean
 }>
 
+/** Capture coverage of one source (or the de-duplicated union) — `/weather/b5-coverage`. */
+export type CaptureCoverage = {
+  captures_total: number
+  capture_hours_total: number
+  first_capture_at: string | null
+  last_capture_at: string | null
+  captures_7d: number
+  coverage_7d: number | null
+  coverage_since_start: number | null
+  eligible_origins: number
+}
+export type CaptureSource = CaptureCoverage & { source: string; label: string }
+export type B5Day = { date: string; origins: number; eligible_origins: number; eligible: boolean }
+export type B5Coverage = Payload<{
+  station: string
+  sources: CaptureSource[]
+  combined: CaptureCoverage & { union_rule: string }
+  origins: { target: string; horizon_minutes: number; sensor_origins: number; eligible_origins: number; max_age_hours: number }
+  sensor_history: { run: string | null; start: string | null; end: string | null }
+  days: {
+    as_of: string | null
+    eligible_days_total: number
+    window_eligible_days: number
+    current_streak_days: number
+    recent_day_rate: number | null
+    recent_days?: number
+    min_daily_origins: number | null
+    daily: B5Day[]
+  }
+  projection: {
+    required_days: number
+    min_eligible_days: number
+    rule: string
+    ready_now: boolean
+    /** At the recent eligible-day rate; null when that rate cannot reach the requirement. */
+    projected_ready_date: string | null
+    /** If no further day is missed. */
+    earliest_ready_date: string | null
+    reason: string | null
+  }
+  worker_capture_present: boolean
+  used_by_alerts: boolean
+}>
+
 /* H3 -------------------------------------------------------------------- */
 export type SuitabilityVariant = 'A_W_SUM' | 'N1_W_SUM'
 export type SuitabilityRegion = 'vn' | 'hk'

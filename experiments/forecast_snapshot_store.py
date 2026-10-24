@@ -13,6 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.weather import _fetch_open_meteo
 from core.config import weather_location_for_station
 
+# Distinguishes this scheduled-task capture from the research-map worker's (core.b5_coverage).
+CAPTURE_SOURCE = "hap_weather_snapshot_task"
+
 
 def snapshot_id(record: dict) -> str:
     key = "|".join(str(record.get(k, "")) for k in ("station", "provider", "issued_at", "valid_at", "product"))
@@ -68,6 +71,7 @@ def capture_open_meteo(station: str, output: Path) -> int:
             "raw_payload_hash": payload_hash, 
             "features": features, 
             "provenance_class": "captured_live",
+            "capture_source": CAPTURE_SOURCE,
             "research_only": True
         }
         written += append_snapshot(output, record)

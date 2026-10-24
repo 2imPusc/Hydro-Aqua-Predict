@@ -81,6 +81,11 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
   Health `status` is `degraded` when 7-day coverage < 90%. Wake timers must be enabled in the
   power plan: `powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP RTCWAKE 1` (and
   `/setdcvalueindex`), then `powercfg /setactive SCHEME_CURRENT`.
+  Second source (not a scheduled task): the research-map worker appends the same NB1 forecast once per
+  UTC hour to `artifacts/experiments/forecast-v2/worker-capture/weather-snapshots-worker.jsonl`
+  (`capture_source: research_map_worker`; compose mounts only that directory writable).
+  Weekly H2.1 report: `python experiments/forecast_snapshot_coverage.py --station 06M26042804 --weekly`;
+  B5 on both sources: `forecast_sensor_v2.py ... --extra-snapshots <worker file>` (union by issue hour, task wins).
 - `HAP-SensorCollector-06M26042804` — daily 06:13 `scripts/backfill_sensor.py --since-last`
   into `data/greenlab/exports/intervals/` (append-only, catches up after missed days).
   Install/remove: `scripts/install_sensor_collector_task.ps1 [-Remove]`.

@@ -7,7 +7,9 @@ Three sources, none of them ever written by the API:
   cached by mtime);
 * the live long-horizon shadow ledger ``runtime/forecast-shadow/long_*.jsonl``
   (only the file tail is read);
-* the hourly weather snapshot JSONL (observation-only; never an alert input).
+* the hourly weather snapshot JSONL (observation-only; never an alert input), plus the
+  research-map worker's own capture file and the newest sensor-history export for the
+  B5 capture coverage (``/weather/b5-coverage``, computed by ``core.b5_coverage``).
 
 Every response carries ``status`` (``ready`` | ``unavailable`` + ``reason``) and, for
 export-backed endpoints, ``export_version``. Missing inputs give an explicit
@@ -18,6 +20,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -482,3 +485,60 @@ def weather_status(station: str = DEFAULT_STATION) -> dict:
     return {**base, "status": "ready", "health": health, "reason": reason, "coverage_24h": round(min(1.0, cap_24h / 24), 3),
             "coverage_7d": coverage_7d, "min_coverage": WEATHER_MIN_COVERAGE, "captures_24h": cap_24h, "captures_7d": cap_7d,
             "last_captured_at": last.isoformat(), "age_hours": round(age_hours, 2), "hourly": hourly}
+
+
+# ---------------------------------------------------------------- B5 capture coverage (H2.1)
+def _b5_coverage_module():
+    """``core.b5_coverage`` (pandas + stdlib only): /workspace is on PYTHONPATH in Docker, else the repo root."""
+    try:
+        from core import b5_coverage  # type: ignore
+        return b5_coverage
+    except ImportError:
+        root = next((p for p in Path(__file__).resolve().parents if (p / "core" / "b5_coverage.py").is_file()), None)
+        if root is None:
+            return None
+        sys.path.insert(0, str(root))
+        try:
+            from core import b5_coverage  # type: ignore
+            return b5_coverage
+        except ImportError:
+            return None
+
+
+def _scan_cached(module, path: Path, station: str, source: str):
+    if not path.is_file():
+        return module.scan_captures(path, station, source)  # empty frame
+    return _cached(f"b5scan:{path}:{station}:{source}", path, lambda: module.scan_captures(path, station, source))
+
+
+@router.get("/weather/b5-coverage")
+def weather_b5_coverage(station: str = DEFAULT_STATION) -> dict:
+    """Capture coverage per source (scheduled task, research-map worker) and combined, causal B5 origins
+    aligned with the newest sensor-history export, eligible days and the projected H2.2 date."""
+    base = {"station": station, "note": "observation-only", "used_by_alerts": False}
+    module = _b5_coverage_module()
+    if module is None:
+        return {**base, "status": "unavailable", "reason": "b5_coverage_module_missing"}
+    primary = Path(settings.weather_snapshots_path)
+    worker = Path(settings.weather_worker_snapshots_path)
+    if not primary.is_file() and not worker.is_file():
+        return {**base, "status": "unavailable", "reason": "snapshot_file_missing"}
+    sensor_path = module.latest_sensor_history(Path(settings.sensor_history_dir), station)
+    if sensor_path is None:
+        return {**base, "status": "unavailable", "reason": "sensor_history_missing"}
+    now = _now()
+    # Coverage depends on the clock too: recompute when a file changes or a new hour starts.
+    key = (station, tuple(_file_key(p) if p.is_file() else None for p in (primary, worker, sensor_path)),
+           now.replace(minute=0, second=0, microsecond=0))
+    hit = _CACHE.get(f"b5report:{station}")
+    if hit and hit[0] == key:
+        report = hit[1]
+    else:
+        captures = {module.PRIMARY_SOURCE: _scan_cached(module, primary, station, module.PRIMARY_SOURCE),
+                    module.WORKER_SOURCE: _scan_cached(module, worker, station, module.WORKER_SOURCE)}
+        sensor = _cached(f"b5sensor:{sensor_path}:{station}", sensor_path, lambda: module.load_sensor_values(sensor_path, station))
+        report = _json_safe(module.coverage_report(captures, sensor, now, station=station, sensor_run=sensor_path.parent.name))
+        _CACHE[f"b5report:{station}"] = (key, report)
+    if not any(source["captures_total"] for source in report["sources"]):
+        return {**base, **report, "status": "unavailable", "reason": "no_records_for_station"}
+    return {**base, **report, "status": "ready", "reason": None, "worker_capture_present": worker.is_file()}

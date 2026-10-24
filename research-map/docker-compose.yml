@@ -74,8 +74,12 @@ services:
       GREENLAB_STATION_SERIALS: ${GREENLAB_STATION_SERIALS:-06M26042804}
       SENSOR_POLL_SECONDS: ${SENSOR_POLL_SECONDS:-60}
       NH4_UNIT_SCALE: ${NH4_UNIT_SCALE:-0.001}
+      # Second as-issued weather capture for B5 (roadmap H2.1, app/weather_capture.py).
+      WEATHER_CAPTURE_ENABLED: ${WEATHER_CAPTURE_ENABLED:-true}
     volumes:
       - ../:/workspace:ro
+      # The only worker write into the repo: its own append-only B5 weather capture directory.
+      - ../artifacts/experiments/forecast-v2/worker-capture:/workspace/artifacts/experiments/forecast-v2/worker-capture
       - context_cache:/cache
       - ${GEBCO_HOST_DIR:-./cache}:/gebco:ro
       # Optional: CMEMS currents and waves (decisions #24). Point COPERNICUS_CREDENTIALS_PATH at the host file

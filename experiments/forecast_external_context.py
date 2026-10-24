@@ -17,6 +17,40 @@ def read_snapshots(path: Path) -> pd.DataFrame:
             frame[col] = pd.to_datetime(frame[col], utc=True)
     return frame
 
+
+def read_snapshot_union(primary: Path, extra: tuple[Path, ...] | list[Path] = ()) -> pd.DataFrame:
+    """Union of capture sources for B5 (H2.1), de-duplicated by issue hour.
+
+    ``primary`` is the scheduled-task file, ``extra`` e.g. the research-map
+    worker file. Records without ``capture_source`` take their file's role.
+    Per station x issue hour only the highest-priority source is kept
+    (``core.b5_coverage.dedupe_issues``): the primary wins, an extra source only
+    fills hours the primary missed, and an empty extra changes nothing.
+    """
+    from core.b5_coverage import PRIMARY_SOURCE, WORKER_SOURCE, dedupe_issues
+
+    if not extra:
+        return read_snapshots(Path(primary))  # unchanged single-source behaviour
+    frames = []
+    for index, path in enumerate([primary, *extra]):
+        frame = read_snapshots(Path(path))
+        if frame.empty:
+            continue
+        default = PRIMARY_SOURCE if index == 0 else WORKER_SOURCE
+        frame["capture_source"] = frame["capture_source"].fillna(default) if "capture_source" in frame else default
+        frames.append(frame)
+    if not frames:
+        return pd.DataFrame()
+    records = pd.concat(frames, ignore_index=True)
+    issued = records["issued_at"] if "issued_at" in records else records["retrieved_at"]
+    issues = pd.DataFrame({"station": records["station"], "issued_at": issued, "retrieved_at": records["retrieved_at"],
+                           "capture_source": records["capture_source"]}).drop_duplicates(["station", "issued_at", "capture_source"])
+    kept = dedupe_issues(issues)[["station", "issued_at", "capture_source"]]
+    keys = pd.MultiIndex.from_frame(kept)
+    mask = pd.MultiIndex.from_arrays([records["station"], issued, records["capture_source"]]).isin(keys)
+    return records[mask].reset_index(drop=True)
+
+
 def join_as_issued(frame: pd.DataFrame, snapshots: pd.DataFrame, *, prefix: str, max_age_hours: int = 24) -> pd.DataFrame:
     if snapshots.empty:
         return frame.copy()

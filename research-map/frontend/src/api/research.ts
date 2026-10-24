@@ -1,5 +1,5 @@
 import { ApiError, getJson } from './client'
-import type { ApiStatus, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, Hazards, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
+import type { ApiStatus, B5Coverage, ForecastBenchmark, ForeignDetail, ForeignIndex, ForeignQuery, Hazards, LongForecast, ReliabilitySummary, ReliabilityVn, ResearchEnvelope, ResearchOverview, Suitability, SuitabilityRegion, SuitabilityVariant, WeatherStatus } from '../types/research'
 
 type Signal = AbortSignal | undefined
 const q = encodeURIComponent
@@ -28,6 +28,7 @@ export const getResearchOverview = (signal?: Signal) => research<ResearchOvervie
 export const getLongForecast = (station: string, signal?: Signal) => research<LongForecast>(`/forecast/long${query({ station })}`, signal)
 export const getForecastBenchmark = (signal?: Signal) => research<ForecastBenchmark>('/forecast/benchmark', signal)
 export const getWeatherStatus = (station: string, signal?: Signal) => research<WeatherStatus>(`/weather/status${query({ station })}`, signal)
+export const getB5Coverage = (station: string, signal?: Signal) => research<B5Coverage>(`/weather/b5-coverage${query({ station })}`, signal)
 export const getSuitability = (variant: SuitabilityVariant, region: SuitabilityRegion, signal?: Signal) => research<Suitability>(`/suitability${query({ variant, region })}`, signal)
 export const getHazards = (signal?: Signal) => research<Hazards>('/hazards', signal)
 export const getForeignIndex = (signal?: Signal) => research<ForeignIndex>('/reliability/foreign', signal)
@@ -51,6 +52,8 @@ export const RESEARCH_REASON: Record<string, string> = {
   no_records_for_station: 'File snapshot không có bản ghi cho trạm này.',
   stale_last_capture: 'Lần thu gần nhất đã quá 2 giờ.',
   coverage_below_min: 'Độ phủ 7 ngày dưới ngưỡng tối thiểu.',
+  sensor_history_missing: 'Chưa có bản export lịch sử sensor (artifacts/experiments/sensor-history-*/).',
+  b5_coverage_module_missing: 'Backend không tìm thấy core/b5_coverage.py.',
   database_unavailable: 'Không kết nối được Postgres của research-map.',
   no_context_snapshot: 'Chưa có snapshot context nào.',
   sensor_observations_missing: 'Chưa có quan trắc cảm biến.',
