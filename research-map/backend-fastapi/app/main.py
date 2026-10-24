@@ -26,6 +26,7 @@ from app import bathymetry_etopo, bathymetry_gebco
 from app.aquaculture_artifacts import MODES as AQUACULTURE_MODES, SCENARIOS as AQUACULTURE_SCENARIOS, load_aquaculture_artifact
 from app.research import latest_export_version, router as research_router
 from app.admin_config import router as admin_config_router
+from app.events import router as events_router
 from app.hazard_api import router as hazard_router
 from app.site_exposure_layer import router as site_exposure_router
 
@@ -38,6 +39,7 @@ repository = SnapshotRepository(settings.database_url)
 app.include_router(research_router)
 app.include_router(hazard_router)
 app.include_router(admin_config_router)
+app.include_router(events_router)
 app.include_router(site_exposure_router)
 logger = logging.getLogger(__name__)
 

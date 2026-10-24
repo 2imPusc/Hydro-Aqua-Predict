@@ -17,6 +17,7 @@ const VIEWS: Record<ViewId, React.LazyExoticComponent<React.ComponentType<ViewPr
   zoning: lazy(() => import('../views/zoning/ZoningView')),
   reliability: lazy(() => import('../views/reliability/ReliabilityView')),
   settings: lazy(() => import('../views/settings/AlertConfigView')),
+  events: lazy(() => import('../views/settings/EventLogView')),
 }
 
 function ViewFallback() {
