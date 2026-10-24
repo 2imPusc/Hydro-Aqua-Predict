@@ -119,17 +119,39 @@ def _normalize_export(path: Path, station_serial: str) -> pd.DataFrame:
     return frame[["device", "fetchedAt", *_PARAMS]]
 
 
+# Per-file parse cache keyed by (mtime, size): the long-running shadow runner calls load_cached_history every
+# minute and re-parsing ~200k rows took ~40 s per pass; now only files that changed (today's live cache) are read.
+_FRAME_CACHE: dict[str, tuple[tuple[int, int], pd.DataFrame]] = {}
+
+
+def _cached_frame(path: Path, loader) -> pd.DataFrame:
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return pd.DataFrame()
+    key = (stat.st_mtime_ns, stat.st_size)
+    hit = _FRAME_CACHE.get(str(path))
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    frame = loader()
+    _FRAME_CACHE[str(path)] = (key, frame)
+    return frame
+
+
+def _read_jsonl_frame(path: Path) -> pd.DataFrame:
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return pd.DataFrame(records) if records else pd.DataFrame()
+
+
 def load_cached_history(station_serial: str) -> pd.DataFrame:
     """Load export bootstrap plus API snapshots, returning a deduplicated series."""
     root = GREENLAB_API_CACHE_DIR.parent
     paths = list((root / "all_data").glob(f"{station_serial}_*.csv"))
     paths += list((root / "intervals").glob(f"{station_serial}_*.csv"))
-    frames = [_normalize_export(path, station_serial) for path in paths]
+    frames = [_cached_frame(path, lambda p=path: _normalize_export(p, station_serial)) for path in paths]
     station_cache = GREENLAB_API_CACHE_DIR / station_serial
     for path in station_cache.glob("*.jsonl") if station_cache.exists() else []:
-        records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
-        if records:
-            frames.append(pd.DataFrame(records))
+        frames.append(_cached_frame(path, lambda p=path: _read_jsonl_frame(p)))
     frames = [frame for frame in frames if not frame.empty]
     if not frames:
         return pd.DataFrame(columns=["device", "fetchedAt", *_PARAMS])
