@@ -22,7 +22,7 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from core.quality import is_in_range
+from core.quality import is_in_range, ph_reading_suspect
 
 TARGETS = ("Temperature", "pH", "NH4", "TSS")
 HORIZONS = (15, 30, 60, 180, 360, 720)
@@ -85,7 +85,20 @@ def _utc(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, utc=True, errors="coerce")
 
 
-def load_sensor_data(path: Path, station: str) -> pd.DataFrame:
+def mask_ph_suspect(raw: pd.DataFrame) -> pd.DataFrame:
+    """Set pH readings flagged by ``core.quality.ph_reading_suspect`` (outside 7.0-8.6 or
+    |ΔpH 60 min| > 0.5) to NaN.  Opt-in research filter (``--ph-qc``); default runs keep
+    the historical behaviour (hard PLAUSIBLE_RANGE only)."""
+    if "pH" not in raw:
+        return raw
+    out = raw.copy()
+    series = pd.Series(out["pH"].to_numpy(), index=pd.DatetimeIndex(out["fetchedAt"]))
+    flags = ph_reading_suspect(series).to_numpy(dtype=bool)
+    out.loc[flags, "pH"] = np.nan
+    return out
+
+
+def load_sensor_data(path: Path, station: str, *, ph_qc: bool = False) -> pd.DataFrame:
     """Load only real raw telemetry; synthetic classification tables are rejected."""
     if "data-gen" in str(path).lower() or "data-v3" in str(path).lower():
         raise ValueError("synthetic_classification_data_is_not_valid_for_sensor_forecast")
@@ -101,6 +114,8 @@ def load_sensor_data(path: Path, station: str) -> pd.DataFrame:
         raise ValueError("no_direct_sensor_columns")
     for col in cols:
         raw.loc[~raw[col].map(lambda value: is_in_range(col, value)), col] = np.nan
+    if ph_qc:
+        raw = mask_ph_suspect(raw)
     # A duplicate timestamp cannot create a second training sample.
     return raw.groupby("fetchedAt", as_index=False)[cols].median().sort_values("fetchedAt")
 
@@ -342,8 +357,8 @@ def feature_subset(all_features: list[str], target: str, feature_set: str) -> li
     return selected
 
 
-def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path | None = None, *, write_predictions: bool = False, fast: bool = False, selected_feature_sets: tuple[str, ...] | None = None, selected_models: tuple[str, ...] | None = None, selected_targets: tuple[str, ...] | None = None, selected_horizons: tuple[int, ...] | None = None, prediction_models: tuple[str, ...] | None = None, prediction_feature_sets: tuple[str, ...] | None = None, tide_path: Path | None = None, last_local_date: str | None = None) -> dict:
-    raw = truncate_local_date(load_sensor_data(path, station), last_local_date)
+def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path | None = None, *, write_predictions: bool = False, fast: bool = False, selected_feature_sets: tuple[str, ...] | None = None, selected_models: tuple[str, ...] | None = None, selected_targets: tuple[str, ...] | None = None, selected_horizons: tuple[int, ...] | None = None, prediction_models: tuple[str, ...] | None = None, prediction_feature_sets: tuple[str, ...] | None = None, tide_path: Path | None = None, last_local_date: str | None = None, ph_qc: bool = False) -> dict:
+    raw = truncate_local_date(load_sensor_data(path, station, ph_qc=ph_qc), last_local_date)
     fold_label_check = []
     output.mkdir(parents=True, exist_ok=True)
     all_predictions, summary = [], []
@@ -447,15 +462,15 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
     if not predictions.empty:
         strata = predictions.groupby(["split", "target", "horizon_minutes", "feature_set", "model", "gap", "night"], dropna=False, observed=True).agg(n=("actual", "size"), mae=("absolute_error", "mean"), p95_ae=("absolute_error", lambda x: x.quantile(.95))).reset_index()
         strata.to_csv(output / "metrics_strata.csv", index=False)
-    manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "prediction_feature_sets": sorted(prediction_feature_keep), "predictions_format": "parquet", "external_snapshots": None if snapshots_path is None else str(snapshots_path), "tide": None if tide_path is None else str(tide_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "effective_purge_minutes": {str(h): int(effective_purge(h).total_seconds() / 60) for h in horizons}, "purge_rule": "train valid_at < test_start - max(purge_minutes, horizon)", "synthetic_data_policy": "rejected", "runtime_changed": False, "last_local_date": last_local_date, "window": {"first_fetched_at": str(raw["fetchedAt"].min()), "last_fetched_at": str(raw["fetchedAt"].max())}}
+    manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "prediction_feature_sets": sorted(prediction_feature_keep), "predictions_format": "parquet", "external_snapshots": None if snapshots_path is None else str(snapshots_path), "tide": None if tide_path is None else str(tide_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "effective_purge_minutes": {str(h): int(effective_purge(h).total_seconds() / 60) for h in horizons}, "purge_rule": "train valid_at < test_start - max(purge_minutes, horizon)", "synthetic_data_policy": "rejected", "runtime_changed": False, "last_local_date": last_local_date, "ph_qc": "core.quality.ph_reading_suspect -> NaN" if ph_qc else None, "window": {"first_fetched_at": str(raw["fetchedAt"].min()), "last_fetched_at": str(raw["fetchedAt"].max())}}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     return manifest
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("csv", type=Path); parser.add_argument("--station", required=True); parser.add_argument("--output", type=Path, required=True); parser.add_argument("--snapshots", type=Path); parser.add_argument("--tide", type=Path, help="CSV valid_at,sea_level_m for B6_tide"); parser.add_argument("--write-predictions", action="store_true"); parser.add_argument("--fast", action="store_true", help="research preset: 60 ExtraTrees / 40 XGBoost estimators"); parser.add_argument("--feature-set", choices=AVAILABLE_FEATURE_SETS, action="append"); parser.add_argument("--model", choices=("ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--target", choices=TARGETS, action="append"); parser.add_argument("--horizon", choices=HORIZONS, type=int, action="append"); parser.add_argument("--prediction-model", choices=MODEL_NAMES, action="append"); parser.add_argument("--prediction-feature-set", choices=AVAILABLE_FEATURE_SETS, action="append", help="keep predictions only for these feature sets (default: all)"); parser.add_argument("--end", dest="last_local_date", help="window end: last local (Asia/Ho_Chi_Minh) date kept, YYYY-MM-DD")
-    args = parser.parse_args(); print(json.dumps(run_benchmark(args.csv, args.station, args.output, args.snapshots, write_predictions=args.write_predictions, fast=args.fast, selected_feature_sets=tuple(args.feature_set) if args.feature_set else None, selected_models=tuple(args.model) if args.model else None, selected_targets=tuple(args.target) if args.target else None, selected_horizons=tuple(args.horizon) if args.horizon else None, prediction_models=tuple(args.prediction_model) if args.prediction_model else None, prediction_feature_sets=tuple(args.prediction_feature_set) if args.prediction_feature_set else None, tide_path=args.tide, last_local_date=args.last_local_date), indent=2))
+    parser.add_argument("csv", type=Path); parser.add_argument("--station", required=True); parser.add_argument("--output", type=Path, required=True); parser.add_argument("--snapshots", type=Path); parser.add_argument("--tide", type=Path, help="CSV valid_at,sea_level_m for B6_tide"); parser.add_argument("--write-predictions", action="store_true"); parser.add_argument("--fast", action="store_true", help="research preset: 60 ExtraTrees / 40 XGBoost estimators"); parser.add_argument("--feature-set", choices=AVAILABLE_FEATURE_SETS, action="append"); parser.add_argument("--model", choices=("ridge", "extra_trees", "xgboost"), action="append"); parser.add_argument("--target", choices=TARGETS, action="append"); parser.add_argument("--horizon", choices=HORIZONS, type=int, action="append"); parser.add_argument("--prediction-model", choices=MODEL_NAMES, action="append"); parser.add_argument("--prediction-feature-set", choices=AVAILABLE_FEATURE_SETS, action="append", help="keep predictions only for these feature sets (default: all)"); parser.add_argument("--end", dest="last_local_date", help="window end: last local (Asia/Ho_Chi_Minh) date kept, YYYY-MM-DD"); parser.add_argument("--ph-qc", action="store_true", help="mask pH readings flagged by core.quality.ph_reading_suspect (band 7.0-8.6, |dpH 60 min| > 0.5)")
+    args = parser.parse_args(); print(json.dumps(run_benchmark(args.csv, args.station, args.output, args.snapshots, write_predictions=args.write_predictions, fast=args.fast, selected_feature_sets=tuple(args.feature_set) if args.feature_set else None, selected_models=tuple(args.model) if args.model else None, selected_targets=tuple(args.target) if args.target else None, selected_horizons=tuple(args.horizon) if args.horizon else None, prediction_models=tuple(args.prediction_model) if args.prediction_model else None, prediction_feature_sets=tuple(args.prediction_feature_set) if args.prediction_feature_set else None, tide_path=args.tide, last_local_date=args.last_local_date, ph_qc=args.ph_qc), indent=2))
 
 
 if __name__ == "__main__":
