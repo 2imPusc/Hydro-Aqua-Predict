@@ -165,3 +165,10 @@ def test_weekly_summary_cli_function(tmp_path):
     assert summary["combined"]["coverage_since_start"] == pytest.approx(72 / 73, abs=0.02)
     assert summary["sources"][1]["captures_total"] == 24
     assert summary["sensor_history"]["run"] == "sensor-history-20261004"
+    from experiments.forecast_snapshot_coverage import coverage
+    table = coverage(csv, STATION, primary, (worker,))
+    assert len(table) == 12  # Temperature and pH x 6 horizons
+    row = table[(table.target == "Temperature") & (table.horizon_minutes == 60)].iloc[0]
+    assert row.as_issued_weather_pairs > 0
+    primary_only = coverage(csv, STATION, primary)
+    assert row.as_issued_weather_pairs >= primary_only[(primary_only.target == "Temperature") & (primary_only.horizon_minutes == 60)].iloc[0].as_issued_weather_pairs
