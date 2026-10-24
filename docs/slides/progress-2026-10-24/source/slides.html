@@ -1,0 +1,563 @@
+<!-- =====================================================
+     01 · TITLE
+     ===================================================== -->
+<section class="slide active visible" data-title="Mở đầu">
+    <div class="hdr"><span>Hydro-Aqua-Predict</span><span class="crumb">Báo cáo tiến độ · 24/10/2026</span></div>
+    <div class="title-bar"></div>
+    <div class="ring rv d2"></div><div class="ring-dot"></div>
+    <h1 class="title-h"><span class="rv">Dự báo sâu hơn.</span><span class="rv d1">Bản đồ đủ hơn.</span><span class="rv d2">Chạy thật.</span></h1>
+    <p class="title-sub rv d3">Tuần này: cải thiện mô hình dự báo, tích hợp thời tiết – thủy văn vào giao diện giám sát, bật chạy shadow liên tục</p>
+    <div class="title-meta rv d4">
+        <div><b>Vùng nuôi</b>Cát Bà · 14 điểm (NB1 có sensor)</div>
+        <div><b>Trạng thái</b>PR #4 đã merge · shadow chạy từ 24/10</div>
+        <div><b>Trình bày</b>Đỗ Minh Phúc · 20225064</div>
+    </div>
+</section>
+
+<!-- =====================================================
+     02 · AGENDA
+     ===================================================== -->
+<section class="slide" data-title="Nội dung">
+    <div class="hdr"><span class="sec"><b>00</b>Nội dung</span><span class="crumb">Báo cáo tiến độ · 24/10/2026</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Nội dung <em>báo cáo</em></h2>
+    <div class="body">
+        <div class="agenda">
+            <div class="it rv d1"><div class="no">01</div><h3>Mô hình dự báo</h3><p>Chạy lại trên lịch sử đến 24/10, thời tiết và pH, mưa → cảm biến, mô hình nền.</p></div>
+            <div class="it rv d2"><div class="no">02</div><h3>Chạy thật (shadow)</h3><p>Dự báo phát mỗi phút, bảng chấm điểm, lỗi phát hiện ở mô hình 15 phút.</p></div>
+            <div class="it rv d3"><div class="no">03</div><h3>Thời tiết &amp; biển trên bản đồ</h3><p>Gió, sóng, dòng chảy, mực nước, nhiệt độ toàn vùng kiểu Windy; Copernicus Marine.</p></div>
+            <div class="it rv d4"><div class="no">04</div><h3>Độ sâu, dữ liệu, ground truth</h3><p>Tô bóng đáy GEBCO, độ phủ bản tin thời tiết, nhật ký sự kiện ngoài lồng.</p></div>
+            <div class="it rv d5"><div class="no">05</div><h3>Chất lượng dữ liệu</h3><p>Ba vấn đề sensor mới phát hiện cần hỏi đơn vị vận hành.</p></div>
+            <div class="it rv d6"><div class="no">06</div><h3>Mốc thời gian &amp; quyết định</h3><p>Khi nào có kết quả chạy thật; việc cần thầy / chủ dự án quyết.</p></div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     03 · KẾ HOẠCH SONG SONG
+     ===================================================== -->
+<section class="slide" data-title="Kế hoạch tuần">
+    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">Kế hoạch tuần · 7 luồng chạy song song</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Bảy việc <em>chạy cùng lúc</em></h2>
+    <div class="body">
+        <div class="cols c-6-4">
+            <table class="tb sm rv d1">
+                <thead><tr><th style="width:9%">Luồng</th><th>Việc</th><th>Kết quả chính</th><th style="width:15%">Trạng thái</th></tr></thead>
+                <tbody>
+                    <tr><td><b>A</b></td><td>Chạy lại H1 trên lịch sử 29/05 → 24/10</td><td>Nhiệt độ đạt kiểm định 15 phút – 12 giờ</td><td><span class="pill st-done">Xong</span></td></tr>
+                    <tr><td><b>B</b></td><td>Mô hình nền có sẵn (Chronos, TimesFM)</td><td>So với hồi quy trên cùng mốc dự báo</td><td><span class="pill st-run">Đang chạy</span></td></tr>
+                    <tr><td><b>C</b></td><td>Mưa → NH4, TSS sau bao lâu? (H2.3)</td><td>Nhiệt độ giảm sau mưa 6–11 h; NH4/TSS chưa đủ bằng chứng</td><td><span class="pill st-done">Xong</span></td></tr>
+                    <tr><td><b>D</b></td><td>Nguồn bản tin thời tiết thứ hai (H2.1)</td><td>Worker Docker thu mỗi giờ; báo cáo độ phủ</td><td><span class="pill st-done">Xong</span></td></tr>
+                    <tr><td><b>E</b></td><td>Bảng chấm điểm shadow (H1.5)</td><td>Chạy trên sổ thật, tự đầy dần</td><td><span class="pill st-done">Xong</span></td></tr>
+                    <tr><td><b>F</b></td><td>Nhật ký sự kiện ngoài lồng</td><td>Trang nhập, lưu không xóa, xuất CSV</td><td><span class="pill st-done">Xong</span></td></tr>
+                    <tr><td><b>G</b></td><td>Xác suất sự kiện nhiệt 24 h (H2.5)</td><td>Chưa hơn cách đơn giản</td><td><span class="pill st-done">Xong</span></td></tr>
+                </tbody>
+            </table>
+            <div class="rv d2">
+                <div class="box fill" style="margin-bottom:22px">
+                    <div class="k" style="margin-bottom:12px">Đã bật chạy thật (24/10)</div>
+                    <ul class="dash" style="color:#fff">
+                        <li style="color:#fff">Shadow runner: dự báo mỗi ~90 s từ sensor live</li>
+                        <li style="color:#fff">Cảnh báo nguy cơ mỗi giờ; tải bão ECMWF 6 giờ/lần</li>
+                        <li style="color:#fff">Hẹn giờ đánh thức máy để không lỡ bản tin</li>
+                    </ul>
+                </div>
+                <div class="box">
+                    <div class="k" style="margin-bottom:10px">Nguyên tắc giữ nguyên</div>
+                    <p style="font-size:21px">Shadow (không gửi người nuôi) · dữ liệu chỉ ghi thêm · kiểm định gate #16 (≥ 4/5 lần thắng + kiểm định DM, p &lt; 0,05) · thiếu dữ liệu thì ghi “chưa đủ bằng chứng”.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · kế hoạch 2026-10-24-h1-h2-next, RL-54 → RL-59</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     04 · H1 CHẠY LẠI — skill theo khung giờ
+     ===================================================== -->
+<section class="slide" data-title="H1 chạy lại">
+    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">H1 · chạy lại trên lịch sử đến 24/10</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Nhiệt độ nước dự báo được <em>tới 12 giờ</em></h2>
+    <div class="body">
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:40px">Mức cải thiện so với “giữ nguyên giá trị hiện tại” (%), 14 ngày giữ riêng 10–24/10</div>
+                <div class="skill">
+                    <div class="g"><div class="b" style="height:87px"><span>14,5</span></div><div class="b b5" style="height:89px"><span>14,9</span></div></div>
+                    <div class="g"><div class="b" style="height:105px"><span>17,5</span></div><div class="b b5" style="height:110px"><span>18,3</span></div></div>
+                    <div class="g"><div class="b" style="height:133px"><span>22,2</span></div><div class="b b5" style="height:140px"><span>23,4</span></div></div>
+                    <div class="g"><div class="b" style="height:170px"><span>28,3</span></div><div class="b b5" style="height:198px"><span>33,0</span></div></div>
+                    <div class="g"><div class="b" style="height:205px"><span>34,1</span></div><div class="b b5" style="height:248px"><span>41,3</span></div></div>
+                    <div class="g"><div class="b" style="height:236px"><span>39,4</span></div><div class="b b5" style="height:278px"><span>46,4</span></div></div>
+                </div>
+                <div class="skill-x"><span>15 ph</span><span>30 ph</span><span>1 h</span><span>3 h</span><span>6 h</span><span>12 h</span></div>
+                <div class="legend2"><span><i style="background:#b9c3d6"></i>B4 · lag + đặc trưng chất lượng sensor</span><span><i style="background:var(--red)"></i>B5 · B4 + bản tin thời tiết</span></div>
+                <p class="cap">Sai số 12 h: <b>1,29 °C</b> (giữ nguyên: 2,40 °C). Mọi ô thắng 5/5 lần kiểm tra trượt; DM p &lt; 10<sup>−12</sup>.</p>
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Kết quả cũ (RL-08) dừng ở 15/10; lịch sử đã dài thêm, pH trôi từ 19/09.</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><p>Xuất lại lịch sử 204.861 dòng; hồi quy ridge; 5 lần kiểm tra trượt 7 ngày + 14 ngày cuối giữ riêng; gate #16.</p></div>
+                <div class="blk"><div class="k">Kết quả</div><p>Nhiệt độ <span class="ok">đạt</span> mọi khung, tốt hơn RL-08 (13,5 → 45,5 %). pH, NH4, TSS <span class="bad">không đạt</span>.</p></div>
+                <div class="blk"><div class="k r">Còn lại</div><p>Mô hình đang chạy thật vẫn là bản huấn luyện tới 15/10.</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Huấn luyện lại hai biến thể (có / không pH) trên lịch sử 24/10.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-54 · forecast-h1-rerun-20261024-Temperature</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     05 · THỜI TIẾT & pH
+     ===================================================== -->
+<section class="slide" data-title="Thời tiết và pH">
+    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">Thời tiết có giúp không? Bỏ pH được không?</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Thời tiết giúp; <em>pH trôi vẫn có ích</em></h2>
+    <div class="body">
+        <div class="cols c2">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:12px">Thêm bản tin thời tiết (B5 so với B4)</div>
+                <table class="tb sm">
+                    <thead><tr><th>Khung</th><th class="num">Sai số giảm</th><th class="num">DM p</th></tr></thead>
+                    <tbody>
+                        <tr><td>3 giờ</td><td class="num"><b class="win">6,5 %</b></td><td class="num">0,013</td></tr>
+                        <tr><td>6 giờ</td><td class="num"><b class="win">11,0 %</b></td><td class="num">&lt; 0,001</td></tr>
+                        <tr><td>12 giờ</td><td class="num"><b class="win">11,5 %</b></td><td class="num">&lt; 0,001</td></tr>
+                    </tbody>
+                </table>
+                <p class="note" style="margin-top:12px">Bản tin ở đây là bản dựng lại (Open-Meteo previous runs), chưa phải bản thu thật từng giờ → cần H2.2 để xác nhận.</p>
+                <div class="k" style="margin:26px 0 12px">Bỏ pH khỏi đầu vào</div>
+                <p style="font-size:22px">Sai số <b>tăng 1–5,6 %</b> (DM p ≤ 0,008) dù 14 ngày kiểm tra nằm trọn trong giai đoạn pH trôi → quy tắc đổi sang “không pH” (RL-18) <b>không đạt</b>; giữ nguyên runtime, chạy song song cả hai.</p>
+            </div>
+            <div class="rv d2">
+                <div class="k r" style="margin-bottom:12px">Đầu dò pH trôi (từ 19/09)</div>
+                <div class="cols c2" style="height:auto;gap:24px">
+                    <div class="stat mini"><div class="v">7,96</div><div class="l">trung vị pH trước khi trôi</div></div>
+                    <div class="stat mini"><div class="v r">6,91</div><div class="l">trung vị 14 ngày cuối</div></div>
+                    <div class="stat mini" style="margin-top:18px"><div class="v r">68 %</div><div class="l">số đo ngoài dải 7,0–8,6</div></div>
+                    <div class="stat mini" style="margin-top:18px"><div class="v">15/15</div><div class="l">ngày bị gắn cờ nghi lỗi</div></div>
+                </div>
+                <div class="box red" style="margin-top:24px">
+                    <div class="k r" style="margin-bottom:8px">Vì sao pH trôi vẫn giúp?</div>
+                    <p style="font-size:21px">pH trôi tương quan −0,81 với nhiệt độ trong ngày (trước đó +0,46): nó đang mang tín hiệu nhiệt, không phải hóa học nước. Khi hiệu chuẩn lại đầu dò, lợi ích này có thể mất → khi đó chuyển sang mô hình không pH.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-54 · forecast-h1-rerun-20261024-pH-drift</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     06 · SHADOW CHẠY THẬT
+     ===================================================== -->
+<section class="slide" data-title="Shadow chạy thật">
+    <div class="hdr"><span class="sec"><b>02</b>Chạy thật</span><span class="crumb">Demo · trang Phân tích → Dự báo (H1)</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Dự báo đã <em>phát ra mỗi phút</em></h2>
+    <div class="body">
+        <div class="cols" style="grid-template-columns:1.5fr 1fr;gap:40px">
+            <div class="rv d1">
+                <img class="shot" src="assets/page-forecast.jpg" alt="Trang H1: kết luận 12 giờ đạt kiểm định, 4 mô hình nhiệt độ 3 giờ với khoảng tin cậy" style="height:320px">
+                <img class="shot" src="assets/page-scorecard.jpg" alt="Khối chấm điểm shadow: 84 dự báo đã phát, 0 đã chấm, tiến độ gate 4 tuần" style="height:250px;margin-top:14px">
+                <p class="cap">Trên: 4 dự báo nhiệt độ (B4/B5 × có/không pH) cho +3/6/12 h kèm khoảng 80/90 %. Dưới: bảng chấm điểm, mốc chấm đầu tiên 15:18 ngày 24/10.</p>
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Kết quả offline tốt chưa chứng minh hệ thống chạy được với API thật, mất mạng, máy ngủ.</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><ul class="dash"><li>Task Windows chạy runner liên tục, tự khởi động lại</li><li>Nạp lại dữ liệu hôm qua + hôm nay mỗi 15 phút để có đủ lag</li><li>Bảng chấm: sai số, mức cải thiện, độ phủ khoảng tin cậy theo tuần</li></ul></div>
+                <div class="blk"><div class="k">Kết quả</div><p>Chạy từ 12:18 24/10; mỗi lượt ~2 s (trước 40 s). Sự cố đầu: API GreenLab lỗi 40 phút → <b>runner tự dừng phát</b> (đúng thiết kế), tự hồi phục.</p></div>
+                <div class="blk"><div class="k r">Còn lại</div><p>Mới vài giờ; cần ≥ 200 dự báo đã chấm trong ≥ 7 ngày mới kiểm định được.</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Chấm hằng ngày; mốc sơ bộ 31/10, đánh giá 4 tuần ~21/11.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-55</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     07 · LỖI MÔ HÌNH 15 PHÚT
+     ===================================================== -->
+<section class="slide" data-title="Lỗi mô hình 15 phút">
+    <div class="hdr"><span class="sec"><b>02</b>Chạy thật</span><span class="crumb">Phát hiện khi kiểm tra chạy thật</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Mô hình 15 phút cũ <em>hỏng từ tháng 8</em></h2>
+    <div class="body">
+        <div class="cols c2">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:12px">XGBoost 15 phút (huấn luyện 05–07) so với giữ nguyên giá trị</div>
+                <table class="tb sm">
+                    <thead><tr><th>Tháng</th><th class="num">Nhiệt độ: sai số (°C)</th><th class="num">Giữ nguyên</th><th class="num">Cải thiện</th></tr></thead>
+                    <tbody>
+                        <tr><td>05–07</td><td class="num">0,11–0,13</td><td class="num">0,14–0,16</td><td class="num"><b class="ok">+14 … +16 %</b></td></tr>
+                        <tr><td>08</td><td class="num">0,43</td><td class="num">0,13</td><td class="num"><b class="bad">−225 %</b></td></tr>
+                        <tr><td>09</td><td class="num">0,52</td><td class="num">0,15</td><td class="num"><b class="bad">−240 %</b></td></tr>
+                        <tr><td>10</td><td class="num">0,75</td><td class="num">0,16</td><td class="num"><b class="bad">−370 %</b></td></tr>
+                    </tbody>
+                </table>
+                <p class="note" style="margin-top:14px">TSS cùng lỗi: tháng 10 sai số 3,76 so với 0,23 (giữ nguyên). Hôm nay mô hình báo ~7 mg/L khi sensor đo 2,8.</p>
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Cây quyết định không ngoại suy: mô hình <b>không bao giờ</b> dự báo dưới 29,15 °C. Mùa thu nước đêm 25–28 °C → lệch tới +3,7 °C.</p></div>
+                <div class="blk"><div class="k">Phạm vi</div><p>Chỉ mô hình 15 phút cũ, chỉ shadow, không vào cảnh báo. Mô hình 3–12 h là hồi quy tuyến tính, đã kiểm trên tháng 10 (nước xuống 24,85 °C): không bị.</p></div>
+                <div class="blk"><div class="k">Đề xuất sửa</div><ul class="dash"><li>Thay bằng hồi quy B4 cho 15 phút (đã đạt kiểm định offline)</li><li>Đầu vào ngoài khoảng huấn luyện → dùng giá trị hiện tại</li><li>TSS về giá trị hiện tại; ghi mốc đổi trong sổ</li></ul></div>
+                <div class="blk"><div class="k r">Bài học</div><p>Cần kiểm tra mô hình runtime theo tháng, không chỉ một lần lúc chọn.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · kiểm tra 24/10 (core/sensor_future.py)</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     08 · MƯA → CẢM BIẾN, XÁC SUẤT SỰ KIỆN
+     ===================================================== -->
+<section class="slide" data-title="Mưa và sự kiện nhiệt">
+    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">H2.3 mưa → cảm biến · H2.5 xác suất sự kiện</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Mưa làm nước mát <em>sau 6–11 giờ</em></h2>
+    <div class="body">
+        <div class="cols c2">
+            <div class="card rv d1">
+                <div class="n">H2.3</div>
+                <h3>Mưa ảnh hưởng cảm biến sau bao lâu?</h3>
+                <p style="font-size:20px;margin:6px 0 12px">Mưa ERA5 28/05–18/10; mô hình trễ 0–72 h; trừ chu kỳ ngày, triều, mực nước; bootstrap khối 48 h.</p>
+                <table class="tb sm">
+                    <thead><tr><th>Biến</th><th>Kết quả</th><th>p</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Nhiệt độ</b></td><td>−0,08 … −0,20 °C mỗi 10 mm, đỉnh 6–11 h</td><td><b class="ok">0,002</b></td></tr>
+                        <tr><td>NH4</td><td>Chưa đủ bằng chứng (gợi ý tăng +11–22 %)</td><td>0,46</td></tr>
+                        <tr><td>TSS</td><td>Chưa đủ bằng chứng (khoảng tin cậy rộng)</td><td>0,88</td></tr>
+                    </tbody>
+                </table>
+                <p class="note" style="margin-top:10px">12 trận mưa ≥ 10 mm/6 h, chỉ 1 trận “sạch” (không chồng trận sau).</p>
+            </div>
+            <div class="card r rv d2">
+                <div class="n">H2.5</div>
+                <h3>Xác suất sự kiện nhiệt trong 24 h</h3>
+                <p style="font-size:20px;margin:6px 0 12px">Định nghĩa cố định trước khi fit; logistic; so điểm Brier với khí hậu và với giữ nguyên.</p>
+                <table class="tb sm">
+                    <thead><tr><th>Sự kiện</th><th>Kết quả</th></tr></thead>
+                    <tbody>
+                        <tr><td>Ngày nóng ≥ 31 °C</td><td>Chưa đủ (14 ngày cuối không có ngày nóng)</td></tr>
+                        <tr><td>Tăng ≥ 1,5 °C / 6 h</td><td>Chưa đủ (ngày nào cũng xảy ra)</td></tr>
+                        <tr><td>Giảm ≥ 1,5 °C / 6 h</td><td>Hơn khí hậu (0,44), <b class="bad">thua giữ nguyên</b></td></tr>
+                    </tbody>
+                </table>
+                <p class="note" style="margin-top:10px">Thời tiết (kể cả ERA5) không thêm gì so với trạng thái sensor. Hướng tiếp: ngưỡng tương đối theo chu kỳ ngày – đêm.</p>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-57, RL-58</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     09 · MÔ HÌNH NỀN (H1.4)
+     ===================================================== -->
+<section class="slide" data-title="Mô hình nền">
+    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">H1.4 · mô hình nền có sẵn, không huấn luyện</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Mô hình lớn có sẵn <em>có hơn hồi quy?</em></h2>
+    <div class="body">
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <table class="tb sm">
+                    <thead><tr><th>Mô hình</th><th>Kích thước</th><th>Tốc độ (CPU)</th><th>Trạng thái</th></tr></thead>
+                    <tbody>
+                        <tr><td><b>Chronos-Bolt small</b> (Amazon)</td><td>48 M tham số</td><td>~19 phút / 13.000 dự báo</td><td><span class="pill st-done">Đã chạy</span></td></tr>
+                        <tr><td><b>Chronos-Bolt base</b></td><td>205 M</td><td>~4 lần chậm hơn</td><td><span class="pill st-done">Đã chạy</span></td></tr>
+                        <tr><td><b>TimesFM 2.5</b> (Google)</td><td>200 M</td><td>~3,3 s / dự báo</td><td><span class="pill st-run">Chạy mẫu</span></td></tr>
+                        <tr><td>Đối chứng: chu kỳ ngày 7 ngày</td><td>—</td><td>tức thì</td><td><span class="pill st-done">Đã chạy</span></td></tr>
+                    </tbody>
+                </table>
+                <p class="note" style="margin-top:14px">Venv riêng (torch CPU), không ảnh hưởng hệ thống chính. Dùng <b>đúng các mốc dự báo</b> của luồng A để so công bằng với B4/B5.</p>
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Chuỗi sensor ngắn (5 tháng); mô hình nền học sẵn trên hàng tỉ chuỗi có thể dự báo tốt mà không cần huấn luyện.</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><p>Chạy zero-shot trên nhiệt độ, NH4, pH (trước khi trôi); chấm bằng cùng gate #16.</p></div>
+                <div class="blk"><div class="k">Kết quả</div><p><b>Đang tổng hợp</b> — cập nhật slide khi có bảng so sánh.</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Chỉ đề xuất thay khi thắng hồi quy theo gate; thua vẫn ghi lại.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · luồng B · foundation-zero-shot-20261024</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     10 · BẢN ĐỒ MẶC ĐỊNH
+     ===================================================== -->
+<section class="slide" data-title="Bản đồ giám sát">
+    <div class="hdr"><span class="sec"><b>03</b>Giao diện</span><span class="crumb">Demo · Bản đồ giám sát, chạy thật 24/10</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Mở ra là thấy <em>hiện trạng vùng nuôi</em></h2>
+    <div class="body">
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <img class="shot" src="assets/map-default.jpg" alt="Bản đồ mặc định: vùng HSI có viền trạng thái, 14 trạm, độ sâu GEBCO, thẻ cảm biến live" style="height:600px">
+                <p class="cap">Vùng HSI lịch sử, viền theo hiện trạng nuôi lúc này; thẻ cảm biến NB1 cập nhật mỗi phút; nút <b>Đồng bộ</b> trên thanh trên cùng.</p>
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Cảm biến trên bản đồ dừng ở 14/10, cả 14 điểm “Thiếu dữ liệu”; mặc định hiện lớp ít người hiểu.</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><ul class="dash"><li>Worker nạp lịch sử GreenLab (DataByDate) khi khởi động, mỗi 30 phút, khi bấm Đồng bộ</li><li>Mặc định: vùng HSI + hiện trạng (sensor + mưa, gió 6 giờ)</li><li>Điều hướng còn 4 mục: Bản đồ · Cảnh báo · Phân tích · Cấu hình</li></ul></div>
+                <div class="blk"><div class="k">Kết quả</div><p>Nạp 75.315 bản ghi; số đo mới nhất cách ~25 s; 14/14 điểm “Bình thường”.</p></div>
+                <div class="blk"><div class="k r">Còn lại</div><p>14 điểm dùng chung một sensor; pH ~6,7 là trôi đầu dò, không phải nước chua.</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Phân quyền người dùng (để sau).</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-52, RL-53</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     11 · THỜI TIẾT & BIỂN TOÀN VÙNG
+     ===================================================== -->
+<section class="slide" data-title="Thời tiết và biển">
+    <div class="hdr"><span class="sec"><b>03</b>Giao diện</span><span class="crumb">Demo · 6 lớp thời tiết – thủy văn, 14:40 24/10</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Thời tiết &amp; biển <em>toàn vùng, kiểu Windy</em></h2>
+    <div class="body">
+        <div class="grid6 rv d1">
+            <figure><img src="assets/f-wind.jpg" alt="Gió 10 m"><figcaption>Gió 10 m<small>màu = tốc độ, hạt = hướng · Open-Meteo</small></figcaption></figure>
+            <figure><img src="assets/f-wave.jpg" alt="Sóng"><figcaption>Sóng (Hs)<small>gợn trắng vuông góc hướng truyền · CMEMS MFWAM</small></figcaption></figure>
+            <figure><img src="assets/f-current.jpg" alt="Dòng chảy"><figcaption>Dòng chảy<small>hạt theo hướng dòng · CMEMS GLO12</small></figcaption></figure>
+            <figure><img src="assets/f-sea.jpg" alt="Mực nước"><figcaption>Mực nước<small>so với mực nước trung bình (triều + nước dâng)</small></figcaption></figure>
+            <figure><img src="assets/f-sst.jpg" alt="Nhiệt độ nước mặt"><figcaption>Nhiệt độ nước (mới)<small>cam/đỏ ở 31/33/34 °C = ngưỡng cá giò</small></figcaption></figure>
+            <figure><img src="assets/f-air.jpg" alt="Nhiệt độ không khí"><figcaption>Nhiệt độ không khí (mới)<small>2 m, cả trên đất liền</small></figcaption></figure>
+        </div>
+        <p class="note rv d2" style="margin-top:12px">Lưới vùng 0,125° (~14 km) phủ Hải Phòng – Cát Bà – Hạ Long, cập nhật mỗi giờ; một lớp màu mỗi lúc, thang màu cố định để so giữa các ngày. Ngoài ra: lớp “Mưa &amp; gió 6 giờ tới” (vòng cam = vượt ngưỡng cá giò 15 mm / 40 km/h).</p>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-50, RL-51, RL-60, decisions #23, #24</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     12 · NGUỒN DỮ LIỆU
+     ===================================================== -->
+<section class="slide" data-title="Nguồn dữ liệu">
+    <div class="hdr"><span class="sec"><b>03</b>Giao diện</span><span class="crumb">Mỗi lớp lấy từ đâu, tin được đến đâu</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Nguồn mở, <em>ghi rõ độ phân giải</em></h2>
+    <div class="body">
+        <table class="tb sm rv d1">
+            <thead><tr><th style="width:20%">Lớp</th><th style="width:30%">Nguồn</th><th style="width:16%">Lưới gốc</th><th>Ghi chú</th></tr></thead>
+            <tbody>
+                <tr><td><b>Mưa, gió, nhiệt độ không khí</b></td><td>Open-Meteo (ECMWF IFS / GFS)</td><td>~9–13 km</td><td>Gió đã kiểm với thiệt hại bão (RL-31)</td></tr>
+                <tr><td><b>Sóng, dòng chảy</b></td><td>Copernicus Marine: MFWAM (3 h), GLO12 (1 h)</td><td>1/12° ≈ 9 km</td><td>Tải cả vùng một lần; file đăng nhập gắn chỉ-đọc</td></tr>
+                <tr><td><b>Mực nước, nhiệt độ nước</b></td><td>Open-Meteo marine (Météo-France)</td><td>~8 km</td><td>CMEMS <code>zos</code> so với geoid nên không dùng cho mực nước</td></tr>
+                <tr><td><b>Độ sâu</b></td><td>GEBCO 2024 + TID; ETOPO 2022 để so; SDB vệ tinh cho bãi triều</td><td>~460 m</td><td>Chỉ ~3 % ô đo trực tiếp; không dùng cho hàng hải</td></tr>
+                <tr><td><b>Cảm biến NB1</b></td><td>GreenLab API (mới nhất + theo ngày)</td><td>1–3 phút</td><td>Nhãn Mới / Cũ; quá 90 phút chuyển xám</td></tr>
+            </tbody>
+        </table>
+        <div class="cols c3 rv d2" style="height:auto;margin-top:30px">
+            <div class="card"><div class="k" style="margin-bottom:8px">Không độc lập</div><p style="font-size:21px">Open-Meteo marine và CMEMS dùng chung mô hình Météo-France: so hai nguồn không phải kiểm chứng.</p></div>
+            <div class="card"><div class="k" style="margin-bottom:8px">Hạn mức</div><p style="font-size:21px">~6,8 nghìn lượt Open-Meteo/ngày (dưới 10 nghìn); đồng bộ tay không lấy lại nếu bản tin &lt; 10 phút.</p></div>
+            <div class="card r"><div class="k r" style="margin-bottom:8px">Chưa tin được</div><p style="font-size:21px">DO, độ mặn tại lồng, dòng siết ở luồng hẹp, sóng trong vịnh kín: không nguồn mở nào đo được.</p></div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-49, RL-51 · docs/eval/2026-10-24-data-sources.md</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     13 · ĐỘ SÂU & ĐỊA HÌNH ĐÁY
+     ===================================================== -->
+<section class="slide" data-title="Độ sâu và địa hình đáy">
+    <div class="hdr"><span class="sec"><b>04</b>Độ sâu &amp; dữ liệu</span><span class="crumb">Demo · độ sâu GEBCO + tô bóng địa hình đáy</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Độ dốc đáy <em>hiện thành bóng đổ</em></h2>
+    <div class="body">
+        <div class="cols c-6-4">
+            <div class="rv d1">
+                <img class="shot" src="assets/map-depth-shade.jpg" alt="Dải độ sâu GEBCO và đường đẳng sâu, có bóng đổ địa hình đáy" style="height:600px">
+                <p class="cap">Dải độ sâu + đường 2/5/10/20/30 m + bóng đổ (phóng đại chiều sâu ×30 vì đáy vịnh đa số dốc &lt; 0,5°).</p>
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Độ dốc vẽ riêng thành ô vuông khó đọc; cờ “hố sâu nghi lỗi” gắn cả rãnh triều thật (31 cụm).</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><ul class="dash"><li>Tô bóng địa hình (hillshade) từ lưới GEBCO, phủ lên dải độ sâu</li><li>Cờ hố sâu: chỉ khi sâu hơn xung quanh ≥ 12 m, xung quanh &lt; 25 m, không có ô đo trực tiếp</li><li>Bãi triều SDB vẽ đường viền mượt thay ô vuông</li></ul></div>
+                <div class="blk"><div class="k">Kết quả</div><p>Cờ nghi lỗi còn 24 ô (từ 772); độ dốc và độ sâu đọc trên cùng một lớp.</p></div>
+                <div class="blk"><div class="k r">Còn lại</div><p>Chỉ ~3 % ô đo trực tiếp; luồng hẹp chưa thấy.</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Bản đồ 3D (đã có mock, chưa tích hợp).</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-50, RL-52</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     14 · BẢN TIN THỜI TIẾT (H2.1)
+     ===================================================== -->
+<section class="slide" data-title="Bản tin thời tiết">
+    <div class="hdr"><span class="sec"><b>04</b>Độ sâu &amp; dữ liệu</span><span class="crumb">Demo · Phân tích → Thời tiết (H2)</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Thu bản tin <em>đúng lúc phát hành</em></h2>
+    <div class="body">
+        <div class="cols" style="grid-template-columns:1.5fr 1fr;gap:40px">
+            <div class="rv d1">
+                <img class="shot" src="assets/page-weather.jpg" alt="Trang H2: độ phủ 7 ngày 52 %, lưới giờ thiếu bản tin, thẻ đủ dữ liệu B5 dự kiến 09/12/2026" style="height:auto">
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Muốn chứng minh “thời tiết giúp dự báo” phải dùng bản tin phát ra lúc đó, không lấy lại được cho quá khứ. Task trên laptop lỡ khi máy ngủ: độ phủ 7 ngày ~50 %.</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><p>Nguồn thu thứ hai: worker Docker ghi mỗi giờ vào file riêng; hợp nhất theo giờ phát (task ưu tiên). Bật hẹn giờ đánh thức máy.</p></div>
+                <div class="blk"><div class="k">Kết quả</div><p>406 bản tin; 24 giờ qua 100 %; 15/63 ngày đủ điều kiện.</p></div>
+                <div class="blk"><div class="k r">Còn lại</div><p>Cần 57/63 ngày đủ → sớm nhất <b>09/12/2026</b> nếu không lỡ ngày nào.</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Báo cáo độ phủ hằng tuần; chạy H2.2 khi đủ.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-59, decisions #26</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     15 · NHẬT KÝ SỰ KIỆN
+     ===================================================== -->
+<section class="slide" data-title="Nhật ký sự kiện">
+    <div class="hdr"><span class="sec"><b>04</b>Độ sâu &amp; dữ liệu</span><span class="crumb">Demo · Cấu hình → Nhật ký sự kiện</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Ghi lại <em>điều thật sự xảy ra</em></h2>
+    <div class="body">
+        <div class="cols" style="grid-template-columns:1.5fr 1fr;gap:40px">
+            <div class="rv d1">
+                <img class="shot" src="assets/page-events.jpg" alt="Trang nhật ký sự kiện: chọn thời điểm, điểm nuôi, loại sự kiện, mức độ, số đo tay" style="height:auto">
+            </div>
+            <div class="five rv d2">
+                <div class="blk"><div class="k r">Vấn đề</div><p>Ngưỡng cảnh báo hiện chỉ là lý thuyết; không có dữ liệu “cá chết / bỏ ăn lúc nào” để kiểm.</p></div>
+                <div class="blk"><div class="k">Giải pháp</div><ul class="dash"><li>10 loại: cá chết, bỏ ăn, nổi đầu, nước đục, tảo, mưa lớn, bão, hỏng lồng, đo tay…</li><li>Mức độ 1–3, số đo tay DO / độ mặn / nhiệt độ</li><li>Không xóa: sửa = bản ghi mới thay thế; xuất CSV</li></ul></div>
+                <div class="blk"><div class="k">Kết quả</div><p>Chạy trên Docker; lưu mỗi sự kiện một file trong <code>runtime/events/</code>.</p></div>
+                <div class="blk"><div class="k r">Còn lại</div><p>0/10 sự kiện cần để hiệu chỉnh ngưỡng (H2.4).</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><p>Nhờ người nuôi / đơn vị vận hành ghi, kể cả ngày “không có gì lạ”.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-56, decisions #25</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     16 · CHẤT LƯỢNG DỮ LIỆU SENSOR
+     ===================================================== -->
+<section class="slide" data-title="Chất lượng dữ liệu">
+    <div class="hdr"><span class="sec"><b>05</b>Chất lượng dữ liệu</span><span class="crumb">Phát hiện trong tuần · cần hỏi đơn vị vận hành</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Ba vấn đề sensor <em>mới phát hiện</em></h2>
+    <div class="body">
+        <div class="cols c3">
+            <div class="card r rv d1">
+                <div class="n">pH</div>
+                <h3>Đầu dò trôi từ 19/09</h3>
+                <ul class="dash r" style="margin-top:8px">
+                    <li style="font-size:21px">Trung vị 7,96 → 6,91; 68 % số đo ngoài 7,0–8,6</li>
+                    <li style="font-size:21px">Luật QC theo tốc độ không bắt được trôi chậm</li>
+                    <li style="font-size:21px">Ảnh hưởng NH3 (tính từ pH) và mô hình có pH</li>
+                </ul>
+                <p class="note" style="margin-top:10px"><b>Cần:</b> hiệu chuẩn hoặc thay đầu dò.</p>
+            </div>
+            <div class="card r rv d2">
+                <div class="n">NH4 · TSS</div>
+                <h3>Tụt bậc lúc ~13:45 ngày 31/07</h3>
+                <ul class="dash r" style="margin-top:8px">
+                    <li style="font-size:21px">NH4 ~106 → 5,3 (giảm 20 lần); TSS ~70 → 3–4</li>
+                    <li style="font-size:21px">Nhiệt độ, pH không đổi → nhiều khả năng bảo dưỡng / đổi thang đo</li>
+                    <li style="font-size:21px">Mọi phân tích phải tách hai giai đoạn</li>
+                </ul>
+                <p class="note" style="margin-top:10px"><b>Cần:</b> GreenLab xác nhận việc gì xảy ra; đơn vị NH4.</p>
+            </div>
+            <div class="card r rv d3">
+                <div class="n">Nhiệt độ</div>
+                <h3>Biên độ ngày – đêm tăng ~5 lần</h3>
+                <ul class="dash r" style="margin-top:8px">
+                    <li style="font-size:21px">Từ giữa 08: 0,5–1,2 → ~4 °C, lớn hơn cả không khí (3–3,5 °C)</li>
+                    <li style="font-size:21px">Đỉnh 11–14 h; mất tương quan với triều</li>
+                    <li style="font-size:21px">Có thể đầu dò bị đổi độ sâu, phơi nắng, bám bẩn</li>
+                </ul>
+                <p class="note" style="margin-top:10px"><b>Cần:</b> hỏi vị trí / độ sâu đầu dò quanh 15–20/08.</p>
+            </div>
+        </div>
+        <p class="note rv d4" style="margin-top:22px">COD vẫn hỏng (kẹt 558,8 / 0,0 từ 08). Tất cả đã ghi trong nhật ký nghiên cứu; dự báo và cảnh báo không coi các số này là số đo tin cậy.</p>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-54, RL-57, RL-58</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     17 · MỐC THỜI GIAN
+     ===================================================== -->
+<section class="slide" data-title="Mốc thời gian">
+    <div class="hdr"><span class="sec"><b>06</b>Mốc thời gian</span><span class="crumb">Offline đã có kết quả · chạy thật cần thời gian</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Khi nào có <em>kết quả chạy thật?</em></h2>
+    <div class="body">
+        <div class="road rv d1" style="grid-template-columns:repeat(5,1fr)">
+            <div class="s"><div class="k">Đã có</div><h4>Offline</h4><p>Nhiệt độ đạt 15 ph – 12 h trên 14 ngày giữ riêng; dùng được cho luận văn.</p></div>
+            <div class="s"><div class="k">31/10</div><h4>Shadow 7 ngày</h4><p>Sơ bộ: hệ thống chạy ổn định? sai số có như offline?</p></div>
+            <div class="s"><div class="k">~21/11</div><h4>Shadow 4 tuần</h4><p>Kiểm định DM; giữ mô hình có pH hay không pH; độ phủ khoảng tin cậy.</p></div>
+            <div class="s"><div class="k">≥ 09/12</div><h4>H2.2 thời tiết thật</h4><p>B5 với bản tin thu thật so với B4, khi đủ 57/63 ngày.</p></div>
+            <div class="s"><div class="k">≥ 10 sự kiện</div><h4>H2.4 ngưỡng</h4><p>Tỷ lệ báo sót / báo nhầm từ nhật ký sự kiện.</p></div>
+        </div>
+        <div class="cols c2 rv d2" style="height:auto;margin-top:40px">
+            <div class="box"><div class="k" style="margin-bottom:8px">Vì sao phải chờ</div><p style="font-size:21px">Dự báo phát hôm nay, chấm ngày mai → chắc chắn không “nhìn trước”; kiểm được cả lỗi API, mất mạng, đầu dò trôi. Dự báo liên tiếp tương quan mạnh nên cần vài tuần mới đủ mẫu độc lập.</p></div>
+            <div class="box red"><div class="k r" style="margin-bottom:8px">Có thể rút ngắn</div><p style="font-size:21px">Đổi gate từ 28 xuống 14 ngày (~07/11) nếu thầy đồng ý; luận văn trình bày hai tầng: offline là chính, chạy thật là xác nhận.</p></div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-55, RL-59, roadmap</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     18 · TỔNG KẾT
+     ===================================================== -->
+<section class="slide" data-title="Tổng kết">
+    <div class="hdr"><span class="sec"><b>06</b>Tổng kết</span><span class="crumb">Mức độ kiểm chứng</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Đã kiểm chứng đến đâu?</h2>
+    <div class="body">
+        <div class="cols c-6-4">
+            <table class="mat rv d1">
+                <tbody>
+                    <tr><td><b>Dự báo nhiệt độ 15 ph – 12 h</b> (offline, gate #16)</td><td><span class="lvl l3">Có đánh giá</span></td></tr>
+                    <tr><td><b>Thời tiết cải thiện 3–12 h</b> (bản tin dựng lại)</td><td><span class="lvl l2">Bằng chứng gián tiếp</span></td></tr>
+                    <tr><td><b>Mưa → nước mát sau 6–11 h</b></td><td><span class="lvl l3">Có đánh giá</span></td></tr>
+                    <tr><td><b>Shadow chạy thật</b> — mới 1 ngày</td><td><span class="lvl l1">Đang thu</span></td></tr>
+                    <tr><td><b>Lớp thời tiết – thủy văn trên bản đồ</b></td><td><span class="lvl l2">Chỉ quan sát</span></td></tr>
+                    <tr><td><b>pH, NH4, TSS, sự kiện nhiệt 24 h</b></td><td><span class="lvl l0">Chưa có kỹ năng</span></td></tr>
+                </tbody>
+            </table>
+            <div class="rv d2">
+                <div class="stat"><div class="v r">799 + 156</div><div class="l">test lõi + test backend đạt; build giao diện đạt</div></div>
+                <div class="stat" style="margin-top:30px"><div class="v">13</div><div class="l">mục nhật ký nghiên cứu mới (RL-48 → RL-60), 4 quyết định (#23 – #26)</div></div>
+                <div class="box" style="margin-top:30px"><p style="font-size:22px">Mọi đầu ra vẫn là <b>shadow</b>: được ghi và chấm điểm, không gửi tới người nuôi.</p></div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-48 → RL-60</span><span class="pg"></span></div>
+</section>
+
+<!-- =====================================================
+     19 · BƯỚC TIẾP & CẦN QUYẾT ĐỊNH
+     ===================================================== -->
+<section class="slide" data-title="Bước tiếp">
+    <div class="hdr"><span class="sec"><b>06</b>Bước tiếp</span><span class="crumb">Tuần tới và việc cần quyết định</span></div>
+    <div class="redbar"></div>
+    <h2 class="t rv">Tuần tới <em>và cần quyết định</em></h2>
+    <div class="body">
+        <div class="cols c2">
+            <div class="rv d1">
+                <div class="k" style="margin-bottom:14px">Tuần tới</div>
+                <ul class="dash">
+                    <li style="font-size:23px">Sửa mô hình 15 phút (hồi quy B4 + chốt an toàn)</li>
+                    <li style="font-size:23px">Huấn luyện lại mô hình 3–12 h trên lịch sử 24/10</li>
+                    <li style="font-size:23px">Tổng hợp mô hình nền (Chronos, TimesFM)</li>
+                    <li style="font-size:23px">Chấm điểm shadow hằng ngày; báo cáo 7 ngày (31/10)</li>
+                    <li style="font-size:23px">Báo cáo độ phủ bản tin hằng tuần</li>
+                </ul>
+            </div>
+            <div class="rv d2">
+                <div class="box red">
+                    <div class="k r" style="margin-bottom:12px">Cần thầy / chủ dự án quyết</div>
+                    <ul class="dash r">
+                        <li style="font-size:22px">Rút gate chạy thật 28 → 14 ngày?</li>
+                        <li style="font-size:22px">Có tính 144 bản tin cũ thiếu nhãn nguồn không?</li>
+                        <li style="font-size:22px">Liên hệ GreenLab: bước nhảy 31/07, đơn vị NH4, vị trí đầu dò nhiệt</li>
+                        <li style="font-size:22px">Hiệu chuẩn / thay đầu dò pH</li>
+                        <li style="font-size:22px">Ai ghi nhật ký sự kiện ở lồng?</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="ft"><span>Đỗ Minh Phúc</span><span class="pg"></span></div>
+</section>

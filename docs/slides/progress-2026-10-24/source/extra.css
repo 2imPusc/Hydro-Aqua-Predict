@@ -1,0 +1,36 @@
+
+/* ===========================================
+   PROGRESS 2026-10-24 — ảnh demo, biểu đồ skill, lưới lớp bản đồ
+   =========================================== */
+.shot { display: block; width: 100%; border: 3px solid var(--ink); background: #f1f1ee; object-fit: cover; object-position: top left; }
+.cap { font-size: 18px; line-height: 1.35; color: var(--muted); margin-top: 10px; }
+.cap b { color: var(--ink); }
+.five .k { margin: 0 0 6px; }
+.five p, .five li { font-size: 20px; line-height: 1.34; }
+.five ul.dash li { margin-bottom: 4px; padding-left: 26px; }
+.five ul.dash li::before { top: 12px; width: 14px; }
+.five .blk { border-top: 2px solid var(--rule); padding-top: 10px; margin-top: 10px; }
+.five .blk:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.note { font-size: 19px; color: var(--muted); line-height: 1.35; }
+.mini .v { font-size: 60px; }
+/* skill by horizon: one group per horizon, bars B4 / B5 */
+.skill { display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px; align-items: end; height: 330px; border-bottom: 3px solid var(--ink); padding: 0 6px; }
+.skill .g { display: flex; gap: 6px; align-items: flex-end; justify-content: center; height: 100%; }
+.skill .b { width: 38px; background: #b9c3d6; position: relative; }
+.skill .b.b5 { background: var(--red); }
+.skill .b span { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); font: 800 17px/1 var(--font-display); white-space: nowrap; }
+.skill-x { display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px; padding: 10px 6px 0; text-align: center; font: 800 19px/1 var(--font-display); }
+.legend2 { display: flex; gap: 26px; font-size: 18px; margin-top: 14px; color: var(--ink-2); }
+.legend2 i { display: inline-block; width: 18px; height: 18px; vertical-align: -3px; margin-right: 8px; }
+/* six map layers */
+.grid6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.grid6 figure { margin: 0; }
+.grid6 img { display: block; width: 100%; height: 268px; object-fit: cover; border: 2px solid var(--ink); }
+.grid6 figcaption { font: 800 17px/1.2 var(--font-display); margin-top: 6px; }
+.grid6 figcaption small { font: 500 15px/1.25 var(--font-body); color: var(--muted); display: block; margin-top: 2px; }
+.bad { color: var(--red-ink); font-weight: 800; }
+.ok { color: #17663a; font-weight: 800; }
+.st-done { background: #e3f3e8; color: #17663a; }
+.st-run { background: #fdf1d2; color: #85560a; }
+.st-wait { background: #eceae4; color: #555; }
+.pill { display: inline-block; font: 800 13px/1 var(--font-display); letter-spacing: .06em; padding: 6px 8px; border-radius: 3px; white-space: nowrap; }
