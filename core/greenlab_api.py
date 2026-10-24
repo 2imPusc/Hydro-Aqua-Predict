@@ -136,3 +136,46 @@ def load_cached_history(station_serial: str) -> pd.DataFrame:
     combined = pd.concat(frames, ignore_index=True)
     combined["fetchedAt"] = pd.to_datetime(combined["fetchedAt"], utc=True)
     return combined.groupby(["device", "fetchedAt"], as_index=False)[_PARAMS].median().sort_values("fetchedAt").reset_index(drop=True)
+
+
+# Live mode fills the minutes between the newest daily export (HAP-SensorCollector writes yesterday's file at
+# 06:13) and now from /Datums/DataByDate, so the 3–12 h models have their 1-minute lags (they skipped with
+# `insufficient_sensor_history` when only the latest reading was appended). Throttled in-process.
+RECENT_REFRESH_MINUTES = 15
+_last_recent_refresh: dict[str, pd.Timestamp] = {}
+
+
+def refresh_recent_history(station_serial: str, now: pd.Timestamp | None = None) -> int:
+    """Append yesterday's and today's (local) minutes to the API cache; returns rows written. Append-only."""
+    now = now if now is not None else pd.Timestamp.now(tz="UTC")
+    last = _last_recent_refresh.get(station_serial)
+    if last is not None and (now - last).total_seconds() < RECENT_REFRESH_MINUTES * 60:
+        return 0
+    _last_recent_refresh[station_serial] = now
+    today = now.tz_convert(_EXPORT_TZ).date()
+    text = fetch_by_date_csv(station_serial, (today - pd.Timedelta(days=1)).isoformat(), today.isoformat())
+    import io
+    frame = pd.read_csv(io.StringIO(text))
+    frame["fetchedAt"] = _export_time(frame["Date"])
+    frame["SensorType"] = frame["SensorType"].replace(_ALIASES)
+    frame = frame[frame["DeviceSerialNumber"].astype(str).eq(station_serial)]
+    if frame.empty:
+        return 0
+    wide = frame.groupby(["fetchedAt", "SensorType"], as_index=False)["Value"].median().pivot(index="fetchedAt", columns="SensorType", values="Value").reset_index()
+    written = 0
+    for day, rows in wide.groupby(wide["fetchedAt"].dt.tz_convert(_EXPORT_TZ).dt.date):
+        path = GREENLAB_API_CACHE_DIR / station_serial / f"{day:%Y%m%d}.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        existing = set()
+        if path.exists():
+            existing = {json.loads(line).get("fetchedAt") for line in path.read_text(encoding="utf-8").splitlines() if line.strip()}
+        with path.open("a", encoding="utf-8") as output:
+            for _, row in rows.iterrows():
+                stamp = row["fetchedAt"].isoformat()
+                if stamp in existing:
+                    continue
+                record = {"device": station_serial, "fetchedAt": stamp, "source": "greenlab_by_date_recent"}
+                record.update({param: (None if pd.isna(row.get(param)) else float(row.get(param))) for param in _PARAMS})
+                output.write(json.dumps(record, ensure_ascii=False) + "\n")
+                written += 1
+    return written

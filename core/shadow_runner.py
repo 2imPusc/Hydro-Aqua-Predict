@@ -201,10 +201,14 @@ def main() -> None:
 
     while True:
         result = run_once(args.station, replay=args.replay)
-        printable = {key: value for key, value in result.items() if key not in {"future", "metrics", "long_horizon"}}
+        # One short line per pass (the full result is in the ledgers); a long-running task logs every minute.
+        printable = {key: result[key] for key in ("status", "reason", "issued_records", "resolved_outcomes") if key in result}
+        for key in ("water_advisory", "weather_advisory"):
+            if isinstance(result.get(key), dict):
+                printable[key.split("_")[0]] = result[key].get("severity")
         if "long_horizon" in result:
             printable["long_horizon"] = {key: value for key, value in result["long_horizon"].items() if key != "skips"}
-        print(printable)
+        print(datetime.now(timezone.utc).isoformat(timespec="seconds"), printable, flush=True)
         if args.once:
             hazards = maybe_run_hazards()  # synchronous: a daemon thread would die with the process
             if hazards is not None:

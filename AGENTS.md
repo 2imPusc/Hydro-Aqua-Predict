@@ -87,6 +87,11 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
   Health: `python scripts/sensor_coverage.py --station 06M26042804 --last-days 7 --no-write`.
   `--since-last` resumes from the newest interval file: never write a probe file ahead of it
   (use `--start/--end` to fill behind); the coverage report catches any gap that slips through.
+- `HAP-ShadowRunner` — long-running `core/shadow_runner.py` (H1.5) via `scripts/run_shadow_runner.ps1`
+  (`GREENLAB_FETCH_MODE=live`, `MARINE_ENABLED=true` for that process; root `.env` stays `cache`). Live fetch
+  fills today's minutes from `/Datums/DataByDate` every 15 min so the 3–12 h models have their lags.
+  Ledgers: `runtime/forecast-shadow/`; log: `runtime/logs/shadow-runner.log`. Re-checked every 5 min (IgnoreNew).
+  Install: `scripts/install_shadow_runner_task.ps1 -Start`. Started 2026-10-24 (owner decision). Wake timers on.
 - `HAP-HazardRunner` (hourly) and `HAP-ECMWFStorms` (every 6 h) — shadow hazard jobs via
   `scripts/run_hazard_job.ps1 -Job hazards|storms` (`MARINE_ENABLED=true` for these jobs only) into
   `runtime/hazard-shadow/` (append-only); one status line per run in `runtime/logs/hazard-jobs.log`.

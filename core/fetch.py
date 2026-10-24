@@ -11,7 +11,7 @@ from core.config import (
     MONGODB_URI, MONGODB_DB_NAME, MONGODB_COLLECTION,
     USE_LOCAL_CSV, LOCAL_CSV_PATH, GREENLAB_API_ENABLED, GREENLAB_FETCH_MODE,
 )
-from core.greenlab_api import append_snapshot, fetch_latest_snapshot, load_cached_history
+from core.greenlab_api import append_snapshot, fetch_latest_snapshot, load_cached_history, refresh_recent_history
 from core.chemistry import emerson_nh3
 from core.observations import CONTRACT_VERSION, contract_issues
 from core.quality import filter_valid_rows, check_series
@@ -39,6 +39,10 @@ def _fallback_to_local_csv(station_serial: str, exc: Exception) -> pd.DataFrame:
 def _read_api_cache(station_serial: str) -> pd.DataFrame:
     snapshot = fetch_latest_snapshot(station_serial)
     append_snapshot(snapshot)
+    try:
+        refresh_recent_history(station_serial)
+    except Exception:  # the latest reading still flows; long horizons skip with a reason until the gap fills
+        pass
     history = load_cached_history(station_serial)
     history.attrs["data_source"] = "greenlab_api_cache"
     return history
