@@ -65,6 +65,8 @@ services:
       COPERNICUS_WAVE_DATASET: ${COPERNICUS_WAVE_DATASET:-}
       GEBCO_RASTER_PATH: ${GEBCO_RASTER_PATH:-/gebco/gebco.tif}
       COPERNICUS_BATHYMETRY_PATH: ${COPERNICUS_BATHYMETRY_PATH:-/workspace/data/depth/haiphong_copernicus_bathymetry_100m_202511.nc}
+      # Credentials file from `copernicusmarine login` on the host, mounted read-only below (never copied into .env).
+      COPERNICUS_CREDENTIALS_FILE: /run/secrets/copernicusmarine-credentials
       GREENLAB_API_ENABLED: ${GREENLAB_API_ENABLED:-true}
       GREENLAB_API_BASE_URL: ${GREENLAB_API_BASE_URL:-https://thegreenlab.xyz}
       TK_DHTB: ${TK_DHTB:-}
@@ -76,6 +78,9 @@ services:
       - ../:/workspace:ro
       - context_cache:/cache
       - ${GEBCO_HOST_DIR:-./cache}:/gebco:ro
+      # Optional: CMEMS currents and waves (decisions #24). Point COPERNICUS_CREDENTIALS_PATH at the host file
+      # written by `copernicusmarine login`; without it the default is an empty placeholder and CMEMS stays off.
+      - ${COPERNICUS_CREDENTIALS_PATH:-./copernicus-credentials.placeholder}:/run/secrets/copernicusmarine-credentials:ro
     depends_on:
       postgres:
         condition: service_healthy

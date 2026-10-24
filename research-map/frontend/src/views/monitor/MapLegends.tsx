@@ -12,7 +12,7 @@ import type { EnabledLayers } from './useMonitorData'
 import { PALETTES, paletteGradient } from '../../components/map/fieldPalettes'
 import { GEBCO_SLOPE_CLASSES } from '../../components/map/overlays/GebcoSlopeOverlay'
 import { activeField, ADVISORY_RAIN_MM, ADVISORY_WIND_KMH } from './RegionalFields'
-import { num } from '../../lib/format'
+import { num, providerLabel } from '../../lib/format'
 import { isCompactScreen, LEFT_PANEL_WIDTH, SCROLL_FADE } from './LayerControl'
 
 /** Fixed-scale colour key of the active regional field; states the model grid so smoothness is not read as detail. */
@@ -25,12 +25,12 @@ function FieldLegend({ id, layer }: { id: keyof typeof PALETTES; layer?: Layer }
     rain6h: `Vòng cam: mưa ≥ ${ADVISORY_RAIN_MM} mm hoặc (tô kín) gió ≥ ${ADVISORY_WIND_KMH} km/h trong 6 giờ tới — ngưỡng cá giò của khuyến nghị nuôi (hàu: 8 mm, 30 km/h).`,
     wind: 'Hạt trắng chạy theo hướng gió.',
     wave: 'Hạt trắng chạy theo hướng sóng; chỉ trên mặt nước.',
-    current: 'Hạt trắng theo hướng dòng; mô hình ~8 km không thấy dòng siết ở luồng hẹp.',
+    current: 'Hạt trắng theo hướng dòng; mô hình ~8–9 km không thấy dòng siết ở luồng hẹp.',
     sea_level: 'Dương = cao hơn mực nước trung bình (triều + nước dâng).',
   }
   return <GradientLegend title={`${palette.title} (${palette.unit})`} gradient={paletteGradient(palette)}
     ticks={palette.ticks.map(v => num(v, 2).replace(/,00$/, '').replace(/(,\d)0$/, '$1'))}
-    note={`${notes[id]} Open-Meteo, ${grid}; tô mượt giữa các điểm, không thêm chi tiết.`} />
+    note={`${notes[id]} Nguồn ${providerLabel(layer?.provenance?.provider)}, ${grid}; tô mượt giữa các điểm, không thêm chi tiết.`} />
 }
 
 /** Stepped (one colour per band) depth legend; hard stops match the isobands. */

@@ -643,3 +643,10 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Độ sâu (trả lời):** GEBCO 2024 là mặc định đã đánh giá (decisions #21, RL-45); ETOPO 2022 chỉ để so sánh (hố sâu sai ở Cửa Lục, Vân Đồn); SDB là nguồn thứ ba, chỉ bãi triều. Đường đẳng sâu 2–30 m từ GEBCO bổ sung cho đường mức 0,25–1 m của SDB ở vùng có SDB.
 - **Kiểm tra:** test backend 97 đạt (thêm `test_regional_grid.py`, độ dốc GEBCO); `npm run build`; ảnh từng lớp trên Docker; đếm điểm ảnh của canvas hạt (gió ~16 nghìn, sóng ~2,5 nghìn, dòng ~1,5 nghìn).
 - **Còn mở:** bản đồ vẫn dùng Open-Meteo `best_match` (không ghim `models=`); dòng chảy / mực nước / sóng nên lấy từ CMEMS (adapter có sẵn, cần quyết định cách cấp thông tin đăng nhập cho container); chưa rõ Open-Meteo đếm lượt theo điểm hay theo request (RL-49).
+
+## RL-51 · 2026-10-24 · Dòng chảy và sóng trên bản đồ lấy từ Copernicus Marine
+
+- **Thiết lập:** worker research-map dùng `cmems_mod_glo_phy_anfc_0.083deg_PT1H-m` (uo, vo bề mặt) và `cmems_mod_glo_wav_anfc_0.083deg_PT3H-i` (VHM0, VMDR, VTPK) trên cả bbox vùng; lưới gốc 1/12° (~9 km), không lọc theo vùng đệm 5 km; file tải về dùng lại 3 giờ (sản phẩm cập nhật theo ngày). Đăng nhập: file của `copernicusmarine login` trên máy gắn chỉ-đọc vào container (`COPERNICUS_CREDENTIALS_PATH`), không chép mật khẩu vào `.env`; không có file thì CMEMS tắt, bản đồ dùng Open-Meteo như cũ.
+- **Kết quả (24/10 02 UTC):** dòng chảy 240 điểm, 0,003–0,185 m/s; sóng 225 điểm, Hs 0,05–0,43 m; tải lần đầu ~40 s, lần sau dùng lại 0 s.
+- **Giữ Open-Meteo cho mực nước:** `zos` của CMEMS đo so với geoid (~0,93–0,99 m quanh Cát Bà), không cùng mốc với `sea_level_height_msl` (so với mực nước trung bình) của Open-Meteo; đổi nguồn sẽ làm chú giải sai nghĩa. Mưa và gió vẫn từ Open-Meteo.
+- **Hạn chế:** CMEMS báo dataset GLO12 "đang cập nhật", dữ liệu sau 23/10 00 UTC có thể chưa đầy đủ; mô hình ~9 km vẫn không thấy dòng siết ở luồng hẹp.
