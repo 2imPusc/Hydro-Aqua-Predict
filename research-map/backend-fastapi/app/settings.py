@@ -99,6 +99,18 @@ class Settings:
     experiments_dir: str = os.getenv("RESEARCH_EXPERIMENTS_DIR", str(_workspace_root() / "artifacts" / "experiments"))
     weather_snapshots_path: str = os.getenv(
         "WEATHER_SNAPSHOTS_PATH", str(_workspace_root() / "artifacts" / "experiments" / "forecast-v2" / "weather-snapshots.jsonl"))
+    # Second as-issued capture source for B5 (H2.1): the worker appends the NB1 forecast hourly to its own file.
+    # Docker mounts only that directory writable (docker-compose.yml, worker service).
+    weather_worker_snapshots_path: str = os.getenv(
+        "WEATHER_WORKER_SNAPSHOTS_PATH",
+        str(_workspace_root() / "artifacts" / "experiments" / "forecast-v2" / "worker-capture" / "weather-snapshots-worker.jsonl"))
+    weather_capture_enabled: bool = os.getenv("WEATHER_CAPTURE_ENABLED", "true").lower() in {"1", "true", "yes"}
+    weather_capture_station: str = os.getenv("WEATHER_CAPTURE_STATION", "06M26042804")
+    # NB1 anchor of 06M26042804 (core.config weather_location); deliberately not CONTEXT_LATITUDE/LONGITUDE.
+    weather_capture_latitude: float = float(os.getenv("WEATHER_CAPTURE_LATITUDE", "20.71894498573044"))
+    weather_capture_longitude: float = float(os.getenv("WEATHER_CAPTURE_LONGITUDE", "107.042635855355"))
+    # Sensor history exports (scripts/export_sensor_history.py) for the B5 coverage endpoint; newest wins.
+    sensor_history_dir: str = os.getenv("SENSOR_HISTORY_DIR", str(_workspace_root() / "artifacts" / "experiments"))
     sensor_future_manifest_path: str = os.getenv(
         "SENSOR_FUTURE_MANIFEST_PATH", str(_workspace_root() / "core" / "models" / "sensor_future" / "sensor_future_long_manifest.json"))
     cors_allow_origins: tuple[str, ...] = _csv_env("CORS_ALLOW_ORIGINS", DEFAULT_CORS_ORIGINS)

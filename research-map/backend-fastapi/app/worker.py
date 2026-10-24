@@ -6,6 +6,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from app.bathymetry import describe_gebco
 from app.providers import fetch_open_meteo_context, unavailable_layer
@@ -22,10 +23,14 @@ from app.bathymetry_etopo import ensure_etopo_artifact
 from app.bathymetry_gebco import ensure_gebco_artifact
 from app.sensor_provider import GREENLAB_LOCAL_TZ, fetch_station, fetch_station_history, normalize_history_csv, normalize_readings
 from app.aquaculture_artifacts import build_aquaculture_artifacts
+from app import weather_capture
 
 logger = logging.getLogger(__name__)
 # How often the worker looks for a map refresh request between scheduled snapshots.
 REFRESH_CHECK_SECONDS = 5
+# B5 weather capture: check every minute whether this UTC hour has a capture; back off after a failure.
+WEATHER_CAPTURE_CHECK_SECONDS = 60
+WEATHER_CAPTURE_RETRY_SECONDS = 300
 
 
 def _snapshot(layers: list[dict], domain: dict) -> dict:
@@ -148,6 +153,24 @@ async def ingest_sensor_once(repository: SnapshotRepository) -> int:
     return inserted
 
 
+async def capture_weather_once() -> int:
+    """Hourly as-issued NB1 forecast for B5 (app/weather_capture.py); never raises."""
+    path = Path(settings.weather_worker_snapshots_path)
+    try:
+        written = await weather_capture.capture_once(
+            path, settings.weather_capture_station, settings.weather_capture_latitude, settings.weather_capture_longitude)
+    except OSError as exc:
+        logger.warning("B5 weather capture: cannot write %s (%s); is the worker-capture mount missing?", path, type(exc).__name__)
+        return -1
+    except Exception as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        logger.warning("B5 weather capture failed (%s%s)", type(exc).__name__, f", HTTP {status}" if status else "")
+        return -1
+    if written:
+        logger.warning("B5 weather capture: %d records appended to %s", written, path)
+    return written
+
+
 async def serve() -> None:
     repository = SnapshotRepository(settings.database_url)
     repository.initialize()
@@ -218,7 +241,15 @@ async def serve() -> None:
             elapsed = loop.time() - t0
             await asyncio.sleep(max(5, settings.sensor_poll_seconds - elapsed))
 
-    await asyncio.gather(context_loop(), sensor_loop())
+    async def weather_capture_loop():
+        while True:
+            written = await capture_weather_once()
+            await asyncio.sleep(WEATHER_CAPTURE_RETRY_SECONDS if written < 0 else WEATHER_CAPTURE_CHECK_SECONDS)
+
+    loops = [context_loop(), sensor_loop()]
+    if settings.weather_capture_enabled:
+        loops.append(weather_capture_loop())
+    await asyncio.gather(*loops)
 
 
 if __name__ == "__main__":

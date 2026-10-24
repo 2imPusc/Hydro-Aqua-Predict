@@ -63,6 +63,10 @@ ALERT_CONFIG_DIR = RUNTIME_DIR / "alert-config"  # admin alert-tier versions, ap
 EVENTS_DIR = RUNTIME_DIR / "events"  # field event log (ground truth), one write-once JSON per event; second API write path
 ARTIFACTS_DIR = _env_path("HAP_ARTIFACTS_DIR", PROJECT_ROOT / "artifacts")
 EXPERIMENT_OUTPUT_DIR = ARTIFACTS_DIR / "experiments"
+# As-issued weather capture for B5 (append-only JSONL; docs/guide/22): the hourly scheduled task and,
+# as a second source, the research-map worker (its own writable directory, mounted in docker-compose).
+WEATHER_SNAPSHOTS = EXPERIMENT_OUTPUT_DIR / "forecast-v2" / "weather-snapshots.jsonl"
+WEATHER_SNAPSHOTS_WORKER = EXPERIMENT_OUTPUT_DIR / "forecast-v2" / "worker-capture" / "weather-snapshots-worker.jsonl"
 RESEARCH_MAP_EXPORT_DIR = ARTIFACTS_DIR / "research-map"  # write-once JSON exports read by research-map/
 
 

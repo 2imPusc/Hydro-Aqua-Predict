@@ -232,6 +232,65 @@ def test_weather_status_degraded_when_gappy_or_stale(env):
     assert body["health"] == "degraded" and body["reason"] == "stale_last_capture"
 
 
+def _b5_env(env, monkeypatch):
+    tmp = env["tmp"]
+    monkeypatch.setattr(research, "settings", replace(
+        research.settings, weather_worker_snapshots_path=str(tmp / "worker-capture" / "weather-snapshots-worker.jsonl"),
+        sensor_history_dir=str(tmp / "experiments")))
+    return tmp
+
+
+def _capture_rows(issued, source=None):
+    start = issued.replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = []
+    for hour in range(72):
+        row = {"station": "06M26042804", "provider": "open_meteo", "product": "open_meteo_forecast", "issued_at": issued.isoformat(),
+               "retrieved_at": issued.isoformat(), "valid_at": (start + timedelta(hours=hour)).isoformat(),
+               "features": {"temperature_2m": 27.0}, "provenance_class": "captured_live", "location_id": "map_station_NB1"}
+        if source:
+            row["capture_source"] = source
+        rows.append(row)
+    return rows
+
+
+def test_b5_coverage_unavailable_without_inputs(env, monkeypatch):
+    tmp = _b5_env(env, monkeypatch)
+    body = env["client"].get("/api/v1/research/weather/b5-coverage").json()
+    assert body["status"] == "unavailable" and body["reason"] == "snapshot_file_missing" and body["used_by_alerts"] is False
+    _jsonl(tmp / "weather-snapshots.jsonl", _capture_rows(NOW - timedelta(hours=1)))
+    body = env["client"].get("/api/v1/research/weather/b5-coverage").json()
+    assert body["status"] == "unavailable" and body["reason"] == "sensor_history_missing"
+
+
+def test_b5_coverage_combines_task_and_worker(env, monkeypatch):
+    tmp = _b5_env(env, monkeypatch)
+    start = NOW - timedelta(days=5)
+    task, worker = [], []
+    for hours in range(0, 24 * 5):
+        issued = start + timedelta(hours=hours, minutes=5)
+        if hours % 2 == 0:
+            task += _capture_rows(issued)
+        else:
+            worker += _capture_rows(issued + timedelta(minutes=2), source="research_map_worker")
+    _jsonl(tmp / "weather-snapshots.jsonl", task)
+    _jsonl(tmp / "worker-capture" / "weather-snapshots-worker.jsonl", worker)
+    sensor = tmp / "experiments" / "sensor-history-20261017" / "06M26042804.csv"
+    sensor.parent.mkdir(parents=True)
+    minutes = [start + timedelta(minutes=m) for m in range(0, 5 * 24 * 60)]
+    sensor.write_text("device,fetchedAt,Temperature\n" + "".join(f"06M26042804,{t.isoformat(sep=' ')},28.0\n" for t in minutes), encoding="utf-8")
+    body = env["client"].get("/api/v1/research/weather/b5-coverage").json()
+    assert body["status"] == "ready" and body["worker_capture_present"] is True
+    by_source = {item["source"]: item for item in body["sources"]}
+    assert by_source["hap_weather_snapshot_task"]["captures_total"] == 60
+    assert by_source["research_map_worker"]["captures_total"] == 60
+    assert body["combined"]["captures_total"] == 120
+    assert body["combined"]["coverage_7d"] > by_source["hap_weather_snapshot_task"]["coverage_7d"]
+    assert body["origins"]["eligible_origins"] > 0
+    assert body["sensor_history"]["run"] == "sensor-history-20261017"
+    assert body["projection"]["required_days"] == 63 and body["projection"]["earliest_ready_date"]
+    assert body["days"]["as_of"] and body["days"]["daily"]
+
+
 def test_forecast_long_lists_configured_bundle_lineup(env):
     (env["tmp"] / "manifest.json").write_text(json.dumps({"bundles": [
         {"target": "Temperature", "horizon_minutes": 180, "feature_set": "B4_quality", "variant": "with_pH",
