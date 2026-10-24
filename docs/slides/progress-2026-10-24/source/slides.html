@@ -47,7 +47,7 @@
                 <thead><tr><th style="width:9%">Luồng</th><th>Việc</th><th>Kết quả chính</th><th style="width:15%">Trạng thái</th></tr></thead>
                 <tbody>
                     <tr><td><b>A</b></td><td>Chạy lại H1 trên lịch sử 29/05 → 24/10</td><td>Nhiệt độ đạt kiểm định 15 phút – 12 giờ</td><td><span class="pill st-done">Xong</span></td></tr>
-                    <tr><td><b>B</b></td><td>Mô hình nền có sẵn (Chronos, TimesFM)</td><td>So với hồi quy trên cùng mốc dự báo</td><td><span class="pill st-run">Đang chạy</span></td></tr>
+                    <tr><td><b>B</b></td><td>Mô hình nền có sẵn (Chronos, TimesFM)</td><td>Chronos, TimesFM thắng ridge mọi khung</td><td><span class="pill st-done">Xong</span></td></tr>
                     <tr><td><b>C</b></td><td>Mưa → NH4, TSS sau bao lâu? (H2.3)</td><td>Nhiệt độ giảm sau mưa 6–11 h; NH4/TSS chưa đủ bằng chứng</td><td><span class="pill st-done">Xong</span></td></tr>
                     <tr><td><b>D</b></td><td>Nguồn bản tin thời tiết thứ hai (H2.1)</td><td>Worker Docker thu mỗi giờ; báo cáo độ phủ</td><td><span class="pill st-done">Xong</span></td></tr>
                     <tr><td><b>E</b></td><td>Bảng chấm điểm shadow (H1.5)</td><td>Chạy trên sổ thật, tự đầy dần</td><td><span class="pill st-done">Xong</span></td></tr>
@@ -255,32 +255,34 @@
      09 · MÔ HÌNH NỀN (H1.4)
      ===================================================== -->
 <section class="slide" data-title="Mô hình nền">
-    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">H1.4 · mô hình nền có sẵn, không huấn luyện</span></div>
+    <div class="hdr"><span class="sec"><b>01</b>Mô hình dự báo</span><span class="crumb">H1.4 · mô hình nền có sẵn, không huấn luyện (zero-shot)</span></div>
     <div class="redbar"></div>
-    <h2 class="t rv">Mô hình lớn có sẵn <em>có hơn hồi quy?</em></h2>
+    <h2 class="t rv">Mô hình nền <em>thắng hồi quy</em></h2>
     <div class="body">
         <div class="cols c-6-4">
             <div class="rv d1">
+                <div class="k" style="margin-bottom:12px">Nhiệt độ · sai số trên 14 ngày giữ riêng (°C) · cùng mốc dự báo với ridge</div>
                 <table class="tb sm">
-                    <thead><tr><th>Mô hình</th><th>Kích thước</th><th>Tốc độ (CPU)</th><th>Trạng thái</th></tr></thead>
+                    <thead><tr><th>Mô hình</th><th class="num">15 ph</th><th class="num">1 h</th><th class="num">3 h</th><th class="num">6 h</th><th class="num">12 h</th></tr></thead>
                     <tbody>
-                        <tr><td><b>Chronos-Bolt small</b> (Amazon)</td><td>48 M tham số</td><td>~19 phút / 13.000 dự báo</td><td><span class="pill st-done">Đã chạy</span></td></tr>
-                        <tr><td><b>Chronos-Bolt base</b></td><td>205 M</td><td>~4 lần chậm hơn</td><td><span class="pill st-done">Đã chạy</span></td></tr>
-                        <tr><td><b>TimesFM 2.5</b> (Google)</td><td>200 M</td><td>~3,3 s / dự báo</td><td><span class="pill st-run">Chạy mẫu</span></td></tr>
-                        <tr><td>Đối chứng: chu kỳ ngày 7 ngày</td><td>—</td><td>tức thì</td><td><span class="pill st-done">Đã chạy</span></td></tr>
+                        <tr><td>Giữ nguyên giá trị</td><td class="num">0,210</td><td class="num">0,399</td><td class="num">0,982</td><td class="num">1,752</td><td class="num">2,399</td></tr>
+                        <tr><td>Hồi quy ridge B4 (đang dùng)</td><td class="num">0,176</td><td class="num">0,308</td><td class="num">0,704</td><td class="num">1,155</td><td class="num">1,453</td></tr>
+                        <tr><td>Chu kỳ ngày 7 ngày (không học)</td><td class="num">0,196</td><td class="num">0,260</td><td class="num">0,452</td><td class="num">0,695</td><td class="num">0,860</td></tr>
+                        <tr><td><b>Chronos-Bolt base</b> (Amazon)</td><td class="num"><b class="win">0,159</b></td><td class="num"><b class="win">0,273</b></td><td class="num"><b class="win">0,396</b></td><td class="num"><b class="win">0,556</b></td><td class="num"><b class="win">0,630</b></td></tr>
+                        <tr><td><b>TimesFM 2.5</b> (Google)*</td><td class="num"><b class="win">0,152</b></td><td class="num"><b class="win">0,225</b></td><td class="num"><b class="win">0,359</b></td><td class="num"><b class="win">0,559</b></td><td class="num"><b class="win">0,630</b></td></tr>
                     </tbody>
                 </table>
-                <p class="note" style="margin-top:14px">Venv riêng (torch CPU), không ảnh hưởng hệ thống chính. Dùng <b>đúng các mốc dự báo</b> của luồng A để so công bằng với B4/B5.</p>
+                <p class="note" style="margin-top:10px">Cả hai đạt gate #16 so với ridge ở mọi khung (DM p ≤ 0,026). *TimesFM chấm trên mốc thưa hơn (mỗi giờ). Ngoài ra: NH4 180 ph thắng ridge 38 %; pH (trước khi trôi) 60/180 ph đạt gate lần đầu.</p>
             </div>
             <div class="five rv d2">
-                <div class="blk"><div class="k r">Vấn đề</div><p>Chuỗi sensor ngắn (5 tháng); mô hình nền học sẵn trên hàng tỉ chuỗi có thể dự báo tốt mà không cần huấn luyện.</p></div>
-                <div class="blk"><div class="k">Giải pháp</div><p>Chạy zero-shot trên nhiệt độ, NH4, pH (trước khi trôi); chấm bằng cùng gate #16.</p></div>
-                <div class="blk"><div class="k">Kết quả</div><p><b>Đang tổng hợp</b> — cập nhật slide khi có bảng so sánh.</p></div>
-                <div class="blk"><div class="k">Hướng tiếp</div><p>Chỉ đề xuất thay khi thắng hồi quy theo gate; thua vẫn ghi lại.</p></div>
+                <div class="blk"><div class="k r">Vấn đề</div><p>Chuỗi sensor ngắn (5 tháng); mô hình nền học sẵn trên rất nhiều chuỗi có thể dự báo tốt mà không cần huấn luyện.</p></div>
+                <div class="blk"><div class="k">Kết quả</div><p>Sai số giảm 10–26 % (≤ 1 h) và <b>44–57 % (3–12 h)</b> so với ridge.</p></div>
+                <div class="blk"><div class="k r">Vì sao thắng?</div><p>Chỉ dùng chu kỳ ngày 7 ngày đã thắng ridge 36–41 % ở 3–12 h: ridge thiếu đặc trưng chu kỳ ngày. Lockbox rơi vào giai đoạn biên độ ngày–đêm lớn bất thường (nghi đầu dò).</p></div>
+                <div class="blk"><div class="k">Hướng tiếp</div><ul class="dash"><li>Thêm đặc trưng chu kỳ ngày vào ridge (rẻ)</li><li>Chạy song song Chronos ở shadow ≥ 4 tuần (cần thêm torch, ~1,4 GB)</li></ul></div>
             </div>
         </div>
     </div>
-    <div class="ft"><span>Đỗ Minh Phúc · luồng B · foundation-zero-shot-20261024</span><span class="pg"></span></div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-62 · foundation-zero-shot-20261024</span><span class="pg"></span></div>
 </section>
 
 <!-- =====================================================
@@ -511,19 +513,20 @@
                     <tr><td><b>Dự báo nhiệt độ 15 ph – 12 h</b> (offline, gate #16)</td><td><span class="lvl l3">Có đánh giá</span></td></tr>
                     <tr><td><b>Thời tiết cải thiện 3–12 h</b> (bản tin dựng lại)</td><td><span class="lvl l2">Bằng chứng gián tiếp</span></td></tr>
                     <tr><td><b>Mưa → nước mát sau 6–11 h</b></td><td><span class="lvl l3">Có đánh giá</span></td></tr>
+                    <tr><td><b>Mô hình nền thắng ridge 15 ph – 12 h</b> (offline)</td><td><span class="lvl l3">Có đánh giá</span></td></tr>
                     <tr><td><b>Shadow chạy thật</b> — mới 1 ngày</td><td><span class="lvl l1">Đang thu</span></td></tr>
                     <tr><td><b>Lớp thời tiết – thủy văn trên bản đồ</b></td><td><span class="lvl l2">Chỉ quan sát</span></td></tr>
                     <tr><td><b>pH, NH4, TSS, sự kiện nhiệt 24 h</b></td><td><span class="lvl l0">Chưa có kỹ năng</span></td></tr>
                 </tbody>
             </table>
             <div class="rv d2">
-                <div class="stat"><div class="v r">799 + 156</div><div class="l">test lõi + test backend đạt; build giao diện đạt</div></div>
-                <div class="stat" style="margin-top:30px"><div class="v">13</div><div class="l">mục nhật ký nghiên cứu mới (RL-48 → RL-60), 4 quyết định (#23 – #26)</div></div>
+                <div class="stat"><div class="v r">806 + 159</div><div class="l">test lõi + test backend đạt; build giao diện đạt</div></div>
+                <div class="stat" style="margin-top:30px"><div class="v">15</div><div class="l">mục nhật ký nghiên cứu mới (RL-48 → RL-62), 4 quyết định (#23 – #26)</div></div>
                 <div class="box" style="margin-top:30px"><p style="font-size:22px">Mọi đầu ra vẫn là <b>shadow</b>: được ghi và chấm điểm, không gửi tới người nuôi.</p></div>
             </div>
         </div>
     </div>
-    <div class="ft"><span>Đỗ Minh Phúc · RL-48 → RL-60</span><span class="pg"></span></div>
+    <div class="ft"><span>Đỗ Minh Phúc · RL-48 → RL-62</span><span class="pg"></span></div>
 </section>
 
 <!-- =====================================================
@@ -540,7 +543,7 @@
                 <ul class="dash">
                     <li style="font-size:23px">Sửa mô hình 15 phút (hồi quy B4 + chốt an toàn)</li>
                     <li style="font-size:23px">Huấn luyện lại mô hình 3–12 h trên lịch sử 24/10</li>
-                    <li style="font-size:23px">Tổng hợp mô hình nền (Chronos, TimesFM)</li>
+                    <li style="font-size:23px">Thêm đặc trưng chu kỳ ngày vào ridge, chạy lại</li>
                     <li style="font-size:23px">Chấm điểm shadow hằng ngày; báo cáo 7 ngày (31/10)</li>
                     <li style="font-size:23px">Báo cáo độ phủ bản tin hằng tuần</li>
                 </ul>
@@ -550,6 +553,7 @@
                     <div class="k r" style="margin-bottom:12px">Cần thầy / chủ dự án quyết</div>
                     <ul class="dash r">
                         <li style="font-size:22px">Rút gate chạy thật 28 → 14 ngày?</li>
+                        <li style="font-size:22px">Đưa Chronos (torch) vào runner để chạy song song?</li>
                         <li style="font-size:22px">Có tính 144 bản tin cũ thiếu nhãn nguồn không?</li>
                         <li style="font-size:22px">Liên hệ GreenLab: bước nhảy 31/07, đơn vị NH4, vị trí đầu dò nhiệt</li>
                         <li style="font-size:22px">Hiệu chuẩn / thay đầu dò pH</li>

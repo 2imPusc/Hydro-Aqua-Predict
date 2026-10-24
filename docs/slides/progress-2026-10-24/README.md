@@ -15,7 +15,7 @@ sự kiện nhiệt, mô hình nền) → chạy thật (shadow runner, bảng c
 kiện) → chất lượng dữ liệu sensor → mốc thời gian → tổng kết → tuần tới và việc cần quyết định.
 Mỗi slide tính năng theo bố cục Vấn đề · Giải pháp · Kết quả · Còn lại · Hướng tiếp; chân slide ghi mã RL / decisions.
 
-Số liệu lấy từ `docs/research-log.md` (RL-48 → RL-60), `docs/decisions.md` (#23 – #26), `experiments/RESULTS.md`
+Số liệu lấy từ `docs/research-log.md` (RL-48 → RL-62), `docs/decisions.md` (#23 – #26), `experiments/RESULTS.md`
 và kiểm tra mô hình runtime 15 phút ngày 24/10 (slide 7, chưa có RL riêng). Slide 9 (mô hình nền, luồng B) ghi
 “đang tổng hợp”: cập nhật khi có kết quả.
 
