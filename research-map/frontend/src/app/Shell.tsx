@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { BellRing, ChartLine, CloudSun, Grid2x2, Map as MapIcon, Moon, ShieldCheck, SlidersHorizontal, Sun, TrendingUp, Waves } from 'lucide-react'
-import { ANALYSIS_VIEWS, MAIN_NAV, NAV, type MainNavItem, type Route, type ViewId } from './routes'
+import { BellRing, ChartLine, CloudSun, Grid2x2, Map as MapIcon, Moon, NotebookPen, ShieldCheck, SlidersHorizontal, Sun, TrendingUp, Waves } from 'lucide-react'
+import { ANALYSIS_VIEWS, MAIN_NAV, NAV, SETTINGS_VIEWS, type MainNavItem, type Route, type ViewId } from './routes'
 import { SyncButton, TopBarStatus } from './TopBarStatus'
 import { IconButton } from '../components/ui'
 import type { Theme } from '../hooks/useTheme'
@@ -13,6 +13,7 @@ const ICON: Record<MainNavItem['key'], ReactNode> = {
 }
 const TAB_ICON: Partial<Record<ViewId, ReactNode>> = {
   forecast: <TrendingUp size={15} />, weather: <CloudSun size={15} />, zoning: <Grid2x2 size={15} />, reliability: <ShieldCheck size={15} />,
+  settings: <SlidersHorizontal size={15} />, events: <NotebookPen size={15} />,
 }
 
 function NavLink({ item, active, compact }: { item: MainNavItem; active: boolean; compact?: boolean }) {
@@ -26,11 +27,11 @@ function NavLink({ item, active, compact }: { item: MainNavItem; active: boolean
   )
 }
 
-/** Tabs of the "Phân tích" group, shown above the four research pages. */
-function AnalysisTabs({ route }: { route: Route }) {
+/** Tab strip of a grouped entry: "Phân tích" (four research pages) or "Cấu hình" (thresholds, event log). */
+function GroupTabs({ route, views, label }: { route: Route; views: ViewId[]; label: string }) {
   return (
-    <nav aria-label="Các trang phân tích" className="scroll-thin flex flex-none gap-1 overflow-x-auto border-b border-line bg-surface px-3 md:px-4">
-      {ANALYSIS_VIEWS.map(view => {
+    <nav aria-label={label} className="scroll-thin flex flex-none gap-1 overflow-x-auto border-b border-line bg-surface px-3 md:px-4">
+      {views.map(view => {
         const item = NAV.find(entry => entry.view === view)!
         const active = route.view === view
         return (
@@ -74,7 +75,7 @@ export function Shell({ route, theme, onToggleTheme, children }: { route: Route;
         <header className="z-[1100] flex h-[var(--topbar-h)] flex-none items-center gap-2 border-b border-line bg-surface px-3 md:gap-3 md:px-4">
           <span className="grid size-8 flex-none place-items-center rounded-[var(--radius-sm)] bg-accent text-[var(--accent-fg)] md:hidden" aria-hidden><Waves size={17} strokeWidth={2.2} /></span>
           <div className="min-w-0 flex-1 md:flex-none">
-            <h1 className="m-0 truncate text-[15px] font-semibold leading-tight tracking-tight">{ANALYSIS_VIEWS.includes(route.view) ? `Phân tích · ${current.short}` : current.label}</h1>
+            <h1 className="m-0 truncate text-[15px] font-semibold leading-tight tracking-tight">{ANALYSIS_VIEWS.includes(route.view) ? `Phân tích · ${current.short}` : SETTINGS_VIEWS.includes(route.view) ? `Cấu hình · ${current.short}` : current.label}</h1>
             <div className="hidden text-[11.5px] leading-tight text-fg-muted lg:block">Hydro-Aqua · bản đồ nghiên cứu Cát Bà</div>
           </div>
           <div className="ml-auto flex min-w-0 flex-none items-center gap-2 md:flex-initial">
@@ -86,7 +87,8 @@ export function Shell({ route, theme, onToggleTheme, children }: { route: Route;
             </IconButton>
           </div>
         </header>
-        {ANALYSIS_VIEWS.includes(route.view) && <AnalysisTabs route={route} />}
+        {ANALYSIS_VIEWS.includes(route.view) && <GroupTabs route={route} views={ANALYSIS_VIEWS} label="Các trang phân tích" />}
+        {SETTINGS_VIEWS.includes(route.view) && <GroupTabs route={route} views={SETTINGS_VIEWS} label="Các trang cấu hình" />}
         <main id="main" className="relative min-h-0 flex-1">{children}</main>
         <TabBar route={route} />
       </div>

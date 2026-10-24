@@ -18,9 +18,11 @@ type Toast = { tone: 'ok' | 'info'; message: string } | null
 
 const LEAVE_PROMPT = 'Có thay đổi chưa lưu. Rời trang và bỏ các thay đổi này?'
 
+/** This editor's own hashes (`#/settings`, `#/settings/alerts`); the event-log tab is another page and must be guarded. */
+const isAlertsHash = (hash: string) => hash === '#/settings' || hash === '#/settings/' || hash.startsWith('#/settings/alerts')
 const isSettingsHash = (url: string) => {
   const at = url.indexOf('#')
-  return at >= 0 && url.slice(at).startsWith('#/settings')
+  return at >= 0 && isAlertsHash(url.slice(at))
 }
 
 /**
@@ -38,7 +40,7 @@ function useLeaveGuard(dirty: boolean) {
     const onClick = (event: MouseEvent) => {
       const anchor = (event.target as Element | null)?.closest?.('a[href^="#/"]')
       const href = anchor?.getAttribute('href')
-      if (!href || href.startsWith('#/settings')) return
+      if (!href || isAlertsHash(href)) return
       if (window.confirm(LEAVE_PROMPT)) confirmedByClick = true
       else { event.preventDefault(); event.stopPropagation() }
     }
