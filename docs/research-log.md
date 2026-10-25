@@ -756,3 +756,13 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Runtime:** `haiphong_temperature_ridge_B4_quality_15m_v2.pkl` (`hp-temperature-ridge-b4-15m-v2`, 43 đặc trưng B4, fit toàn bộ lịch sử tới 24/10). Chặn cố định trước khi xem lockbox: đầu vào hoặc dự báo ngoài 20,5–34,5 °C ± 1,5 °C, hoặc |dự báo − hiện tại| > 1,5 °C → persistence có nhãn. TSS / pH / NH4: persistence. Sổ ghi có thêm `model_version`; nguồn mới `ridge_b4`. Shadow runner khởi động lại 25/10 sau khi merge.
 - **Hạn chế:** một trạm, một lockbox; XGBoost cũ ở 05–07 là trong mẫu; chặn chỉ xét đầu vào nhiệt độ. Biến thể không pH kém hơn ~1 %.
 - **Artifact:** `sensor-future-15m-fix-20261025/`; `experiments/sensor_future_15m_fix.py`.
+
+## RL-65 · 2026-10-25 · Dữ liệu công khai Việt Nam cho vùng nuôi Cát Bà – Hạ Long
+
+- **Nguồn đo tại vùng lồng duy nhất:** Viện Nghiên cứu Hải sản (RIMF). Cát Bà 2005–2013 và 2016–2021 (2 đợt/năm, mặt + đáy, nước lớn + ròng); năm 2024 (T5–T11) có 27 bản tin, 7 báo cáo tháng và bộ số liệu; điểm Hang Vẹm – Vụng O cách NB1 2,8 km; chỉ tiêu DO, N-NH4, NO2, NO3, PO4, COD, TSS, Vibrio, Coliform, tảo độc. Không công khai, cần công văn (mẫu trong tài liệu). Sửa mục 9 của eval 24/10 (RL-49).
+- **CMEMS ocean colour (đã tải, ~10 MB):** ô 4 km cách NB1 2,3 km có số liệu 31,7 % số ngày (≈ 440 ngày, 2023–10/2026), rất ít vào T2–T4; ô 300 m sát NB1 chỉ 0,7 %; không có SPM 300 m. Phiên bản dataset ngừng 24/11/2026.
+- **SPM vệ tinh so với TSS cảm biến:** Spearman 0,13 (n = 54); T6–T7/2026 cảm biến 35–100 mg/L, vệ tinh 1,5–17 g/m³ → thêm một cờ nghi ngờ chất lượng TSS (cùng bước nhảy 31/07, RL-58), chưa kết luận.
+- **Không công khai:** trạm tự động nước biển (Quảng Ninh 6, quốc gia 120); RIA1 (chỉ bản tin, > 60 km); bản tin triều NCHMF chỉ có nước lớn/ròng (PDF); UHSLC Hòn Dấu chỉ 1959–1960; không có bộ dữ liệu nghiên cứu mở cho Hạ Long/Cát Bà. Chưa kiểm: data.gov.vn (không truy cập được), cổng mở cấp tỉnh, báo cáo hiện trạng môi trường.
+- **Sự kiện ứng viên cho ground truth:** thủy triều đỏ Cát Bà 2011–2012 (5 đợt); cá lờ đờ, lở loét ở vùng nuôi Quảng Ninh T5–T8/2024.
+- **Rủi ro:** đơn vị NH3 (tỉnh) / N-NH4 (RIMF, QCVN) / NH4 µg/L (cảm biến) khác nhau; phương pháp phòng thí nghiệm khác điện cực liên tục; tần suất thưa.
+- **Artifact:** `docs/eval/2026-10-25-vn-public-data.md`; `scripts/vn_public/`; `paths.VN_PUBLIC_DIR`; `data/vn_public/` (~12 MB, ghi một lần, có manifest).
