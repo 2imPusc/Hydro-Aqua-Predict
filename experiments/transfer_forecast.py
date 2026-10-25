@@ -43,6 +43,10 @@ foreign site sets ``all`` and ``sim``)
     NB1-only, *absolute* target with the level p[T] as an extra feature - the representation of the old
     runtime XGBoost that never predicted below 29.15 C.  It separates "the delta representation fixed
     the out-of-range failure" from "foreign data fixed it".
+    Implementation fix 2026-10-25 (before any evaluation; same design): first xgb run stalled under CPU
+    contention, so all xgb/torch work is single-threaded (``nthread`` 1, ``tree_method`` hist, torch 1
+    thread) and the fine-tune round count is read from one ``evals_result`` MAE curve (k = 0 included)
+    instead of 61 predict calls.
   * mlp (torch, ``.venv-fm`` only): 25-128-128-1 GELU (~20k parameters), AdamW wd 1e-4.  Pretrain
     lr 1e-3, batch 1024, <= 10 epochs, best epoch on foreign year 2011.  NB1-only: lr 1e-3, batch 256,
     <= 60 epochs.  Fine-tune: 5 epochs head-only (lr 1e-3) then all layers lr 1e-4, 0..40 epochs.
@@ -371,9 +375,9 @@ def shrunk_ridge(pre: dict, train: pd.DataFrame, lam: float):
 
 class XGBFamily:
     name = "xgb"
-    NB1 = {"max_depth": 4, "eta": 0.05, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 10, "objective": "reg:squarederror", "seed": 42, "nthread": 4}
-    FOREIGN = {"max_depth": 6, "eta": 0.1, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 50, "objective": "reg:squarederror", "seed": 42, "nthread": 4, "tree_method": "hist"}
-    FT = {"max_depth": 4, "eta": 0.03, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 10, "objective": "reg:squarederror", "seed": 42, "nthread": 4}
+    NB1 = {"max_depth": 4, "eta": 0.05, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 10, "objective": "reg:squarederror", "seed": 42, "nthread": 1, "tree_method": "hist"}
+    FOREIGN = {"max_depth": 6, "eta": 0.1, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 50, "objective": "reg:squarederror", "seed": 42, "nthread": 1, "tree_method": "hist"}
+    FT = {"max_depth": 4, "eta": 0.03, "subsample": 0.8, "colsample_bytree": 0.8, "min_child_weight": 10, "objective": "reg:squarederror", "seed": 42, "nthread": 1, "tree_method": "hist"}
 
     def __init__(self):
         import xgboost as xgb
@@ -381,7 +385,7 @@ class XGBFamily:
         self.xgb = xgb
 
     def _d(self, frame: pd.DataFrame, label: str | None = "delta", cols=FEATURES):
-        return self.xgb.DMatrix(frame[cols].to_numpy(dtype=float), label=None if label is None else frame[label].to_numpy(dtype=float), missing=np.nan)
+        return self.xgb.DMatrix(frame[cols].to_numpy(dtype=float), label=None if label is None else frame[label].to_numpy(dtype=float), missing=np.nan, nthread=1)
 
     def pretrain(self, foreign: pd.DataFrame) -> dict:
         hold = foreign["year"].eq(FOREIGN_HOLDOUT_YEAR).to_numpy()
@@ -417,13 +421,15 @@ class XGBFamily:
         return self.xgb.train(self.FT, self._d(frame), num_boost_round=extra, xgb_model=base)
 
     def finetune(self, pre: dict, train: pd.DataFrame, test: pd.DataFrame, horizon: int) -> tuple[np.ndarray, dict]:
+        # Single pass: one continued-boosting run logs validation MAE after every extra round
+        # (implementation fix 2026-10-25; replaces 61 predict calls, same selection rule).
         fit, val = inner_split(train, horizon)
-        booster = self._continue(pre, train[fit], 600)
-        dval = self._d(train[val], None)
+        dval = self._d(train[val])
         n0 = pre["rounds"]
-        truth = train.loc[val, "delta"].to_numpy()
-        scores = {k: _mae(booster.predict(dval, iteration_range=(0, n0 + k)), truth) for k in range(0, 601, 10)}
-        extra = min(scores, key=scores.get)
+        record: dict = {}
+        self.xgb.train({**self.FT, "eval_metric": "mae"}, self._d(train[fit]), num_boost_round=600, xgb_model=pre["booster"].copy(), evals=[(dval, "val")], evals_result=record, verbose_eval=False)
+        curve = np.concatenate([[_mae(pre["booster"].predict(dval), train.loc[val, "delta"].to_numpy())], record["val"]["mae"]])
+        extra = int(np.argmin(curve))
         final = self._continue(pre, train, extra)
         return final.predict(self._d(test, None)), {"extra_rounds": extra, "foreign_rounds": n0}
 
@@ -433,7 +439,7 @@ class MLPFamily:
 
     name = "mlp"
 
-    def __init__(self, threads: int = 4):
+    def __init__(self, threads: int = 1):
         import torch
 
         torch.set_num_threads(threads)
@@ -823,13 +829,33 @@ def _training_envelope(root: Path, target: str) -> dict:
     return {"min": float(y.min()), "max": float(y.max()), "p1": float(y.quantile(.01)), "p99": float(y.quantile(.99))}
 
 
+def stage_manifest(args) -> None:
+    """Top-level manifest: input sha256s, stage manifests, package versions per venv, timings."""
+    root = run_dir(args.run_name)
+    base_run = paths.EXPERIMENT_OUTPUT_DIR / BASE_RUN
+    inputs = {"sensor_csv": {"path": str(SENSOR_CSV), "sha256": _sha256(SENSOR_CSV)}, "oisst": {"path": str(OISST_CSV), "sha256": _sha256(OISST_CSV)}}
+    for tag, _, _, _, chronos in TARGETS.values():
+        for rel in (f"baseline-{tag}/predictions.parquet", f"baseline-{tag}/fold_label_check.json", f"fm-{tag}-diurnal-anomaly-7d-stride{STEP}.parquet", f"fm-{tag}-{chronos}-stride{STEP}.parquet"):
+            inputs[f"{BASE_RUN}/{rel}"] = _sha256(base_run / rel)
+    fits = {}
+    for path in sorted(root.glob("pred-*.json")):
+        meta = json.loads(path.read_text(encoding="utf-8"))
+        fits[path.stem] = {"total_seconds": meta["total_seconds"], "packages": meta["packages"], "sha256_predictions": _sha256(path.with_suffix(".parquet"))}
+    prepare = json.loads((root / "manifest-prepare.json").read_text(encoding="utf-8"))
+    manifest = {"schema": "transfer-forecast-h1.7", "station": STATION, "inputs": inputs, "foreign_files": len(prepare["foreign_files"]), "foreign_files_sha256": "see manifest-prepare.json", "similar_stations": prepare["similar_stations"], "fits": fits, "runtime_changed": False, "packages_evaluate": _versions(), "code_commit": args.commit}
+    _write_json(root / "manifest.json", manifest)
+    print(json.dumps({k: manifest[k] for k in ("foreign_files", "similar_stations")}))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="stage", required=True)
-    for stage in ("prepare", "features", "fit", "evaluate"):
+    for stage in ("prepare", "features", "fit", "evaluate", "manifest"):
         p = sub.add_parser(stage)
         p.add_argument("--run-name", default="transfer-forecast-20261025")
-        if stage != "prepare":
+        if stage == "manifest":
+            p.add_argument("--commit", help="commit of the code that produced the run")
+        if stage not in ("prepare", "manifest"):
             p.add_argument("--target", required=True, choices=tuple(TARGETS))
         if stage == "fit":
             p.add_argument("--family", required=True, choices=tuple(FAMILIES))
@@ -839,7 +865,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.stage == "evaluate" and args.eval == "B" and args.target != "Temperature":
         raise SystemExit("eval_B_is_temperature_only")
-    {"prepare": stage_prepare, "features": stage_features, "fit": stage_fit, "evaluate": stage_evaluate}[args.stage](args)
+    {"prepare": stage_prepare, "features": stage_features, "fit": stage_fit, "evaluate": stage_evaluate, "manifest": stage_manifest}[args.stage](args)
 
 
 if __name__ == "__main__":
