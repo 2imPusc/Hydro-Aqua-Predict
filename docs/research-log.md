@@ -766,3 +766,14 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Sự kiện ứng viên cho ground truth:** thủy triều đỏ Cát Bà 2011–2012 (5 đợt); cá lờ đờ, lở loét ở vùng nuôi Quảng Ninh T5–T8/2024.
 - **Rủi ro:** đơn vị NH3 (tỉnh) / N-NH4 (RIMF, QCVN) / NH4 µg/L (cảm biến) khác nhau; phương pháp phòng thí nghiệm khác điện cực liên tục; tần suất thưa.
 - **Artifact:** `docs/eval/2026-10-25-vn-public-data.md`; `scripts/vn_public/`; `paths.VN_PUBLIC_DIR`; `data/vn_public/` (~12 MB, ghi một lần, có manifest).
+
+## RL-66 · 2026-10-25 · H1.9 Ridge + khối ngày–đêm nhiều ngày (B4D/B5D)
+
+- **Câu hỏi:** RL-62 cho thấy ridge thiếu thông tin ngày–đêm nhiều ngày. Thêm khối này thì ridge có đạt gate so với B4 và bắt kịp mô hình nền không?
+- **Thiết lập:** khối 11 cột cố định trước khi chạy (`preregistration.json`): y(t+h−24 h), y(t+h−48 h), dị thường biên dạng 7 và 3 ngày, biên độ 24 h, biên độ × dị thường, điều hòa giờ đích, cờ điền thiếu; chỉ đọc dữ liệu trước `issued_at − 1 phút`; luật điền thiếu giữ nguyên origin của B4. Fold, lockbox 10–24/10, gate #16, DM-HLN như RL-54; so với H1.4 trên đúng các origin; thêm phép thử lệch mùa (train trước 01/09, test 15/09–24/10).
+- **Nhiệt độ:** B4D đạt gate so với B4 ở 6/6 khung (MAE −8 … −60 %, p ≤ 4e-7) và so với persistence 6/6; MAE lockbox 15 ph / 1 h / 3 h / 6 h / 12 h: 0,164 / 0,231 / 0,421 / 0,586 / 0,579 (B4 0,176 / 0,308 / 0,704 / 1,155 / 1,453); skill 21–76 %. Tỉ số MAE B4D / Chronos-base 0,85–1,06, Chronos không còn đạt gate so với B4D; TimesFM chỉ còn hơn ở 30 phút (−7 %) và 180 phút (−14 %). Thời tiết trên nền khối ngày–đêm (B5D so với B4D): −8,7 % ở 6 h (p = 0,005), không ý nghĩa ở khung khác.
+- **Lệch mùa:** biên độ ngày–đêm của tập test phần lớn ngoài dải huấn luyện (trung vị 4,5 so với 2,0 °C), vậy mà B4D vẫn tốt hơn B4 ở mọi khung. Rủi ro đến từ lag pH trôi (bắt đầu 19/09, nằm trong tập test): B4D_nopH tốt nhất (MAE 12 h 0,70 so với persistence 1,89), còn B4D có pH thua đối chứng chu kỳ ngày ở 3–12 h.
+- **pH / NH4:** khối ngày–đêm không mang lợi ích thật; Chronos-Bolt small vẫn đạt gate so với B4D (pH −9 / −16 %, NH4 180 ph −39 %).
+- **Kết luận:** B4D thay B4 theo luật đặt trước. Đề xuất (chờ chủ dự án): huấn luyện lại bundle nhiệt độ 3–12 h bằng B4D_nopH / B5D_nopH và chạy shadow song song với bundle hiện tại. Runtime chưa đổi.
+- **Hạn chế:** một trạm, một lockbox 14 ngày ở giai đoạn biên độ lớn (có thể do đầu dò, RL-57); fold biên độ nhỏ (12–19/09) B4D kém B4 1–3 %; TimesFM chỉ có ở bước mốc 60 phút; phép thử lệch mùa là một lần chia, không có fold.
+- **Artifact:** `forecast-h1-diurnal-20261025/`; `experiments/forecast_h1_diurnal.py`; `tests/test_forecast_diurnal.py`.
