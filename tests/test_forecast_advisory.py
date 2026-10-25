@@ -16,8 +16,8 @@ def test_forecast_without_do_or_temperature_stress_is_normal():
 
 def test_advisory_returns_explainable_risk_timeline_for_each_horizon():
     future = {"status": "ready", "timeline": [
-        {"horizon_minutes": 15, "timestamp": "2026-07-01T00:15:00Z", "sensors": {"Temperature": 31.2, "NH3": .06}, "sensor_sources": {"Temperature": "xgboost_time"}, "inferred": {"DO": 4.8, "Salinity": 30}, "contextual_status": "ready"},
-        {"horizon_minutes": 30, "timestamp": "2026-07-01T00:30:00Z", "sensors": {"Temperature": 33.1, "NH3": .11}, "sensor_sources": {"Temperature": "xgboost_time"}, "inferred": {"DO": 3.7}, "contextual_status": "ready"},
+        {"horizon_minutes": 15, "timestamp": "2026-07-01T00:15:00Z", "sensors": {"Temperature": 31.2, "NH3": .06}, "sensor_sources": {"Temperature": "ridge_b4"}, "inferred": {"DO": 4.8, "Salinity": 30}, "contextual_status": "ready"},
+        {"horizon_minutes": 30, "timestamp": "2026-07-01T00:30:00Z", "sensors": {"Temperature": 33.1, "NH3": .11}, "sensor_sources": {"Temperature": "ridge_b4"}, "inferred": {"DO": 3.7}, "contextual_status": "ready"},
     ]}
     result = evaluate_forecast_advisory(future)
     assert result["severity"] == "WARNING"

@@ -81,3 +81,14 @@ Kết quả chi tiết: `artifacts/experiments/retrospective-2026-07-26/`
 `hp_timestamp_aware_full_backtest.csv`. Sáu bundle runtime đã được train lại
 từ toàn bộ chuỗi. Đây là bằng chứng retrospective; forecast vẫn chỉ dùng ở
 `shadow`/advisory, không dùng để phát cảnh báo khẩn.
+
+## Thay thế 2026-10-25
+
+Bundle XGBoost ở trên không ngoại suy được (nhiệt độ dự báo không xuống dưới ~29,15 °C;
+TSS học chế độ ~70 mg/L trước 31/07) nên từ tháng 8 thua persistence. Runtime +15 phút
+hiện dùng ridge B4 có chặn (`haiphong_temperature_ridge_B4_quality_15m_v2.pkl`, nguồn
+`ridge_b4`, `model_version` `hp-temperature-ridge-b4-15m-v2`; rơi về `persistence_*` khi
+ngoài dải huấn luyện ± 1,5 °C hoặc thay đổi > 1,5 °C) và persistence cho TSS/pH/NH4.
+Các pickle XGBoost vẫn nằm trong git nhưng không còn được nạp. Đánh giá:
+`artifacts/experiments/sensor-future-15m-fix-20261025/NOTES.md`
+(`experiments/sensor_future_15m_fix.py`).
