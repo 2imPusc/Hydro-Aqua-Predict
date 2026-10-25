@@ -51,7 +51,7 @@ def record_sensor_future(station_serial: str, future: dict, weather: dict | None
         record_id = hashlib.sha256(key.encode()).hexdigest()[:20]
         risk_point = next((item for item in (advisory or {}).get("timeline", []) if item.get("horizon_minutes") == point["horizon_minutes"]), None)
         summary = {key: (advisory or {}).get(key) for key in ("severity", "state", "confidence", "do_risk_count", "compound_stress", "notification_eligible", "notification_reason", "used_by_emergency")}
-        record = {"station_serial": station_serial, "issued_at": issued_at, "valid_at": valid_at, "horizon_minutes": point["horizon_minutes"], "forecast": point["sensors"], "sensor_sources": point["sensor_sources"], "inferred": point.get("inferred", {}), "contextual_status": point.get("contextual_status"), "risk_advisory": risk_point, "advisory_summary": summary, "weather_forecast_as_issued": _weather_provenance(weather), "mode": "shadow", "used_by_alerts": False}
+        record = {"station_serial": station_serial, "issued_at": issued_at, "valid_at": valid_at, "horizon_minutes": point["horizon_minutes"], "forecast": point["sensors"], "sensor_sources": point["sensor_sources"], "sensor_source_reasons": point.get("sensor_source_reasons", future.get("sensor_source_reasons")), "model_version": point.get("model_version", future.get("model_version")), "model_versions": future.get("model_versions"), "inferred": point.get("inferred", {}), "contextual_status": point.get("contextual_status"), "risk_advisory": risk_point, "advisory_summary": summary, "weather_forecast_as_issued": _weather_provenance(weather), "mode": "shadow", "used_by_alerts": False}
         written += int(_append_unique(FORECAST_LOG, record, record_id))
     return written
 
@@ -92,7 +92,7 @@ def resolve_sensor_outcomes(raw: pd.DataFrame) -> int:
         if not actual:
             continue
         outcome_id = forecast["record_id"] + "|actual"
-        outcome = {"forecast_record_id": forecast["record_id"], "station_serial": forecast["station_serial"], "issued_at": forecast["issued_at"], "valid_at": forecast["valid_at"], "observed_at": row["fetchedAt"].isoformat(), "horizon_minutes": forecast["horizon_minutes"], "forecast": forecast["forecast"], "sensor_sources": forecast["sensor_sources"], "actual": actual}
+        outcome = {"forecast_record_id": forecast["record_id"], "station_serial": forecast["station_serial"], "issued_at": forecast["issued_at"], "valid_at": forecast["valid_at"], "observed_at": row["fetchedAt"].isoformat(), "horizon_minutes": forecast["horizon_minutes"], "forecast": forecast["forecast"], "sensor_sources": forecast["sensor_sources"], "model_version": forecast.get("model_version"), "actual": actual}
         written += int(_append_unique(OUTCOME_LOG, outcome, outcome_id))
     return written
 

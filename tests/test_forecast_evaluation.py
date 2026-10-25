@@ -7,7 +7,7 @@ def test_forecast_ledger_records_and_resolves_sensor_actual(tmp_path, monkeypatc
     monkeypatch.setattr(forecast_evaluation, "STORE_DIR", tmp_path)
     monkeypatch.setattr(forecast_evaluation, "FORECAST_LOG", tmp_path / "forecasts.jsonl")
     monkeypatch.setattr(forecast_evaluation, "OUTCOME_LOG", tmp_path / "outcomes.jsonl")
-    future = {"status": "ready", "base_timestamp": "2026-07-01T00:00:00+00:00", "timeline": [{"horizon_minutes": 15, "timestamp": "2026-07-01T00:15:00+00:00", "sensors": {"Temperature": 30., "pH": 7.8, "NH4": .1, "TSS": 10.}, "sensor_sources": {"Temperature": "xgboost_time", "pH": "persistence", "NH4": "persistence", "TSS": "persistence"}, "inferred": {}, "contextual_status": "disabled"}]}
+    future = {"status": "ready", "base_timestamp": "2026-07-01T00:00:00+00:00", "timeline": [{"horizon_minutes": 15, "timestamp": "2026-07-01T00:15:00+00:00", "sensors": {"Temperature": 30., "pH": 7.8, "NH4": .1, "TSS": 10.}, "sensor_sources": {"Temperature": "ridge_b4", "pH": "persistence", "NH4": "persistence", "TSS": "persistence"}, "inferred": {}, "contextual_status": "disabled"}]}
     advisory = {"timeline": [{"horizon_minutes": 15, "severity": "WATCH", "drivers": [{"metric": "DO", "value": 4.8}]}]}
     assert forecast_evaluation.record_sensor_future("06M26042804", future, {"status": "ready", "provider": "open_meteo"}, advisory) == 1
     assert forecast_evaluation.record_sensor_future("06M26042804", future) == 0
