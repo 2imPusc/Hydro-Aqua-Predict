@@ -157,3 +157,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định:** ngoài task `HAP-WeatherSnapshot`, worker research-map ghi bản tin NB1 mỗi giờ vào file riêng (`worker-capture/`, nhãn `capture_source`). B5 hợp nhất theo trạm × giờ phát, bản của task được ưu tiên. H2.2 chỉ dùng bản `captured_live`. Sẵn sàng khi cửa sổ 63 ngày có ≥ 57 ngày đủ (ngày đủ khi ≥ 90 % origin có bản tin nhân quả).
 - **Lý do:** một nguồn thu duy nhất lỡ khi máy ngủ / mất mạng (độ phủ 7 ngày ~50 %); nguồn thứ hai chạy trong Docker độc lập, không sửa file cũ.
 - **Hệ quả:** báo cáo độ phủ tuần `forecast_snapshot_coverage.py --weekly`; ngày dự kiến H2.2 hiện trên trang Thời tiết (RL-59).
+
+## #27 — 2026-10-25 · Dự báo cảm biến +15 phút: mô hình tuyến tính có chặn, TSS persistence
+
+- **Quyết định:** runtime +15 phút dùng ridge B4 (`hp-temperature-ridge-b4-15m-v2`) cho nhiệt độ. Mọi đầu ra mô hình qua chặn cố định lưu trong bundle (dải huấn luyện ± 1,5 °C cho đầu vào và dự báo, trần thay đổi 1,5 °C / 15 phút); vi phạm thì rơi về persistence có nhãn nguồn. TSS, pH, NH4 dùng persistence. Bundle XGBoost cũ giữ trong git nhưng không nạp. Đầu ra và sổ ghi mang `model_version`. Chủ dự án duyệt 25/10.
+- **Lý do:** mô hình cây không ngoại suy ngoài dải huấn luyện; khi mùa đổi (nước 24–26 °C, TSS ~3 mg/L) XGBoost sai 3–4 lần persistence. Ridge B4 đạt gate #16 trên lockbox 10–24/10 và ổn định theo tháng (RL-64).
+- **Hệ quả:** mô hình runtime mới phải có kiểm tra ngoài dải và so sánh theo tháng với persistence trước khi đưa vào; bảng chấm 15 phút tách theo nhãn nguồn (`ridge_b4` / `xgboost_time`).

@@ -737,3 +737,22 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Hạn chế:** một trạm, một lockbox 14 ngày ở giai đoạn biên độ lớn; chưa đánh giá khoảng tin cậy; TimesFM chỉ chạy nhiệt độ; Chronos base chưa chạy NH4 / pH; chưa thử Chronos-2 có thời tiết / triều.
 - **Đề xuất (chủ dự án quyết):** (1) rẻ, làm ngay được: thêm đặc trưng chu kỳ ngày nhiều ngày vào ridge rồi chạy lại; (2) chạy song song Chronos-Bolt (small hoặc base) ở shadow ≥ 4 tuần — cần quyết định đưa torch vào runtime (ghi vào decisions khi chốt); (3) hỏi đơn vị vận hành về đầu dò nhiệt trước khi tin kết quả 3–12 h.
 - **Artifact:** `foundation-zero-shot-20261024/` (NOTES.md, `eval-*`, `baseline-*`, `fm-*`); các file `metrics-/dm_tests-/gate16-*-stride15.csv` phẳng là lượt chấm đầu không có đối chứng chu kỳ ngày, được `eval-*/` thay thế.
+
+## RL-63 · 2026-10-25 · Khảo sát dữ liệu giống Cát Bà để học trước rồi tinh chỉnh
+
+- **Câu hỏi:** có bộ dữ liệu nào giống Cát Bà để huấn luyện trước rồi tinh chỉnh trên VN, cho (a) dự báo tần suất cao và (b) mô hình nội suy chéo biến?
+- **Phương pháp:** khảo sát web + repo; thang điểm chốt trước (a tối đa 36, b tối đa 33: mùa lạnh, triều, biến, tần suất, độ dài, truy cập, nuôi trồng); mỗi nguồn ≤ 1 truy vấn nhỏ; ghi mức kiểm chứng.
+- **(b) nội suy:** HK EPD 97 % (đủ 5 đích + 4 đầu vào cùng mẫu, trung vị tháng 2 17,8 °C, có sẵn trong repo, mở rộng được về 1986), Đài Loan OCA 91 % (265 trạm, 2002→, SS mg/L, NH3_N, PO4), tệp dinh dưỡng NERRS 79 %.
+- **(a) dự báo:** không bộ nào > 75 % (IRLON 75, NERRS 72); không bộ mở nào có cùng lúc mùa đông 15–20 °C, triều ≥ 3 m và NH4 liên tục. Mốc phải vượt là Chronos zero-shot (RL-62), không phải ridge. GLORYS12 tại NB1 (1993–2026) là cách rẻ nhất để mô hình nhiệt "thấy" mùa đông.
+- **Không mở / bị chặn:** vịnh Bắc Bộ phía Trung Quốc, phao HK EPD, AFCD, Singapore, Thái Lan; Ariake (Nhật, giống nhất về triều và nuôi) bị chặn truy cập.
+- **Tài liệu:** học chuyển giao giúp 10–70 % ở sông/hồ khi nguồn giống đích; bằng chứng cho ven biển/lồng nuôi yếu.
+- **Artifact:** `docs/eval/2026-10-25-transfer-datasets.md`.
+
+## RL-64 · 2026-10-25 · Sửa dự báo cảm biến +15 phút: ridge B4 có chặn thay XGBoost, TSS persistence
+
+- **Vấn đề:** bundle XGBoost +15 phút (huấn luyện 05–07) không ngoại suy: nhiệt độ dự báo không bao giờ < 29,15 °C; từ tháng 8 thua persistence xa (MAE tháng 10: 0,761 so với 0,205 °C). TSS học chế độ ~70 mg/L trước 31/07 (tháng 10: 3,72 so với 0,24 mg/L).
+- **Thiết lập:** `sensor-history-20261024`; `forecast_sensor_v2.run_benchmark` + `forecast_gate16_report` (ridge, 15 phút, B0 / B4 / B4_nopH; Temperature + TSS); backtest theo tháng cùng mốc phát hành (ridge fit lại mỗi tháng trên dữ liệu trước tháng).
+- **Kết quả:** nhiệt độ B4 đạt gate #16 (lockbox 0,178 so với 0,208 °C, skill 14,5 %, 5/5 fold, DM p = 4e-154); có chặn 0,179 (1/20.000 mốc rơi về persistence). Theo tháng 07–10, ridge có chặn 0,144 / 0,148 / 0,168 / 0,178 so với persistence 0,181 / 0,183 / 0,201 / 0,205 và XGBoost cũ 0,143 / 0,450 / 0,536 / 0,761. TSS thua persistence ở mọi bộ (0/5 fold).
+- **Runtime:** `haiphong_temperature_ridge_B4_quality_15m_v2.pkl` (`hp-temperature-ridge-b4-15m-v2`, 43 đặc trưng B4, fit toàn bộ lịch sử tới 24/10). Chặn cố định trước khi xem lockbox: đầu vào hoặc dự báo ngoài 20,5–34,5 °C ± 1,5 °C, hoặc |dự báo − hiện tại| > 1,5 °C → persistence có nhãn. TSS / pH / NH4: persistence. Sổ ghi có thêm `model_version`; nguồn mới `ridge_b4`. Shadow runner khởi động lại 25/10 sau khi merge.
+- **Hạn chế:** một trạm, một lockbox; XGBoost cũ ở 05–07 là trong mẫu; chặn chỉ xét đầu vào nhiệt độ. Biến thể không pH kém hơn ~1 %.
+- **Artifact:** `sensor-future-15m-fix-20261025/`; `experiments/sensor_future_15m_fix.py`.
