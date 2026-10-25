@@ -35,13 +35,140 @@ TIDE_FEATURE_SET = "B6_tide"
 # 2026-09-19 contaminates the cross-sensor pH lags; research-log RL-13).
 NOPH_SUFFIX = "_nopH"
 NOPH_FEATURE_SETS = ("B4_quality" + NOPH_SUFFIX, EXTERNAL_FEATURE_SET + NOPH_SUFFIX)
-AVAILABLE_FEATURE_SETS = FEATURE_SETS + (EXTERNAL_FEATURE_SET, TIDE_FEATURE_SET) + NOPH_FEATURE_SETS
+LEGACY_FEATURE_SETS = FEATURE_SETS + (EXTERNAL_FEATURE_SET, TIDE_FEATURE_SET) + NOPH_FEATURE_SETS
+# H1.9 "_diurnal" variants (B4D / B5D): the parent set + the multi-day diurnal block below.
+# Name order is <parent>_diurnal[_nopH].
+DIURNAL_SUFFIX = "_diurnal"
+DIURNAL_FEATURE_SETS = tuple(f"{parent}{DIURNAL_SUFFIX}{suffix}" for parent in ("B4_quality", "B5_external_as_issued") for suffix in ("", NOPH_SUFFIX))
+AVAILABLE_FEATURE_SETS = LEGACY_FEATURE_SETS + DIURNAL_FEATURE_SETS
 ADDON_FEATURE_SETS = (EXTERNAL_FEATURE_SET, TIDE_FEATURE_SET)
 LOCAL_TZ = "Asia/Ho_Chi_Minh"
 
 
 def base_feature_set(feature_set: str) -> str:
-    return feature_set.removesuffix(NOPH_SUFFIX)
+    return feature_set.removesuffix(NOPH_SUFFIX).removesuffix(DIURNAL_SUFFIX)
+
+
+def is_diurnal(feature_set: str) -> bool:
+    return feature_set.removesuffix(NOPH_SUFFIX).endswith(DIURNAL_SUFFIX)
+
+
+# --------------------------------------------------------------------------- H1.9 diurnal block
+# Fixed before the H1.9 run (2026-10-25); any later change must be labelled post-hoc.
+# Information set: only 1-minute bins strictly before the bin holding ``issued_at - 1 min``
+# (every observation read has fetchedAt < floor(issued_at - 1 min) <= issued_at - 1 min).
+# "now" = minute c + 1 where c = bin of ``issued_at - 1 min``; valid minute = c + 1 + h.
+DIURNAL_WINDOW_MINUTES = 15          # centred window (7 bins either side) for every point read
+DIURNAL_PROFILE_DAYS = {"7d": 7, "3d": 3}
+DIURNAL_MIN_DAYS = {"7d": 4, "3d": 2}  # profile needs this many days with data at BOTH times of day
+DIURNAL_AMP_MIN_MINUTES = 720        # 24 h amplitude needs >= 12 h of 1-minute bins
+DIURNAL_COLUMNS = (
+    "diel_y_valid_m24h",      # 15-min mean centred on valid_at - 24 h  (~ y(t+h-24h))
+    "diel_y_valid_m48h",      # 15-min mean centred on valid_at - 48 h
+    "diel_anom_7d",           # P7(valid time of day) - P7(now time of day); P = mean over previous days
+    "diel_anom_3d",           # same with 3 days
+    "diel_amp_24h",           # max - min of the 1-minute bins over the last 24 h
+    "diel_amp_x_anom_7d",     # diel_amp_24h * diel_anom_7d
+    "diel_valid_hour_sin", "diel_valid_hour_cos",    # local hour of valid_at, 24 h harmonic
+    "diel_valid_hour_sin2", "diel_valid_hour_cos2",  # 12 h harmonic
+    "diel_fill_flag",         # 1 if any component was filled by DIURNAL_FILL_RULE
+)
+DIURNAL_FILL_RULE = {
+    "diel_y_valid_m24h": "empty window -> lag_1m (current value)",
+    "diel_y_valid_m48h": "empty window -> lag_1m (current value)",
+    "diel_anom_7d": "fewer than DIURNAL_MIN_DAYS['7d'] days with data at either time of day -> 0",
+    "diel_anom_3d": "fewer than DIURNAL_MIN_DAYS['3d'] days with data at either time of day -> 0",
+    "diel_amp_24h": "fewer than DIURNAL_AMP_MIN_MINUTES bins in the last 24 h -> 0",
+}
+
+
+class MinuteGrid:
+    """1-minute median grid of one sensor series: prefix sums and a 24 h rolling range."""
+
+    def __init__(self, raw: pd.DataFrame, target: str):
+        series = raw[["fetchedAt", target]].dropna()
+        minute = series["fetchedAt"].dt.floor("min")
+        per_minute = series.groupby(minute)[target].median()
+        self.start = per_minute.index.min()
+        index = pd.date_range(self.start, per_minute.index.max(), freq="min")
+        values = per_minute.reindex(index).to_numpy(dtype=float)
+        ok = np.isfinite(values)
+        self.n = len(values)
+        self.csum = np.concatenate([[0.0], np.cumsum(np.where(ok, values, 0.0))])
+        self.ccnt = np.concatenate([[0], np.cumsum(ok)])
+        rolling = pd.Series(values).rolling(1440, min_periods=DIURNAL_AMP_MIN_MINUTES)
+        self.amp = (rolling.max() - rolling.min()).to_numpy()  # amp[j] = range of bins [j - 1439, j]
+
+    def cut_index(self, issued: pd.Series) -> np.ndarray:
+        """Grid index of the bin holding ``issued_at - 1 min``; only bins before it are read."""
+        shifted = (pd.Series(pd.to_datetime(issued, utc=True)) - pd.Timedelta(minutes=1)).dt.floor("min")
+        return ((shifted - self.start).dt.total_seconds().to_numpy() // 60).astype(np.int64)
+
+    def window(self, start: np.ndarray, end: np.ndarray, cut: np.ndarray) -> np.ndarray:
+        """Mean of bins ``[start, end)`` clipped to ``[0, min(cut, n))``; NaN when empty."""
+        hi = np.clip(np.minimum(end, cut), 0, self.n)
+        lo = np.minimum(np.clip(start, 0, self.n), hi)
+        count = self.ccnt[hi] - self.ccnt[lo]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            mean = (self.csum[hi] - self.csum[lo]) / count
+        mean[count == 0] = np.nan
+        return mean
+
+    def centred(self, centre: np.ndarray, cut: np.ndarray) -> np.ndarray:
+        half = DIURNAL_WINDOW_MINUTES // 2
+        return self.window(centre - half, centre + half + 1, cut)
+
+    def profile(self, centre: np.ndarray, cut: np.ndarray, days: int) -> tuple[np.ndarray, np.ndarray]:
+        """Mean over k = 1..days of the centred window at ``centre - k days``, and days with data."""
+        stack = np.stack([self.centred(centre - 1440 * k, cut) for k in range(1, days + 1)], axis=1)
+        have = np.isfinite(stack).sum(axis=1)
+        mean = np.where(have > 0, np.nansum(stack, axis=1) / np.maximum(have, 1), np.nan)
+        return mean, have
+
+    def range_24h(self, cut: np.ndarray) -> np.ndarray:
+        """max - min of bins ``[cut - 1440, cut)``; NaN with fewer than DIURNAL_AMP_MIN_MINUTES bins."""
+        j = cut - 1
+        out = np.full(len(cut), np.nan)
+        ok = (j >= 0) & (j < self.n)
+        out[ok] = self.amp[j[ok]]
+        return out
+
+
+def diurnal_features(grid: MinuteGrid, issued_at: pd.Series, horizon_minutes: int, current: np.ndarray) -> pd.DataFrame:
+    """H1.9 diurnal block (``DIURNAL_COLUMNS``) for origins ``issued_at`` at horizon ``h``.
+
+    ``current`` is each origin's ``lag_1m`` value, used only by the fill rule.  Every grid read
+    is clipped to bins before the ``issued_at - 1 min`` bin, so the block is causal by
+    construction at any horizon (for h <= 720 min no window even reaches the clip).
+    """
+    index = issued_at.index if isinstance(issued_at, pd.Series) else None
+    issued = pd.Series(pd.to_datetime(np.asarray(issued_at), utc=True))
+    current = np.asarray(current, dtype=float)
+    cut = grid.cut_index(issued)
+    valid = cut + 1 + int(horizon_minutes)
+    out, fill = {}, np.zeros(len(cut), dtype=bool)
+    for name, lag in (("diel_y_valid_m24h", 1440), ("diel_y_valid_m48h", 2880)):
+        value = grid.centred(valid - lag, cut)
+        missing = ~np.isfinite(value)
+        out[name] = np.where(missing, current, value)
+        fill |= missing
+    for key, days in DIURNAL_PROFILE_DAYS.items():
+        p_valid, n_valid = grid.profile(valid, cut, days)
+        p_now, n_now = grid.profile(cut + 1, cut, days)
+        ok = (n_valid >= DIURNAL_MIN_DAYS[key]) & (n_now >= DIURNAL_MIN_DAYS[key])
+        out[f"diel_anom_{key}"] = np.where(ok, p_valid - p_now, 0.0)
+        fill |= ~ok
+    amp = grid.range_24h(cut)
+    missing = ~np.isfinite(amp)
+    out["diel_amp_24h"] = np.where(missing, 0.0, amp)
+    fill |= missing
+    out["diel_amp_x_anom_7d"] = out["diel_amp_24h"] * out["diel_anom_7d"]
+    local = (issued + pd.Timedelta(minutes=int(horizon_minutes))).dt.tz_convert(LOCAL_TZ)
+    hour = (local.dt.hour + local.dt.minute / 60).to_numpy(dtype=float)
+    out["diel_valid_hour_sin"], out["diel_valid_hour_cos"] = np.sin(2 * np.pi * hour / 24), np.cos(2 * np.pi * hour / 24)
+    out["diel_valid_hour_sin2"], out["diel_valid_hour_cos2"] = np.sin(4 * np.pi * hour / 24), np.cos(4 * np.pi * hour / 24)
+    out["diel_fill_flag"] = fill.astype(float)
+    return pd.DataFrame({name: out[name] for name in DIURNAL_COLUMNS}, index=index)
 
 
 def truncate_local_date(raw: pd.DataFrame, last_local_date: str | None) -> pd.DataFrame:
@@ -305,12 +432,20 @@ MODEL_NAMES = ("persistence", "drift", "rolling_median", "seasonal_naive_24h", "
 _PREDICTION_CATEGORIES = {
     "split": pd.CategoricalDtype(sorted(["rolling", "lockbox"])),
     "target": pd.CategoricalDtype(sorted(TARGETS)),
-    "feature_set": pd.CategoricalDtype(sorted(AVAILABLE_FEATURE_SETS)),
+    # Legacy categories only, so runs without H1.9 sets write byte-identical parquet files.
+    "feature_set": pd.CategoricalDtype(sorted(LEGACY_FEATURE_SETS)),
     "model": pd.CategoricalDtype(sorted(MODEL_NAMES)),
 }
+_DIURNAL_FEATURE_SET_DTYPE = pd.CategoricalDtype(sorted(AVAILABLE_FEATURE_SETS))
 
 
-def _prediction_block(split: str, fold: int, target: str, horizon: int, feature_set: str, model: str, test: pd.DataFrame, prediction: np.ndarray) -> pd.DataFrame:
+def _prediction_categories(feature_sets) -> dict:
+    if any(is_diurnal(value) for value in feature_sets):
+        return _PREDICTION_CATEGORIES | {"feature_set": _DIURNAL_FEATURE_SET_DTYPE}
+    return _PREDICTION_CATEGORIES
+
+
+def _prediction_block(split: str, fold: int, target: str, horizon: int, feature_set: str, model: str, test: pd.DataFrame, prediction: np.ndarray, categories: dict | None = None) -> pd.DataFrame:
     """Vectorised prediction rows for one (split, fold, model) block.
 
     ``actual_at`` is kept only for rolling folds, matching the historical CSV
@@ -320,9 +455,10 @@ def _prediction_block(split: str, fold: int, target: str, horizon: int, feature_
     prediction = np.asarray(prediction, dtype=float)
     actual = test["target"].to_numpy()
     n = len(test)
+    categories = categories or _PREDICTION_CATEGORIES
     def label(column: str, value: str) -> pd.Categorical:
         # Fixed dtypes so pd.concat keeps them categorical (1 byte per row).
-        return pd.Categorical.from_codes(np.full(n, _PREDICTION_CATEGORIES[column].categories.get_loc(value), dtype=np.int8), dtype=_PREDICTION_CATEGORIES[column])
+        return pd.Categorical.from_codes(np.full(n, categories[column].categories.get_loc(value), dtype=np.int8), dtype=categories[column])
 
     columns = {"split": label("split", split), "fold": np.full(n, fold, dtype=np.int8), "target": label("target", target), "horizon_minutes": np.full(n, horizon, dtype=np.int16), "feature_set": label("feature_set", feature_set), "model": label("model", model), "issued_at": issued, "valid_at": pd.to_datetime(test["valid_at"].to_numpy(), utc=True)}
     if split == "rolling":
@@ -350,7 +486,8 @@ def feature_subset(all_features: list[str], target: str, feature_set: str) -> li
     }
     base = base_feature_set(feature_set)
     selected = [name for name in groups[base] if name in all_features]
-    if base != feature_set:
+    # The diurnal block is joined by ``run_benchmark``; only "_nopH" filters here.
+    if feature_set.endswith(NOPH_SUFFIX):
         if target == "pH":
             raise ValueError("nopH_variant_invalid_for_pH")
         selected = [name for name in selected if not name.startswith("pH_")]
@@ -391,16 +528,26 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
             raise ValueError("tide_feature_set_requires_tide_csv")
         tide = pd.read_csv(tide_path)
         tide["valid_at"] = pd.to_datetime(tide["valid_at"], utc=True)
+    categories = _prediction_categories(feature_sets)
+    diurnal_requested = any(is_diurnal(value) for value in feature_sets)
     for target in targets:
+        grid = MinuteGrid(raw, target) if diurnal_requested and target in raw else None
         for horizon in horizons:
             base_feature_sets = [value for value in feature_sets if value in FEATURE_SETS]
+            base_feature_sets += [base_feature_set(value) for value in feature_sets if is_diurnal(value) and base_feature_set(value) in FEATURE_SETS]
             build_level = max(base_feature_sets, key=FEATURE_SETS.index) if base_feature_sets else "B4_quality"
             full_frame, all_features = build_frame(raw, target, horizon, build_level, station=station)
+            diurnal = None
             for feature_set in feature_sets:
                 frame = full_frame.copy()
                 base = base_feature_set(feature_set)
                 subset_name = build_level + feature_set[len(base):] if base in ADDON_FEATURE_SETS else feature_set
-                features = feature_subset(all_features, target, subset_name)
+                features = feature_subset(all_features, target, subset_name.replace(DIURNAL_SUFFIX, ""))
+                if is_diurnal(feature_set) and not full_frame.empty:
+                    if diurnal is None:
+                        diurnal = diurnal_features(grid, full_frame["issued_at"], horizon, full_frame[f"{target}_lag_1m"].to_numpy())
+                    frame = frame.join(diurnal)
+                    features += list(DIURNAL_COLUMNS)
                 if base == TIDE_FEATURE_SET:
                     frame = tide_features(frame, tide).dropna(subset=list(TIDE_COLUMNS))
                     features += list(TIDE_COLUMNS)
@@ -435,7 +582,7 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
                         metrics = _metric_rows(test.target.to_numpy(), prediction, train.target.to_numpy())
                         summary.append({"split": "rolling", "fold": fold_number, "target": target, "horizon_minutes": horizon, "feature_set": feature_set, "model": model_name, "n_train": len(train), "n_test": len(test), "gap_rate": float(test.gap.mean()), **metrics})
                         if write_predictions and model_name in prediction_keep and feature_set in prediction_feature_keep:
-                            all_predictions.append(_prediction_block("rolling", fold_number, target, horizon, feature_set, model_name, test, prediction))
+                            all_predictions.append(_prediction_block("rolling", fold_number, target, horizon, feature_set, model_name, test, prediction, categories))
                 # lockbox is only evaluated after all rolling experiments; train excludes it.
                 train, test = lockbox_split(frame)
                 if len(train) and len(test):
@@ -450,7 +597,7 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
                         ci_low, ci_high = bootstrap_mae_delta(test.target.to_numpy(), prediction, persistence)
                         summary.append({"split": "lockbox", "fold": 0, "target": target, "horizon_minutes": horizon, "feature_set": feature_set, "model": model_name, "n_train": len(train), "n_test": len(test), "gap_rate": float(test.gap.mean()), "mae_delta_ci_low": ci_low, "mae_delta_ci_high": ci_high, **metrics})
                         if write_predictions and model_name in prediction_keep and feature_set in prediction_feature_keep:
-                            all_predictions.append(_prediction_block("lockbox", 0, target, horizon, feature_set, model_name, test, prediction))
+                            all_predictions.append(_prediction_block("lockbox", 0, target, horizon, feature_set, model_name, test, prediction, categories))
     metrics = pd.DataFrame(summary)
     # Concatenate once; per-row dicts exhausted 16 GB on 1-minute history.
     predictions = pd.concat(all_predictions, ignore_index=True) if all_predictions else pd.DataFrame()
@@ -464,6 +611,8 @@ def run_benchmark(path: Path, station: str, output: Path, snapshots_path: Path |
         strata = predictions.groupby(["split", "target", "horizon_minutes", "feature_set", "model", "gap", "night"], dropna=False, observed=True).agg(n=("actual", "size"), mae=("absolute_error", "mean"), p95_ae=("absolute_error", lambda x: x.quantile(.95))).reset_index()
         strata.to_csv(output / "metrics_strata.csv", index=False)
     manifest = {"schema_version": "forecast-sensor-v2", "station": station, "input": str(path), "input_sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "targets": targets, "horizons_minutes": horizons, "feature_sets": feature_sets, "models": model_names, "prediction_models": sorted(prediction_keep), "prediction_feature_sets": sorted(prediction_feature_keep), "predictions_format": "parquet", "external_snapshots": None if snapshots_path is None else str(snapshots_path), "external_snapshots_extra": [str(value) for value in extra_snapshot_paths], "snapshot_union_rule": "per station x issue hour the --snapshots source wins; --extra-snapshots only fill missed hours" if extra_snapshot_paths else None, "tide": None if tide_path is None else str(tide_path), "model_preset": "fast" if fast else "full", "target_alignment": "nearest_observation_within_2_minutes", "lockbox_days": LOCKBOX_DAYS, "rolling_folds": N_FOLDS, "purge_minutes": int(PURGE.total_seconds() / 60), "effective_purge_minutes": {str(h): int(effective_purge(h).total_seconds() / 60) for h in horizons}, "purge_rule": "train valid_at < test_start - max(purge_minutes, horizon)", "synthetic_data_policy": "rejected", "runtime_changed": False, "last_local_date": last_local_date, "ph_qc": "core.quality.ph_reading_suspect -> NaN" if ph_qc else None, "window": {"first_fetched_at": str(raw["fetchedAt"].min()), "last_fetched_at": str(raw["fetchedAt"].max())}}
+    if diurnal_requested:
+        manifest["diurnal_block"] = {"columns": list(DIURNAL_COLUMNS), "window_minutes": DIURNAL_WINDOW_MINUTES, "profile_days": DIURNAL_PROFILE_DAYS, "min_days": DIURNAL_MIN_DAYS, "amp_min_minutes": DIURNAL_AMP_MIN_MINUTES, "fill_rule": DIURNAL_FILL_RULE, "information_set": "1-minute median bins strictly before the bin of issued_at - 1 min"}
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     return manifest
 
