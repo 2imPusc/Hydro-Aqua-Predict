@@ -48,6 +48,7 @@ TERRAIN_DIR = DATA_DIR / "terrain"  # land DEM/DSM tiles (write-once), e.g. Cope
 CMEMS_DIR = DATA_DIR / "cmems"  # Copernicus Marine point/area extracts (write-once, model named)
 ECMWF_OPENDATA_DIR = HAZARD_DATA_DIR / "ecmwf-opendata"  # real-time ECMWF TC track files (write-once)
 REFERENCES_DIR = DATA_DIR / "references"  # local text copies of cited sources (write-once)
+VN_PUBLIC_DIR = DATA_DIR / "vn_public"  # public Vietnamese sources, one subfolder per source + SOURCES.md (write-once)
 
 
 def clean_data(region: str) -> Path:
