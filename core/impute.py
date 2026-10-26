@@ -10,6 +10,13 @@ Mỗi vùng train 2 bộ XGBoost (adaptive theo COD):
   - 4-feature [NH3, pH, Temperature, TSS]       → khi COD chết
 Mỗi target 1 model. R²<0.4 trên LOO-CV → fallback trung vị vùng.
 Kim loại nặng/Coliform/độ muối luôn dùng trung vị (không có tín hiệu sensor).
+
+Amoni: cột "NH3" của dữ liệu tỉnh là amoni tổng theo N (TAN), nên feature "NH3"
+của model nhận giá trị ``measured["TAN"]`` qua ``provincial_basis_row``
+(config.AMMONIA_FEATURE_SOURCE) — KHÔNG nhận NH3 không ion.  Thiếu TAN → feature
+coi là thiếu (``missing_features``).  Input ngoài khoảng p1–p99 của dữ liệu huấn
+luyện vùng (``imputer_feature_bounds.json``) → giá trị vẫn trả về nhưng gắn cờ
+``ood_features`` / ``ood_targets`` trong ``diagnostics`` (ngoại suy, không tin).
 """
 import json
 import sys
@@ -31,7 +38,9 @@ from xgboost import XGBRegressor
 
 from core.config import (
     QN_DATA_PATH, HP_DATA_PATH, HY_DATA_PATH, IMPUTER_DIR, FEATURES_5, FEATURES_4,
+    AMMONIA_FEATURE_SOURCE,
 )
+from core.chemistry import provincial_basis_row
 from hap_shared.preprocessing import load_data, EXCLUDED_STATIONS
 
 # Salinity nằm trong targets: LOO-CV R²≈0.6-0.67 cả HP/QN (biến thiên thật,
@@ -93,6 +102,9 @@ _METADATA = {"Station", "Quarter", "X", "Y", "Lat", "Lon",
 _MEDIANS_FILE = IMPUTER_DIR / "regional_medians.json"
 _CV_R2_FILE   = IMPUTER_DIR / "cv_r2.json"
 _FEATCOLS_FILE = IMPUTER_DIR / "feat_cols.json"   # cột feature thực mỗi (vùng, tag)
+_BOUNDS_FILE  = IMPUTER_DIR / "imputer_feature_bounds.json"  # p1–p99 input mỗi vùng
+OOD_QUANTILES = (0.01, 0.99)
+_BOUNDS_CACHE: dict = {}
 
 
 def build_training_data(region: str) -> pd.DataFrame:
@@ -220,6 +232,91 @@ def train(force: bool = False) -> dict:
     return cv_all
 
 
+def compute_feature_bounds() -> dict:
+    """p1–p99 (and min/max) of every imputer input feature, per region.
+
+    Computed on ``build_training_data`` rows — exactly what the models saw.  The
+    ``NH3`` entry is provincial ammonium (TAN basis).  Shape:
+    ``{"quantiles": [0.01, 0.99], "regions": {region: {feature: {p_lo, p_hi, min, max, n}}}}``
+    """
+    regions = {}
+    for region, path in REGION_DATA.items():
+        if not Path(path).exists():
+            continue
+        df = build_training_data(region)
+        regions[region] = {}
+        for feature in FEATURES_5:
+            if feature not in df.columns:
+                continue
+            values = pd.to_numeric(df[feature], errors="coerce").dropna()
+            if values.empty:
+                continue
+            regions[region][feature] = {
+                "p_lo": round(float(values.quantile(OOD_QUANTILES[0])), 6),
+                "p_hi": round(float(values.quantile(OOD_QUANTILES[1])), 6),
+                "min": round(float(values.min()), 6),
+                "max": round(float(values.max()), 6),
+                "n": int(len(values)),
+            }
+    return {
+        "quantiles": list(OOD_QUANTILES),
+        "basis": {"NH3": "TAN — total ammonium as N (provincial 'Amôni (NH4+ tính theo N)')"},
+        "source": "core.impute.build_training_data (data/*/clean_data.csv, excluded stations dropped)",
+        "regions": regions,
+    }
+
+
+def write_feature_bounds() -> dict:
+    bounds = compute_feature_bounds()
+    with open(_BOUNDS_FILE, "w", encoding="utf-8") as f:
+        json.dump(bounds, f, indent=2, ensure_ascii=False)
+    _BOUNDS_CACHE.clear()
+    return bounds
+
+
+def _load_bounds() -> dict | None:
+    if "value" not in _BOUNDS_CACHE:
+        _BOUNDS_CACHE["value"] = json.loads(_BOUNDS_FILE.read_text(encoding="utf-8")) if _BOUNDS_FILE.exists() else None
+    return _BOUNDS_CACHE["value"]
+
+
+def input_diagnostics(row: Dict[str, float], features: list, region: str) -> dict:
+    """Missing / out-of-training-range check of the model input row.
+
+    ``row`` is already on the provincial basis (``NH3`` = TAN).  OOD = outside
+    the region's p1–p99 training range; values are still returned by the caller
+    but flagged, following the ``ood_features`` convention of contextual_models.
+    """
+    bounds_doc = _load_bounds()
+    region_bounds = (bounds_doc or {}).get("regions", {}).get(region)
+    missing, ood, ranges, values = [], [], {}, {}
+    for feature in features:
+        value = row.get(feature)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            value = float("nan")
+        if value != value:
+            missing.append(feature)
+            continue
+        values[feature] = round(value, 6)
+        spec = (region_bounds or {}).get(feature)
+        if spec is None:
+            continue
+        ranges[feature] = [spec["p_lo"], spec["p_hi"]]
+        if value < spec["p_lo"] or value > spec["p_hi"]:
+            ood.append(feature)
+    return {
+        "ammonia_basis": "TAN",
+        "ammonia_feature_source": dict(AMMONIA_FEATURE_SOURCE),
+        "feature_values": values,
+        "missing_features": missing,
+        "ood_features": ood,
+        "training_range": ranges,
+        "bounds_source": _BOUNDS_FILE.name if region_bounds is not None else "unavailable",
+    }
+
+
 def _load_json(path: Path, what: str) -> dict:
     if not path.exists():
         raise RuntimeError(f"{what} not found — chạy `impute.py --train` trước.")
@@ -263,6 +360,11 @@ def impute_params(measured: Dict[str, float], region: str = DEFAULT_REGION) -> D
     measured["month_sin"] = np.sin(2 * np.pi * month_val / 12)
     measured["month_cos"] = np.cos(2 * np.pi * month_val / 12)
 
+    # Model input row on the provincial basis: feature "NH3" ← measured["TAN"]
+    # (never the un-ionised NH3; absent TAN → feature missing).
+    row = provincial_basis_row(measured)
+    diagnostics = input_diagnostics(row, features, region)
+
     imputed, defaulted, confidence = {}, {}, {}
 
     for target in IMPUTATION_TARGETS:
@@ -277,7 +379,7 @@ def impute_params(measured: Dict[str, float], region: str = DEFAULT_REGION) -> D
             elif season_type == "cyclical":
                 target_features.extend(["month_sin", "month_cos"])
                 
-            feat_vals = np.array([[measured.get(f, np.nan) for f in target_features]])
+            feat_vals = np.array([[row.get(f, np.nan) for f in target_features]], dtype=float)
             val = float(joblib.load(model_path).predict(feat_vals)[0])
             imputed[target] = round(max(0.0, val), 4)
             confidence[target] = tier      # 'strong' | 'weak'
@@ -291,8 +393,15 @@ def impute_params(measured: Dict[str, float], region: str = DEFAULT_REGION) -> D
         if p in medians:
             defaulted[p] = round(medians[p], 4)
 
+    # Model outputs built from a missing or out-of-range input are extrapolations.
+    flagged = bool(diagnostics["ood_features"] or diagnostics["missing_features"])
+    diagnostics["ood_targets"] = sorted(imputed) if diagnostics["ood_features"] else []
+    diagnostics["missing_input_targets"] = sorted(imputed) if diagnostics["missing_features"] else []
+    diagnostics["ood"] = bool(diagnostics["ood_features"])
+
     return {"imputed": imputed, "defaulted": defaulted, "confidence": confidence,
-            "cv_r2": cv_r2, "feature_set": tag, "region": region}
+            "cv_r2": cv_r2, "feature_set": tag, "region": region,
+            "diagnostics": diagnostics, "input_flagged": flagged}
 
 
 if __name__ == "__main__":
@@ -300,7 +409,13 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--train", action="store_true")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--bounds", action="store_true",
+                    help="ghi imputer_feature_bounds.json (p1–p99 input mỗi vùng), không train lại")
     args = ap.parse_args()
+    if args.bounds:
+        out = write_feature_bounds()
+        for region, feats in out["regions"].items():
+            print(f" [{region}]", {f: [v["p_lo"], v["p_hi"]] for f, v in feats.items()})
     if args.train or args.force:
         print("Training per-region imputer (HP + QN, mỗi vùng 5feat + 4feat)...")
         res = train(force=args.force)

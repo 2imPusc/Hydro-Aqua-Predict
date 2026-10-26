@@ -22,7 +22,7 @@ function styleFor(feature?: GeoJSON.Feature) {
 
 const DISPLAY: Record<string, string> = { very_suitable: 'Rất phù hợp', suitable: 'Phù hợp', less_suitable: 'Kém phù hợp', not_suitable: 'Không phù hợp' }
 
-const DRIVER: Record<string, string> = { NH3_derived: 'NH3', Temperature: 'nhiệt độ nước', forecast_rain_6h: 'mưa 6 giờ tới', forecast_wind_6h: 'gió 6 giờ tới', TSS: 'độ đục' }
+const DRIVER: Record<string, string> = { NH3_derived: 'NH3 không ion (độc tính)', Temperature: 'nhiệt độ nước', forecast_rain_6h: 'mưa 6 giờ tới', forecast_wind_6h: 'gió 6 giờ tới', TSS: 'độ đục' }
 
 /**
  * Historical HSI zones (thesis output, unvalidated) — fill = historical suitability class; thick outline =

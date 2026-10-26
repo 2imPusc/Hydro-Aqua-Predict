@@ -12,7 +12,10 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from core.quality import is_in_range
+from core.config import PARAM_LABELS
 from core.sensor_health import assess_sensor_health
+
+NH3_TOXICITY_LABEL = PARAM_LABELS["NH3"]  # "NH3 không ion (độc tính)"
 
 
 # Provisional operational profile. Values must be reviewed with the farm and
@@ -22,6 +25,8 @@ COBIA_PROFILE: Dict[str, Any] = {
     "metrics": {
         "DO": {"watch": 5.0, "warning": 4.0, "emergency": 3.0, "drop_15m": -0.8},
         "Temperature": {"watch": 31.0, "warning": 33.0, "emergency": 35.0},
+        # Un-ionised NH3 (Emerson, mg/L) — fish toxicity.  NOT total ammonium (TAN):
+        # the QCVN 10 B1 ammonium limit and the provincial data use TAN.
         "NH3": {"watch": 0.05, "warning": 0.10, "emergency": 0.20},
     },
     "minimum_samples": 3,
@@ -130,7 +135,10 @@ def evaluate_aquaculture_risk(
         risk, status = _metric_risk(metric, value, profile)
         if risk:
             scores.append(risk)
-            drivers.append({"metric": metric, "value": value, "source": source, "status": status, "risk": risk})
+            driver = {"metric": metric, "value": value, "source": source, "status": status, "risk": risk}
+            if metric == "NH3":
+                driver["label"] = NH3_TOXICITY_LABEL
+            drivers.append(driver)
 
     # Rate-of-change is only meaningful with direct DO sensor data.  The last
     # 15 minutes are used when timestamps are available; otherwise it is skipped.

@@ -6,12 +6,14 @@ import numpy as np
 from pathlib import Path
 
 from core import paths
+from core.chemistry import provincial_basis_row
 from core.config import HP_DATA_PATH
 
 SPATIAL_MODELS_DIR = paths.SPATIAL_MODELS_DIR
 ANCHOR_STATION = "NB2" # Trạm vật lý anh Toàn map tới Bến Bèo
 
 # Các biến được phép truyền từ Anchor (Theo train_spatial.py)
+# "NH3" = provincial ammonium column (TAN basis): fed from params["TAN"], never un-ionised NH3.
 ANCHOR_FEATURES = ["pH", "Temperature", "TSS", "NH3", "DO", "Salinity", "PO4", "Coliform"]
 
 # Lưu trữ các giá trị Trung vị lịch sử để làm Fallback
@@ -46,8 +48,9 @@ def predict_virtual_stations(anchor_imputed_params: dict):
     """
     # 1. Chuẩn bị Vector Đầu vào (X)
     X_dict = {}
+    anchor_row = provincial_basis_row(anchor_imputed_params)
     for feat in ANCHOR_FEATURES:
-        X_dict[f"{feat}_anchor"] = anchor_imputed_params.get(feat, np.nan)
+        X_dict[f"{feat}_anchor"] = anchor_row.get(feat, np.nan)
         
     X_df = pd.DataFrame([X_dict])
     

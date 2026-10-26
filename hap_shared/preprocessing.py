@@ -3,6 +3,9 @@ import numpy as np
 from pyproj import Proj
 
 
+# 'NH3' is the provincial column name for "Amôni (NH4+ tính theo N)" — total
+# ammonium as N (TAN), not un-ionised NH3.  thresholds/*.json "NH3" breakpoints
+# are on that basis; runtime callers feed them TAN (core/chemistry.provincial_basis_row).
 WATER_QUALITY_PARAMS = [
     'DO', 'Temperature', 'pH', 'Salinity', 'NH3', 'PO4', 'TSS',
     'Coliform', 'Transparency', 'COD', 'CN', 'As', 'Cd', 'Pb',

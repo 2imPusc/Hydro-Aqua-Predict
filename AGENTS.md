@@ -54,14 +54,14 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 864 tests; requires_data ones skip without data/
+.venv\Scripts\python -m pytest -q                       # 877 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
 powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1   # api :8010, vite :5173 (5174 if taken), postgres :5434 (docker)
 .venv\Scripts\python scripts\export_research_map_artifacts.py   # research-map H1–H4 JSON -> artifacts/research-map/<stamp>/ (newest served)
 .venv\Scripts\python scripts\check_isolation.py         # no imports/paths escape the repo
-cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (159)
+cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (160)
 ```
 
 `GREENLAB_FETCH_MODE=cache` gives a stable offline run from local history (no API calls);
@@ -137,9 +137,19 @@ CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests,
   partial because of provider-side gaps (listed in `experiments/RESULTS.md`). HAP-SensorCollector
   does the daily catch-up. Research-map Postgres holds only the days its worker ran.
 - GreenLab export timestamps (`all_data/`, `intervals/`) are naive local time (`docs/decisions.md` #12).
-- **NH4 unit**: raw NH4 treated as µg/L ×0.001 → mg/L, then Emerson un-ionised fraction
-  (pH, Temperature) → NH3. Gated by `NH4_CONVERSION_CONFIRMED`; vendor confirmation
-  is still pending, so keep the basis visible in outputs.
+- **NH4 → two ammonia quantities** (`core/chemistry.py`). Raw NH4 is treated as µg/L ×0.001
+  (`NH4_UNIT_SCALE`) × `NH4_TO_N_FACTOR` (1.0; 0.7766 if the vendor says NH4+ ion mass) →
+  **`TAN`** = total ammonium as N, mg/L. Provincial data call this column `NH3` ("Amôni (NH4+
+  tính theo N)"), so everything trained/defined on it — QCVN 10 B1 ammonium 0.1 (`QCVN10_B1["TAN"]`),
+  imputers, contextual models, HSI breakpoints, spatial anchors — gets TAN through
+  `provincial_basis_row` (`AMMONIA_FEATURE_SOURCE = {"NH3": "TAN"}`; no TAN → feature missing,
+  never the un-ionised value). **Un-ionised `NH3`** (TAN × Emerson fraction, 13–25× smaller) is only
+  for fish-toxicity alerts (`alerts.py`, `forecast_advisory.py`, `model_alerts.py`, research-map
+  advisory), labelled "NH3 không ion (độc tính)". NH4 stepped down ~25× on 2026-07-31 14:06 local:
+  TAN median 0.107 before (matches HP provincial 0.094) vs 0.004 after — below the imputer training
+  range, so imputer diagnostics flag `ood_features` (bounds: `core/models/imputer_feature_bounds.json`,
+  `python core/impute.py --bounds`). Gated by `NH4_CONVERSION_CONFIRMED`; vendor confirmation is still
+  pending, so keep the basis visible in outputs.
 - **VN2000 meridian is per province** (QN 107°45', HP 105°45', TB 105°30').
   `hap_shared/preprocessing.vn2000_to_wgs84` hardcodes 107°45' — wrong for HP data
   (~120 km shift). Only `experiments/prep_exogenous.py` calls it today; fix before reuse.

@@ -121,7 +121,7 @@ def run_pipeline(
         latest_row = df_raw.sort_values("fetchedAt").iloc[-1]
         measured_params = {
             param: float(latest_row[param])
-            for param in ["pH", "Temperature", "TSS", "NH4", "NH3", "COD"]
+            for param in ["pH", "Temperature", "TSS", "NH4", "NH3", "TAN", "COD"]
             if param in latest_row and not pd.isna(latest_row[param])
         }
         replay_only = freshness["status"] == "replay"
@@ -165,7 +165,7 @@ def run_pipeline(
         date_str = latest_row["fetchedAt"].strftime("%Y-%m-%dT%H:%M:%S%z")
 
         measured_params = {}
-        for param in ["pH", "Temperature", "TSS", "NH4", "NH3", "COD"]:
+        for param in ["pH", "Temperature", "TSS", "NH4", "NH3", "TAN", "COD"]:
             if param in latest_row and not pd.isna(latest_row[param]):
                 measured_params[param] = float(latest_row[param])
 
@@ -197,7 +197,7 @@ def run_pipeline(
 
     latest_record = historical_records[-1]
     history_seconds = time.perf_counter() - started_at - fetch_seconds
-    chart_columns = ["fetchedAt", "Temperature", "pH", "NH4", "NH3", "TSS"]
+    chart_columns = ["fetchedAt", "Temperature", "pH", "NH4", "NH3", "TAN", "TSS"]
     chart_history = []
     for _, row in df_raw.tail(120).iterrows():
         chart_history.append({

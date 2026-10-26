@@ -40,7 +40,7 @@ const VARIANT_LABEL: Record<SuitabilityVariant, string> = { A_W_SUM: 'Ghaderi (x
 const LAYER_LABEL: Record<string, string> = {
   SWH: 'Sóng (SWH)', SCS: 'Dòng chảy', SCS_near: 'Dòng chảy (gần bờ)', SST: 'Nhiệt độ mặt', CSCD: 'Chl-a', WS: 'Gió', DEP: 'Độ sâu',
   DfS: 'Khoảng cách bờ', DfS_near: 'Khoảng cách bờ (gần)', DfP: 'Cách cảng', DfPA: 'Cách khu bảo tồn', SSS: 'Độ mặn', SSS_repo: 'Độ mặn (repo)',
-  WQ_DO: 'DO', WQ_NH3: 'NH3', WQ_TSS: 'TSS', WQ_pH: 'pH',
+  WQ_DO: 'DO', WQ_NH3: 'Amoni (NH4+-N)', WQ_TSS: 'TSS', WQ_pH: 'pH',
 }
 
 function cellPopup(props: { id: string; score: number | null; percentile: number | null; layers: Record<string, number | null> }, variant: SuitabilityVariant) {

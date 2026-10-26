@@ -3,7 +3,8 @@
 
 Source = GreenLab API + local raw cache, then MongoDB Atlas fallback.
 Daily aggregate uses MEDIAN (robust to sensor outliers) + range-filter + QC.
-NH3 is derived from raw NH4 via chemistry.emerson_nh3.
+TAN (total ammonium as N, provincial/QCVN basis) and un-ionised NH3 (toxicity)
+are both derived from raw NH4 via core.chemistry (tan_mg_l, emerson_nh3).
 """
 import pandas as pd
 
@@ -12,7 +13,7 @@ from core.config import (
     USE_LOCAL_CSV, LOCAL_CSV_PATH, GREENLAB_API_ENABLED, GREENLAB_FETCH_MODE,
 )
 from core.greenlab_api import append_snapshot, fetch_latest_snapshot, load_cached_history, refresh_recent_history
-from core.chemistry import emerson_nh3
+from core.chemistry import emerson_nh3, tan_mg_l
 from core.observations import CONTRACT_VERSION, contract_issues
 from core.quality import filter_valid_rows, check_series
 
@@ -90,7 +91,10 @@ def _read_csv(station_serial: str) -> pd.DataFrame:
 
 
 def fetch_raw(station_serial: str) -> pd.DataFrame:
-    """Raw tidy DF. Columns: fetchedAt(UTC tz-aware), COD, NH4, pH, Temperature, TSS, NH3."""
+    """Raw tidy DF. Columns: fetchedAt(UTC tz-aware), COD, NH4, pH, Temperature, TSS, NH3, TAN.
+
+    NH3 = un-ionised (toxicity alerts); TAN = total ammonium as N (QCVN/imputers/HSI).
+    """
     if USE_LOCAL_CSV:
         df = _read_csv(station_serial)
         df.attrs["data_source"] = "local_csv"
@@ -117,7 +121,7 @@ def fetch_raw(station_serial: str) -> pd.DataFrame:
                     df = _fallback_to_local_csv(station_serial, RuntimeError(f"GreenLab API unavailable ({api_exc}); MongoDB unavailable ({mongo_exc})"))
 
     if df.empty:
-        empty_df = pd.DataFrame(columns=["fetchedAt"] + _RAW_PARAMS + ["NH3"])
+        empty_df = pd.DataFrame(columns=["fetchedAt"] + _RAW_PARAMS + ["NH3", "TAN"])
         empty_df.attrs.update(df.attrs)
         return empty_df
 
@@ -126,6 +130,7 @@ def fetch_raw(station_serial: str) -> pd.DataFrame:
     df["NH3"] = df.apply(
         lambda row: emerson_nh3(row["NH4"], row["pH"], row["Temperature"]), axis=1
     )
+    df["TAN"] = df["NH4"].map(lambda value: tan_mg_l(value) if pd.notna(value) else float("nan"))
     out = df.sort_values("fetchedAt").reset_index(drop=True)
     out.attrs.update(source_attrs)
     out.attrs["observation_contract_version"] = CONTRACT_VERSION
@@ -146,7 +151,7 @@ def fetch_daily(station_serial: str) -> pd.DataFrame:
     raw["date"] = raw["fetchedAt"].dt.tz_convert("Asia/Bangkok").dt.date
     filtered = filter_valid_rows(raw, ["pH", "Temperature", "TSS", "NH4"])
 
-    agg_params = ["COD", "NH4", "pH", "Temperature", "TSS", "NH3"]
+    agg_params = ["COD", "NH4", "pH", "Temperature", "TSS", "NH3", "TAN"]
     out_rows = []
     for date_val, grp in filtered.groupby("date"):
         row = {"date": date_val, "n_readings": len(grp)}

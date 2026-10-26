@@ -1,5 +1,6 @@
 # lab/realtime_greenlab/monitor.py
-"""QCVN-10 B1 threshold check. NH3 đã được derive trước (chemistry).
+"""QCVN-10 B1 threshold check. Amoni so với TAN (amoni tổng theo N, derive trước
+bởi chemistry.tan_mg_l) — KHÔNG so NH3 không ion (chỉ dùng cho cảnh báo độc tính).
 
 COD chỉ được check khi caller truyền vào (sensor sống); sensor chết →
 caller không đưa COD → không báo EXCEED giả.

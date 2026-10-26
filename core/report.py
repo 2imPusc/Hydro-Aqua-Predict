@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-from core.config import STATIONS, COASTAL_STATIONS, REGION_SPECIES
+from core.config import STATIONS, COASTAL_STATIONS, REGION_SPECIES, PARAM_LABELS, TAN_UNIT_LABEL
 from core.fetch import fetch_daily
 from core.monitor import check_params
 from core.classify import classify_station
@@ -25,7 +25,8 @@ from core.classify import classify_station
 _ICON = {"OK": "OK ", "EXCEED": "!! "}
 
 # params đo trực tiếp (COD chỉ thêm khi sensor ngày đó VALID)
-_MEASURED_BASE = ["NH3", "pH", "Temperature", "TSS"]
+# TAN (amoni tổng theo N) vào QCVN + imputer + HSI; NH3 không ion chỉ để hiển thị.
+_MEASURED_BASE = ["TAN", "NH3", "pH", "Temperature", "TSS"]
 
 
 def _build_measured(day_row) -> dict:
@@ -67,7 +68,11 @@ def run_station(serial: str, target_date: date = None, monitor_only: bool = Fals
 
     print("\n[MONITORING — QCVN 10:2023/BTNMT B1]")
     for p, st in check_params(measured).items():
-        print(f"  {_ICON[st.status]}{p:<12}{st.value:>10.4f}  (QCVN {st.limit_str()})")
+        label = PARAM_LABELS.get(p, p)
+        unit = f"  {TAN_UNIT_LABEL}" if p == "TAN" else ""
+        print(f"  {_ICON[st.status]}{label:<16}{st.value:>10.4f}  (QCVN {st.limit_str()}){unit}")
+    if "NH3" in measured:
+        print(f"  (i) {PARAM_LABELS['NH3']}: {measured['NH3']:.4f} mg/L — không so QCVN, chỉ cảnh báo độc tính")
 
     if monitor_only:
         return
