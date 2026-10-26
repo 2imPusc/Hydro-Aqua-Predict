@@ -73,12 +73,26 @@ def split_line_at_time_gaps(timestamps, values, max_gap_minutes: int = 5):
     return x_values, y_values, gaps
 
 
+def _parameter_label(parameter: str, is_anchor: bool) -> str:
+    """Chart label; keeps the two ammonia quantities apart.
+
+    At the sensor anchor ``NH3`` is the un-ionised (toxic) fraction and ``TAN``
+    the total ammonium as N.  Virtual-station values come from provincial-data
+    models whose ``NH3`` column is total ammonium as N.
+    """
+    if parameter == 'TAN':
+        return 'Amoni (NH4+-N), mg/L — cơ sở cảm biến chưa xác nhận'
+    if parameter == 'NH3':
+        return 'NH3 không ion (độc tính), mg/L' if is_anchor else 'Amoni (NH4+-N, cột "NH3" dữ liệu tỉnh), mg/L'
+    return parameter
+
+
 def render_station_forecast_panel(data: dict, anchor_serial: str) -> None:
     """Station selector with historical/current/projected values and safety state."""
     monitored_parameters = (
-        'Temperature', 'pH', 'NH4', 'NH3', 'TSS', 'DO', 'Salinity', 'COD',
+        'Temperature', 'pH', 'NH4', 'TAN', 'NH3', 'TSS', 'DO', 'Salinity', 'COD',
     )
-    direct_sensor_parameters = {'Temperature', 'pH', 'NH4', 'NH3', 'TSS'}
+    direct_sensor_parameters = {'Temperature', 'pH', 'NH4', 'TAN', 'NH3', 'TSS'}
     inferred_parameters = {'DO', 'Salinity'}
     records = data.get('history', [])
     virtual_current = data.get('virtual_stations', {})
@@ -123,7 +137,7 @@ def render_station_forecast_panel(data: dict, anchor_serial: str) -> None:
     for index, parameter in enumerate(parameters):
         with chart_columns[index % 2]:
             history_x, history_y = [], []
-            if is_anchor and parameter in {'Temperature', 'pH', 'NH4', 'NH3', 'TSS'}:
+            if is_anchor and parameter in {'Temperature', 'pH', 'NH4', 'TAN', 'NH3', 'TSS'}:
                 for item in data.get('sensor_chart_history', []):
                     if item.get(parameter) is not None:
                         history_x.append(item['fetchedAt'])
@@ -167,7 +181,7 @@ def render_station_forecast_panel(data: dict, anchor_serial: str) -> None:
             source = ('đo trực tiếp từ sensor' if parameter in direct_sensor_parameters
                       else 'nội suy từ các chỉ số sensor' if parameter in inferred_parameters
                       else 'giá trị hỗ trợ cho đánh giá')
-            title = f'{parameter} · {source}'
+            title = f'{_parameter_label(parameter, is_anchor)} · {source}'
             if not history_x and not future_x and not has_current:
                 detail = 'Chưa có giá trị hợp lệ trong dữ liệu hiện có'
                 if parameter in inferred_parameters:
@@ -369,7 +383,7 @@ with tab_dash:
                 'Mức advisory': item['severity'],
                 'DO nội suy': item['inputs'].get('DO_inferred'),
                 'Nhiệt độ': item['inputs'].get('Temperature'),
-                'NH3 quy đổi': item['inputs'].get('NH3'),
+                'NH3 không ion (độc tính)': item['inputs'].get('NH3'),
                 'Độ mặn nội suy': item['inputs'].get('Salinity_inferred'),
                 'Yếu tố': ', '.join(f"{driver['metric']}={driver['value']}" for driver in item['drivers']) or 'Không',
             } for item in risk_timeline])

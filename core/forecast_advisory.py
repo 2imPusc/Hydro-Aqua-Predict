@@ -18,9 +18,10 @@ def _point_risk(point: dict) -> dict:
     temp = sensors.get("Temperature")
     if temp is not None and float(temp) >= 31:
         drivers.append({"metric": "Temperature", "value": float(temp), "status": "warning_forecast" if float(temp) >= 33 else "watch_forecast", "source": "sensor_forecast"})
+    # Un-ionised NH3 (fish toxicity), not total ammonium TAN (QCVN/imputer basis).
     nh3 = sensors.get("NH3")
     if nh3 is not None and float(nh3) >= .05:
-        drivers.append({"metric": "NH3", "value": float(nh3), "status": "warning_forecast" if float(nh3) >= .10 else "watch_forecast", "source": "derived_forecast"})
+        drivers.append({"metric": "NH3", "value": float(nh3), "status": "warning_forecast" if float(nh3) >= .10 else "watch_forecast", "source": "derived_forecast", "label": "NH3 không ion (độc tính)"})
     severity = "CRITICAL_ADVISORY" if any(d["status"] == "critical_inferred_forecast" for d in drivers) else "WARNING" if any("warning" in d["status"] for d in drivers) else "WATCH" if drivers else "NORMAL"
     diagnostics = point.get("inference_diagnostics", {}).get("DO", {})
     accepted_do = do is not None and point.get("contextual_status") == "ready" and diagnostics.get("status", "accepted") == "accepted"

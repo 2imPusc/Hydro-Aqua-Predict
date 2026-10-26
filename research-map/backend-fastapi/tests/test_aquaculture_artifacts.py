@@ -42,3 +42,16 @@ def test_mock_severity_follows_cage_exposure_not_list_position(tmp_path: Path, m
         assert props["exposure_class"] == classes[sid]
         expected = "WATCH" if classes[sid] == "exposed" else "NORMAL"   # 50 km/h open water; ×0.7 / ×0.45 inside
         assert props["severity"] == expected, (sid, props["severity"])
+
+
+def test_live_feature_separates_tan_from_unionised_toxicity_nh3(tmp_path: Path):
+    from app.aquaculture_artifacts import NH3_TOXICITY_LABEL, _condition
+    build_aquaculture_artifacts(Repo(), str(tmp_path), ("06M26042804",), 20.7, 107.0, .001)
+    props = load_aquaculture_artifact(str(tmp_path), "live")["features"][0]["properties"]
+    assert props["tan_mg_l"] == 0.15                       # 150 raw × 0.001 = total ammonium as N
+    assert 0 < props["nh3_derived_mg_l"] < props["tan_mg_l"] / 5
+    assert props["nh3_derived_basis"] == "unionized_emerson_toxicity"
+    # The toxicity rule fires on un-ionised NH3 only, and labels it so.
+    _severity, drivers = _condition({"NH4": 400.0, "pH": 8.5, "Temperature": 31.5}, {}, .001, "cobia")
+    nh3 = next(d for d in drivers if d["metric"] == "NH3_derived")
+    assert nh3["label"] == NH3_TOXICITY_LABEL

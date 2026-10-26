@@ -14,7 +14,7 @@ def evaluate_inferred_do_alert(contextual: dict, measured: dict, previous: dict 
     prior_count = int((previous or {}).get("consecutive_risk_count", 0))
     count = prior_count + 1 if severity != "NORMAL" else 0
     temp = measured.get("Temperature")
-    nh3 = measured.get("NH3")
+    nh3 = measured.get("NH3")  # un-ionised NH3 (toxicity), not TAN
     compound = (temp is not None and temp >= 33) or (nh3 is not None and nh3 >= .10)
     prior_do = (previous or {}).get("predicted_do")
     rapid_drop = prior_do is not None and do - float(prior_do) <= -.8

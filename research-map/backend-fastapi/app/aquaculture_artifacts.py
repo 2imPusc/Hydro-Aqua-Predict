@@ -8,6 +8,7 @@ and the browser only read/render it.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from math import pow
 from pathlib import Path
@@ -15,6 +16,13 @@ from typing import Any
 
 
 ARTIFACT_VERSION = "aquaculture-map-v2"
+# Two ammonia quantities from the one NH4 channel (mirrors core/chemistry.py):
+# TAN = total ammonium as N (raw × NH4 scale × N factor) — the QCVN 10 / provincial
+# basis, shown for reference only here; un-ionised NH3 (Emerson) — fish toxicity,
+# the only quantity this advisory rule (NH3_limit) uses.
+NH4_TO_N_FACTOR = float(os.getenv("NH4_TO_N_FACTOR", "1.0"))
+NH3_TOXICITY_LABEL = "NH3 không ion (độc tính)"
+TAN_UNIT = "mg/L (NH4+-N, cơ sở cảm biến chưa xác nhận)"
 MODES = {"live", "mock"}
 # Keep this contract aligned with the deterministic demo inputs below and the
 # scenario selector in the frontend.
@@ -52,7 +60,14 @@ def _emerson_nh3(nh4_raw: float | None, ph: float | None, temperature_c: float |
     if temperature_k <= 0:
         return None
     pka = 0.09018 + 2729.92 / temperature_k
-    return max(0.0, nh4_raw) * scale / (1 + pow(10, pka - ph))
+    return _tan(nh4_raw, scale) / (1 + pow(10, pka - ph))
+
+
+def _tan(nh4_raw: float | None, scale: float) -> float | None:
+    """Total ammonium as N (mg/L) — QCVN 10 / provincial basis; not the toxic fraction."""
+    if nh4_raw is None:
+        return None
+    return max(0.0, nh4_raw) * scale * NH4_TO_N_FACTOR
 
 
 
@@ -105,14 +120,14 @@ def _condition(metrics: dict, weather: dict, nh4_scale: float, species: str = "d
     # 1. NH3 evaluation
     if nh3 is not None:
         if nh3 >= thresholds["NH3_limit"] * 1.5:
-            drivers.append({"metric": "NH3_derived", "value": round(nh3, 6), "unit": "mg/L", "severity": "WARNING", "source": "sensor_derived"})
+            drivers.append({"metric": "NH3_derived", "value": round(nh3, 6), "unit": "mg/L", "severity": "WARNING", "source": "sensor_derived", "label": NH3_TOXICITY_LABEL})
             overall_severity = "WARNING"
         elif nh3 >= thresholds["NH3_limit"]:
-            drivers.append({"metric": "NH3_derived", "value": round(nh3, 6), "unit": "mg/L", "severity": "WATCH", "source": "sensor_derived"})
+            drivers.append({"metric": "NH3_derived", "value": round(nh3, 6), "unit": "mg/L", "severity": "WATCH", "source": "sensor_derived", "label": NH3_TOXICITY_LABEL})
             if overall_severity == "NORMAL": overall_severity = "WATCH"
     else:
         if nh3_error:
-            drivers.append({"metric": "NH3_derived", "value": None, "unit": None, "severity": "UNKNOWN", "source": "sensor_derived", "reason_code": nh3_error})
+            drivers.append({"metric": "NH3_derived", "value": None, "unit": None, "severity": "UNKNOWN", "source": "sensor_derived", "label": NH3_TOXICITY_LABEL, "reason_code": nh3_error})
         else:
             missing_data.append("NH3_derived")
             
@@ -227,6 +242,9 @@ def _feature(longitude: float, latitude: float, station: str, mode: str, scenari
             "species_applied": AQUACULTURE_THRESHOLDS.get(species, AQUACULTURE_THRESHOLDS["default"])["name"],
             "observed_at": observed_at, "metrics": metrics,
             "nh3_derived_mg_l": None if nh3 is None else round(nh3, 6),
+            "nh3_derived_basis": "unionized_emerson_toxicity",
+            "tan_mg_l": None if (tan := _tan(metrics.get("NH4"), nh4_scale)) is None or nh3_error else round(tan, 6),
+            "tan_unit": TAN_UNIT,
             "weather": weather, "drivers": drivers,
             "used_by_models": False, "used_by_classification": False,
             "used_by_alerts": False, "notification_eligible": False,

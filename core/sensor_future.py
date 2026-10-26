@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 
 from core import paths
-from core.chemistry import emerson_nh3
+from core.chemistry import emerson_nh3, tan_mg_l
 from core.contextual_models import predict_haiphong_contextual
 from core.quality import is_in_range
 from core.sensor_future_long import clean_raw, origin_features
@@ -180,7 +180,10 @@ def forecast_sensor_first(raw: pd.DataFrame, station_serial: str) -> dict:
         interpolated = horizon != model_horizon
         sensors = {param: current[param] + ratio * (endpoint[param] - current[param]) for param in SENSOR_PARAMS}
         sensors["Temperature"] = round(sensors["Temperature"], 4)
+        # NH3 = un-ionised (toxicity advisory); TAN = total ammonium as N, the
+        # basis the contextual models were trained on (provincial "NH3" column).
         sensors["NH3"] = emerson_nh3(sensors["NH4"], sensors["pH"], sensors["Temperature"])
+        sensors["TAN"] = tan_mg_l(sensors["NH4"])
         sources = {param: (f"interpolated_to_{model_horizon}m_{label}" if interpolated and param in ("Temperature", "TSS") else label)
                    for param, label in endpoint_sources.items()}
         contextual = predict_haiphong_contextual(sensors, future_time)

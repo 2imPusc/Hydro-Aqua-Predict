@@ -75,7 +75,8 @@ def test_output_contract_is_shadow_with_model_version(fake_bundle):
     assert first["sensor_sources"]["Temperature"] == "interpolated_to_15m_ridge_b4"
     assert first["sensor_sources"]["TSS"] == "interpolated_to_15m_persistence"
     assert last["model_version"] == "test-ridge-v2"
-    assert {"NH3", "pH", "NH4", "TSS"} <= set(last["sensors"])
+    assert {"NH3", "TAN", "pH", "NH4", "TSS"} <= set(last["sensors"])
+    assert last["sensors"]["TAN"] > last["sensors"]["NH3"]  # un-ionised is a fraction of TAN
     assert last["inferred"] == {"DO": 5.1} and last["inference_diagnostics"]["DO"]["status"] == "accepted"
 
 

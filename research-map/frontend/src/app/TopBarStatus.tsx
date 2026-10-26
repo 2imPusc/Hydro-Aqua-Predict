@@ -7,7 +7,7 @@ import { describeApiError } from '../api/client'
 import { researchReason } from '../api/research'
 
 const SCENARIO_LABEL: Record<string, string> = {
-  normal: 'Bình thường', rain_wind_watch: 'Mưa + gió', nh3_watch: 'NH3 tăng', temperature_warning: 'Sốc nhiệt',
+  normal: 'Bình thường', rain_wind_watch: 'Mưa + gió', nh3_watch: 'NH3 không ion tăng', temperature_warning: 'Sốc nhiệt',
   extreme_hazard: 'Tổng hợp', oyster_danger_cobia_safe: 'Lệch pha đối tượng', missing_sensor_data: 'Mất dữ liệu cảm biến',
 }
 export const scenarioLabel = (id: string) => SCENARIO_LABEL[id] ?? id

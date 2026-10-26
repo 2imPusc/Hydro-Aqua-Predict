@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
 
-from core.chemistry import emerson_nh3
+from core.chemistry import emerson_nh3, provincial_basis_row, tan_mg_l
 from core.config import STATIONS
 from core.impute import impute_params
 from core.quality import filter_valid_rows
@@ -89,10 +89,15 @@ def prepare_forecast_frame(df_raw: pd.DataFrame, region: str) -> pd.DataFrame:
             lambda row: emerson_nh3(row["NH4"], row["pH"], row["Temperature"]),
             axis=1,
         )
+    if "TAN" not in df.columns:
+        df["TAN"] = df["NH4"].map(lambda value: tan_mg_l(value) if pd.notna(value) else np.nan)
 
     do_values = []
     for timestamp, row in df.iterrows():
+        # The imputer's "NH3" feature is provincial ammonium (TAN); impute_params
+        # maps it from "TAN".  The un-ionised NH3 is kept for display only.
         measured = {
+            "TAN": row.get("TAN"),
             "NH3": row.get("NH3"),
             "pH": row.get("pH"),
             "Temperature": row.get("Temperature"),
@@ -106,7 +111,7 @@ def prepare_forecast_frame(df_raw: pd.DataFrame, region: str) -> pd.DataFrame:
         do_values.append(imp["imputed"].get("DO", imp["defaulted"].get("DO", np.nan)))
 
     df[DO_TARGET_COLUMN] = do_values
-    keep_cols = [col for col in ["COD", "NH4", "pH", "Temperature", "TSS", "NH3", DO_TARGET_COLUMN] if col in df.columns]
+    keep_cols = [col for col in ["COD", "NH4", "pH", "Temperature", "TSS", "NH3", "TAN", DO_TARGET_COLUMN] if col in df.columns]
     return df[keep_cols].dropna(subset=["NH4", "pH", "Temperature", "TSS", DO_TARGET_COLUMN]).sort_index()
 
 
@@ -289,7 +294,9 @@ def forecast(
             "DO": preds_dict["DO"][offset - 1],
         }
 
-        res_df = _classify_by_scoring(pd.DataFrame([f_params]), list(f_params.keys()), species)
+        # HSI "NH3" breakpoints are provincial ammonium: score with TAN from forecast NH4.
+        scoring_row = provincial_basis_row({**f_params, "TAN": tan_mg_l(f_params["NH4"])})
+        res_df = _classify_by_scoring(pd.DataFrame([scoring_row]), list(scoring_row.keys()), species)
         wqi_val = float(res_df["suitability_score"].iloc[0])
         wqi_label = str(res_df["suitability_name"].iloc[0])
 

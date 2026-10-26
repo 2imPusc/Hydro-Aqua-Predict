@@ -146,7 +146,7 @@ function StationRow({ station, index, map, stale, exposure, theme }: { station: 
             <div className="flex justify-between gap-2"><span><span className="text-fg-subtle">Áp dụng:</span> {String(advisory.species_applied ?? '—')}</span><span><span className="text-fg-subtle">Dữ liệu:</span> {String(advisory.data_status ?? 'unknown')}</span></div>
             {advisory.pilot_reference && <div><span className="text-fg-subtle">Nguồn (pilot):</span> <span className="font-mono">{String(advisory.pilot_reference?.source_station_serial ?? '')}</span></div>}
             <div className="grid grid-cols-2 gap-1 tabular">
-              <MiniValue label="NH3" value={advisory.nh3_derived_mg_l} />
+              <MiniValue label="NH3 không ion (độc tính)" value={advisory.nh3_derived_mg_l} />
               <MiniValue label="Nhiệt độ" value={advisory.metrics?.Temperature} />
               <MiniValue label="Mưa 6h" value={advisory.weather?.rain_6h_mm} />
               <MiniValue label="Gió 6h" value={advisory.weather?.wind_6h_kmh} />

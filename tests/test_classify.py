@@ -4,7 +4,7 @@ from core.classify import classify_station, LABEL_NAMES
 
 @pytest.fixture
 def measured_no_cod():
-    return {"NH3": 0.01, "pH": 7.9, "Temperature": 30.0, "TSS": 47.0}
+    return {"TAN": 0.08, "NH3": 0.004, "pH": 7.9, "Temperature": 30.0, "TSS": 47.0}
 
 def test_required_keys(measured_no_cod):
     r = classify_station("06M26042804", measured_no_cod, "cobia", region="haiphong")
@@ -27,7 +27,7 @@ def test_provenance_groups(measured_no_cod):
     r = classify_station("06M26042804", measured_no_cod, "cobia")
     for g in ["measured", "imputed", "defaulted"]:
         assert g in r["params"]
-    assert "NH3" in r["params"]["measured"]
+    assert "TAN" in r["params"]["measured"]
 
 def test_oyster_path(measured_no_cod):
     r = classify_station("06M26042803", measured_no_cod, "oyster", region="quangninh")

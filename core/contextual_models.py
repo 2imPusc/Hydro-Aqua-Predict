@@ -1,8 +1,14 @@
-"""Versioned, shadow-only contextual models for Hai Phong."""
+"""Versioned, shadow-only contextual models for Hai Phong.
+
+Trained on provincial HP data: the manifest feature "NH3" is total ammonium as N
+(TAN), so it is fed from measured["TAN"] via provincial_basis_row — never from
+the un-ionised NH3 (which would be 13–25x too small and always OOD).
+"""
 from __future__ import annotations
 import json
 import joblib
 import pandas as pd
+from core.chemistry import provincial_basis_row
 from core.config import IMPUTER_DIR, NH4_CONVERSION_CONFIRMED
 from core.quality import is_in_range
 
@@ -18,7 +24,7 @@ def predict_haiphong_contextual(measured: dict, observed_at=None) -> dict:
         return result
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     for target, spec in manifest["targets"].items():
-        values = dict(measured)
+        values = provincial_basis_row(measured)
         if "month" in spec["features"]:
             values["month"] = pd.to_datetime(observed_at, utc=True).month if observed_at is not None else None
         missing = [f for f in spec["features"] if values.get(f) is None or pd.isna(values.get(f))]

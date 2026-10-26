@@ -35,6 +35,22 @@ LOCAL_CSV_PATH = paths.GREENLAB_EXPORT_CSV
 # --- NH4 unit (chưa xác nhận vendor; default µg/L → mg/L) ---
 NH4_UNIT_SCALE = float(os.getenv("NH4_UNIT_SCALE", "0.001"))
 NH4_CONVERSION_CONFIRMED = os.getenv("NH4_CONVERSION_CONFIRMED", "false").lower() in ("1", "true", "yes")
+# Basis of the sensor's NH4 value — NH4+ ion mass or NH4-N — is unconfirmed.  1.0
+# treats it as N (matches provincial medians before 2026-07-31).  Set 0.7766
+# (14.007 / 18.04) if the vendor confirms it reports NH4+ ion mass.
+NH4_TO_N_FACTOR = float(os.getenv("NH4_TO_N_FACTOR", "1.0"))
+TAN_UNIT_LABEL = "mg/L (NH4+-N, cơ sở cảm biến chưa xác nhận)"
+# Provincial monitoring data (data/*/clean_data.csv) calls total ammonium-as-N
+# "NH3" ("Amôni (NH4+ tính theo N)").  Every model/threshold trained or defined on
+# that data (imputers, contextual models, HSI breakpoints, spatial anchors) has a
+# feature named "NH3" that must receive TAN, never un-ionised NH3.
+# {feature name in provincial-trained artifact: runtime key that feeds it}
+AMMONIA_FEATURE_SOURCE = {"NH3": "TAN"}
+# Display labels for the two ammonia quantities.
+PARAM_LABELS = {
+    "TAN": "Amoni (NH4+-N)",
+    "NH3": "NH3 không ion (độc tính)",
+}
 
 # --- Weather enrichment (observation-only; never drives alerts directly) ---
 WEATHER_ENABLED = os.getenv("WEATHER_ENABLED", "false").lower() in ("1", "true", "yes")
@@ -89,7 +105,8 @@ REGION_SPECIES = {"quangninh": "oyster", "haiphong": "cobia", "DongThuyAnh-HY": 
 # --- QCVN 10:2023/BTNMT cột B1 ---
 QCVN10_B1 = {
     "COD":         {"max": 10},
-    "NH3":         {"max": 0.1},
+    # Ammonium as N (QCVN "Amoni"), compared with TAN — not un-ionised NH3.
+    "TAN":         {"max": 0.1},
     "pH":          {"min": 6.5, "max": 8.5},
     "Temperature": {"max": 30},
     "TSS":         {"max": 50},
@@ -99,7 +116,8 @@ QCVN10_B1 = {
 PLAUSIBLE_RANGE = {
     "COD":         (0.0, 100.0),    # coastal hiếm khi >100; rail 558.8 bị loại
     "NH4":         (0.0, 500.0),    # raw sensor (trước scale)
-    "NH3":         (0.0, 2.0),      # derived mg/L; guard against unit mismatch
+    "NH3":         (0.0, 2.0),      # derived un-ionised mg/L; guard against unit mismatch
+    "TAN":         (0.0, 2.0),      # derived total ammonium-as-N mg/L; guard against unit mismatch
     "DO":          (0.0, 20.0),     # direct sensor, mg/L
     "pH":          (6.0, 9.5),
     "Temperature": (0.0, 45.0),
@@ -117,5 +135,6 @@ PH_MAX_CHANGE_PER_HOUR = 0.5            # |pH(t) - pH(t-60 min)| above this -> S
 PH_DAY_MAX_OUT_OF_BAND_FRACTION = 0.10
 
 # --- Imputer feature sets (adaptive theo COD validity) ---
+# "NH3" here is the provincial column name = TAN (see AMMONIA_FEATURE_SOURCE).
 FEATURES_5 = ["COD", "NH3", "pH", "Temperature", "TSS"]
 FEATURES_4 = ["NH3", "pH", "Temperature", "TSS"]

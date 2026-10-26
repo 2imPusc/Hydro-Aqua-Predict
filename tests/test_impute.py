@@ -7,12 +7,12 @@ from core.impute import (
 @pytest.fixture
 def measured_full():
     # COD sống → đường 5-feature
-    return {"COD": 10.0, "NH3": 0.05, "pH": 7.8, "Temperature": 28.0, "TSS": 20.0}
+    return {"COD": 10.0, "TAN": 0.05, "pH": 7.8, "Temperature": 28.0, "TSS": 20.0}
 
 @pytest.fixture
 def measured_no_cod():
     # COD chết → đường 4-feature
-    return {"NH3": 0.05, "pH": 7.8, "Temperature": 28.0, "TSS": 20.0}
+    return {"TAN": 0.05, "pH": 7.8, "Temperature": 28.0, "TSS": 20.0}
 
 @pytest.mark.requires_data
 def test_build_training_data_per_region():

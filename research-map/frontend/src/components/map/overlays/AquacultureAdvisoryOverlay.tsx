@@ -19,7 +19,7 @@ export function AquacultureAdvisoryOverlay({ artifact }: { artifact: Aquaculture
     const drivers: Driver[] = props.drivers ?? []
     return <CircleMarker key={`aquaculture-${index}`} center={[latitude, longitude]} radius={warning ? 22 : (watch ? 18 : 14)} pathOptions={{ color, weight: 3, fillColor: color, fillOpacity: warning ? .5 : .28 }}>
       <Popup><b>{artifact.mode === 'mock' ? `MOCK | ${props.scenario}` : 'LIVE | sensor advisory'}</b><br />
-        Mức: {props.severity}<br />NH4: {metrics.NH4 ?? '—'} · NH3 quy đổi: {props.nh3_derived_mg_l ?? '—'} mg/L<br />
+        Mức: {props.severity}<br />NH4 (thô): {metrics.NH4 ?? '—'} · Amoni (NH4+-N): {props.tan_mg_l ?? '—'} mg/L · NH3 không ion (độc tính): {props.nh3_derived_mg_l ?? '—'} mg/L<br />
         Nhiệt độ: {metrics.Temperature ?? '—'} °C · pH: {metrics.pH ?? '—'}<br />
         Mưa 6h: {weather.rain_6h_mm ?? '—'} mm · Gió 6h: {weather.wind_6h_kmh ?? '—'} km/h<br />
         {drivers.length ? <><hr />Yếu tố: {drivers.map(item => `${item.metric}=${item.value} ${item.unit}`).join(', ')}</> : <><hr />Chưa có yếu tố cần theo dõi.</>}
