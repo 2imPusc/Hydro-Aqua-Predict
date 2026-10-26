@@ -54,14 +54,14 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 877 tests; requires_data ones skip without data/
+.venv\Scripts\python -m pytest -q                       # 901 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
 powershell -ExecutionPolicy Bypass -File research-map\dev-local.ps1   # api :8010, vite :5173 (5174 if taken), postgres :5434 (docker)
 .venv\Scripts\python scripts\export_research_map_artifacts.py   # research-map H1–H4 JSON -> artifacts/research-map/<stamp>/ (newest served)
 .venv\Scripts\python scripts\check_isolation.py         # no imports/paths escape the repo
-cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (160)
+cd research-map\backend-fastapi; $env:PYTHONPATH='.'; .venv\Scripts\python -m pytest tests -q   # backend tests, own venv (162)
 ```
 
 `GREENLAB_FETCH_MODE=cache` gives a stable offline run from local history (no API calls);

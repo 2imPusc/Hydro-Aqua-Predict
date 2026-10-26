@@ -169,3 +169,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định:** từ cảm biến NH4 suy ra hai đại lượng. `TAN` (amoni tổng theo N, `NH4_TO_N_FACTOR` mặc định 1,0) dùng cho QCVN 10 B1 amoni 0,1 mg/L, mô hình nội suy, mô hình ngữ cảnh, HSI và điểm neo không gian, vì cột "NH3" của dữ liệu tỉnh là amoni theo N. NH3 không ion (Emerson) chỉ dùng cho cảnh báo độc tính, nhãn "NH3 không ion (độc tính)". Ánh xạ tường minh `AMMONIA_FEATURE_SOURCE = {"NH3": "TAN"}`; không đổi tên đặc trưng trong pickle, không huấn luyện lại. Đầu vào ngoài p1–p99 huấn luyện vẫn được nội suy nhưng gắn cờ. Chủ dự án duyệt 26/10.
 - **Lý do:** định tuyến cũ làm đầu vào amoni luôn ngoài miền huấn luyện và QCVN / HSI amoni luôn "đạt" (RL-69).
 - **Hệ quả:** kết luận QCVN amoni phụ thuộc cơ sở NH4 chưa xác nhận (48/64 → 4/64 ngày nếu cơ sở ion) nên luôn phải hiển thị cơ sở; số NH4 sau 31/07 nằm ngoài miền huấn luyện cho tới khi giải thích được bậc.
+
+## #29 — 2026-10-26 · Cờ ngoài phạm vi huấn luyện bật/tắt theo chỉ số, lưu trong alert-config
+
+- **Quyết định:** mở rộng tệp alert-config có phiên bản bằng mục `ood_flags` (schema 2) thay vì làm cấu hình riêng, để dùng lại xem trước, lý do bắt buộc, lưu phiên bản, khôi phục và kiểm tra hợp lệ. Chỉ `enabled` sửa được; danh sách chỉ số và nhãn bị khóa. Mặc định TSS tắt cho tới khi xử lý xong vấn đề cơ sở TSS. Chủ dự án yêu cầu 26/10.
+- **Lý do:** cờ luôn bật vì một chỉ số có vấn đề cơ sở đo (TSS) làm mất giá trị cảnh báo của các chỉ số khác.
+- **Hệ quả:** nút tắt chỉ đổi phần hiển thị, không đổi phần ghi log; cấu hình hỏng thì bật hết. Cổng loại kết quả của mô hình ngữ cảnh DO / độ mặn không phụ thuộc nút này — muốn đổi cần quyết định riêng.

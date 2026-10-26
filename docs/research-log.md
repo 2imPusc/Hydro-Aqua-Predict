@@ -817,3 +817,11 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Đề xuất (chưa áp dụng):** giữ hệ số 1,0 nhưng hiển thị khoảng ion–N; QCVN amoni chỉ ghi "có thể vượt / không kết luận được / dưới ngưỡng tham khảo", sau 31/07 "không đánh giá". Trước 31/07: 4 ngày có thể vượt, 43 không kết luận, 16 dưới ngưỡng (63 ngày đủ). Không đưa amoni cảm biến vào cảnh báo cho người nuôi. Một cặp mẫu nước tại lồng phân tích TAN phòng thí nghiệm cùng lúc với số đọc cảm biến sẽ giải quyết cả đơn vị, cơ sở và độ lệch nền.
 - **Hạn chế:** không có mẫu đối chứng; số liệu tỉnh khác năm, n = 12–36; hệ số chọn lọc ISE là giá trị văn liệu; độ mặn CMEMS không bắt được ngọt hóa ven bờ.
 - **Artifact:** `nh4-basis-evidence-20261026/`; `experiments/nh4_basis_evidence.py`; `tests/test_nh4_basis_evidence.py`.
+
+## RL-71 · 2026-10-26 · Bật/tắt cờ "ngoài phạm vi huấn luyện" theo từng chỉ số
+
+- **Vấn đề:** sau RL-69, cờ ngoài phạm vi của mô hình nội suy gần như luôn bật: TSS cảm biến ngoài p1–p99 dữ liệu tỉnh ở ~93 % số dòng, TAN sau bước 31/07 ngoài 100 %. Chủ dự án muốn nút bật/tắt theo loại chỉ số.
+- **Làm:** mục `ood_flags` (schema 2) trong alert-config có phiên bản; trang Cấu hình → Ngưỡng cảnh báo có nhóm "Cờ ngoài phạm vi huấn luyện" với một công tắc mỗi chỉ số (dùng lại xem trước, lý do, lưu phiên bản, khôi phục). Mặc định TAN / pH / Nhiệt độ / COD bật, TSS tắt (cơ sở TSS cảm biến khác dữ liệu tỉnh — đang xem xét riêng). Endpoint `GET /api/v1/admin/ood-flags`.
+- **Nguyên tắc trung thực:** tắt chỉ đổi phần hiển thị (cờ chung, câu cảnh báo); `ood_features` luôn ghi đủ, kèm `ood_features_muted` và phiên bản cấu hình; cấu hình hỏng thì coi như bật hết. Sổ dự báo shadow nay ghi thêm `inference_diagnostics`. Cổng loại kết quả của mô hình ngữ cảnh DO / độ mặn không phụ thuộc nút này.
+- **Không làm:** công tắc theo chỉ số cho các driver khuyến nghị cảm biến (hồ sơ loài nằm trong `core/config.py`, không có chỗ tự nhiên trong alert-config nếu không thiết kế lại).
+- **Kiểm tra:** test lõi 901, backend 162, build giao diện, kiểm tra cô lập đều đạt.
