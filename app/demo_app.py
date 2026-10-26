@@ -327,6 +327,13 @@ with tab_dash:
 
     if data.get('warning'):
         technical_notes.append(data['warning'])
+    ood_diag = (anchor_data or {}).get('imputation_diagnostics', {})
+    ood_name = lambda feature: 'TAN' if feature == 'NH3' else feature  # noqa: E731 — imputer "NH3" = amoni TAN
+    ood_parts = [ood_name(f) for f in ood_diag.get('ood_features_surfaced', [])]
+    ood_parts += [f"{ood_name(f)} (đã tắt)" for f in ood_diag.get('ood_features_muted', [])]
+    if ood_parts:
+        technical_notes.append('Đầu vào bộ nội suy ngoài phạm vi huấn luyện: ' + ', '.join(ood_parts)
+                               + ' — chỉ số "đã tắt" không bật cờ cảnh báo (Cấu hình → Ngưỡng cảnh báo).')
 
     future_shadow = data.get('sensor_future', {})
     forecast_advisory = data.get('forecast_advisory', {})

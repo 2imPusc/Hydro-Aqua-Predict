@@ -20,3 +20,15 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "requires_data" in item.keywords:
             item.add_marker(skip)
+
+
+@pytest.fixture(scope="session")
+def _empty_alert_config_dir(tmp_path_factory):
+    return tmp_path_factory.mktemp("alert-config-empty") / "alert-config"
+
+
+@pytest.fixture(autouse=True)
+def _isolate_alert_config(_empty_alert_config_dir, monkeypatch):
+    """Never read the machine's runtime/alert-config: tests see the tracked defaults only
+    (OOD toggles, thresholds). Tests that write versions re-point the dir themselves."""
+    monkeypatch.setattr(paths, "ALERT_CONFIG_DIR", _empty_alert_config_dir)

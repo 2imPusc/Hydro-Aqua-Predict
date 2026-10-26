@@ -10,7 +10,7 @@ from typing import Dict
 
 from hap_shared.classification import _classify_by_scoring, LABEL_NAMES as _SRC_LABELS
 from core.chemistry import provincial_basis_row
-from core.impute import impute_params, DEFAULT_REGION
+from core.impute import impute_params, load_ood_flags, ood_metric_label, DEFAULT_REGION
 from core.config import NH4_UNIT_NOTE
 
 LABEL_NAMES = _SRC_LABELS
@@ -18,7 +18,7 @@ LABEL_NAMES = _SRC_LABELS
 
 def classify_station(station_serial: str, measured: Dict[str, float],
                      species: str, date: str = None,
-                     region: str = DEFAULT_REGION) -> Dict:
+                     region: str = DEFAULT_REGION, ood_flags: Dict | None = None) -> Dict:
     """Classify suitability cho 1 trạm-ngày.
 
     Parameters
@@ -29,8 +29,11 @@ def classify_station(station_serial: str, measured: Dict[str, float],
     species  : "oyster" | "cobia"
     date     : ISO date string (optional, để label)
     region   : "haiphong" | "quangninh" — chọn bộ imputer + median theo vùng
+    ood_flags: bật/tắt cờ ngoài dải theo chỉ số (``load_ood_flags()``; None → đọc
+               alert-config hiệu lực). Chỉ đổi phần hiển thị, chẩn đoán luôn ghi đủ.
     """
-    imp = impute_params(measured, region=region)
+    ood_flags = ood_flags if ood_flags is not None else load_ood_flags()
+    imp = impute_params(measured, region=region, ood_flags=ood_flags)
     imputed, defaulted = imp["imputed"], imp["defaulted"]
     confidence = imp.get("confidence", {})
     diagnostics = imp.get("diagnostics", {})
@@ -58,9 +61,19 @@ def classify_station(station_serial: str, measured: Dict[str, float],
     if diagnostics.get("missing_features"):
         warn.append(f"Thiếu input imputer: {', '.join(diagnostics['missing_features'])} "
                     "(NH3 = amoni TAN) — giá trị nội suy kém tin cậy")
-    if diagnostics.get("ood_features"):
-        warn.append(f"Input ngoài dải huấn luyện (p1–p99) {', '.join(diagnostics['ood_features'])} "
+    flags = diagnostics.get("ood_flags") or {}
+
+    def ood_label(feature: str) -> str:  # imputer feature "NH3" is shown as TAN
+        return ood_metric_label(feature, ood_flags)
+
+    if diagnostics.get("ood_features_surfaced"):
+        warn.append(f"Input ngoài dải huấn luyện (p1–p99) "
+                    f"{', '.join(ood_label(f) for f in diagnostics['ood_features_surfaced'])} "
                     "— giá trị nội suy là ngoại suy, gắn cờ OOD")
+    if diagnostics.get("ood_features_muted"):
+        warn.append(f"Cờ ngoài dải huấn luyện đã tắt cho "
+                    f"{', '.join(ood_label(f) for f in diagnostics['ood_features_muted'])} "
+                    f"(cấu hình {flags.get('config_version') or 'mặc định'}; vẫn ghi trong chẩn đoán)")
     if strong:
         warn.append(f"ML-mạnh (R²≥0.4): {', '.join(strong)}")
     if weak:
