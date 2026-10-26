@@ -3,18 +3,24 @@
 Trained on provincial HP data: the manifest feature "NH3" is total ammonium as N
 (TAN), so it is fed from measured["TAN"] via provincial_basis_row — never from
 the un-ionised NH3 (which would be 13–25x too small and always OOD).
+
+Out-of-range inputs REJECT the prediction (a model gate, not a display flag). The
+per-metric alert-config toggles (``ood_flags``) do not change that gate; a rejected
+record only says which of its ``ood_features`` are muted for display
+(``ood_features_muted``) so UIs can show "đã tắt" next to the reason.
 """
 from __future__ import annotations
 import json
 import joblib
 import pandas as pd
 from core.chemistry import provincial_basis_row
+from core.alert_config import ood_flag_settings
 from core.config import IMPUTER_DIR, NH4_CONVERSION_CONFIRMED
 from core.quality import is_in_range
 
 MANIFEST = IMPUTER_DIR / "haiphong_contextual_manifest.json"
 
-def predict_haiphong_contextual(measured: dict, observed_at=None) -> dict:
+def predict_haiphong_contextual(measured: dict, observed_at=None, ood_flags: dict | None = None) -> dict:
     result = {"mode": "shadow", "used_by_alerts": False, "used_by_suitability": False, "predictions": {}}
     if not NH4_CONVERSION_CONFIRMED:
         result.update({"status": "disabled", "reason": "nh4_conversion_unconfirmed"})
@@ -23,6 +29,7 @@ def predict_haiphong_contextual(measured: dict, observed_at=None) -> dict:
         result.update({"status": "unavailable", "reason": "model_bundle_missing"})
         return result
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    toggles = (ood_flags if ood_flags is not None else ood_flag_settings()).get("features") or {}
     for target, spec in manifest["targets"].items():
         values = provincial_basis_row(measured)
         if "month" in spec["features"]:
@@ -31,7 +38,9 @@ def predict_haiphong_contextual(measured: dict, observed_at=None) -> dict:
         invalid = [f for f in spec["features"] if f in values and f != "month" and not pd.isna(values[f]) and not is_in_range(f, float(values[f]))]
         ood = [f for f in spec["features"] if f in spec["feature_bounds"] and f in values and values.get(f) is not None and (float(values[f]) < spec["feature_bounds"][f][0] or float(values[f]) > spec["feature_bounds"][f][1])]
         if missing or invalid or ood:
-            result["predictions"][target] = {"status": "rejected", "missing_features": missing, "invalid_features": invalid, "ood_features": ood, "model_version": manifest["version"]}
+            result["predictions"][target] = {"status": "rejected", "missing_features": missing, "invalid_features": invalid, "ood_features": ood,
+                                             "ood_features_muted": [f for f in ood if not toggles.get(f, {}).get("enabled", True)],
+                                             "model_version": manifest["version"]}
             continue
         model = joblib.load(IMPUTER_DIR / spec["artifact"])
         value = float(model.predict(pd.DataFrame([[values[f] for f in spec["features"]]], columns=spec["features"]))[0])

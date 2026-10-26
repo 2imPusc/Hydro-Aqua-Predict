@@ -66,7 +66,7 @@ export function EditPanel({ draft, base, changes, issues, stationName, onDiscard
   const reasonId = useId()
   const [reason, setReason] = useState('')
   const [changedBy, setChangedBy] = useState('')
-  const [preview, setPreview] = useState<{ errors: string[]; examples: TierExample[]; forKey: string } | null>(null)
+  const [preview, setPreview] = useState<{ errors: string[]; examples: TierExample[]; muted: string[] | null; forKey: string } | null>(null)
   const [busy, setBusy] = useState<'preview' | 'save' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [serverErrors, setServerErrors] = useState<string[]>([])
@@ -81,7 +81,8 @@ export function EditPanel({ draft, base, changes, issues, stationName, onDiscard
     setBusy('preview'); setError(null)
     try {
       const result = await previewAlertConfig(toPayload(draft))
-      setPreview({ errors: result.errors ?? [], examples: isInvalid(result) ? [] : result.tier_examples ?? [], forKey: draftKey })
+      setPreview({ errors: result.errors ?? [], examples: isInvalid(result) ? [] : result.tier_examples ?? [],
+        muted: isInvalid(result) ? null : result.ood_flags?.muted_metrics ?? null, forKey: draftKey })
     } catch (caught) {
       if (!isAbortError(caught)) setError(describeApiError((caught as Error).message))
     } finally { setBusy(null) }
@@ -106,7 +107,7 @@ export function EditPanel({ draft, base, changes, issues, stationName, onDiscard
     <Panel title="Thay đổi chưa lưu" summary={dirty ? `${changes.length} mục` : 'Chưa có'} actions={dirty ? (
       <button type="button" onClick={onDiscard} className="inline-flex h-6 items-center gap-1 rounded-full px-2 text-[11.5px] font-semibold text-fg-muted hover:bg-surface-2 hover:text-fg"><Undo2 size={12} aria-hidden />Bỏ hết</button>
     ) : undefined}>
-      <ChangeList changes={changes} config={base} stationName={stationName} empty="Chỉnh một ngưỡng hoặc hành động ở bên trái." />
+      <ChangeList changes={changes} config={base} stationName={stationName} empty="Chỉnh một ngưỡng, hành động hoặc bật/tắt cờ ở bên trái." />
 
       {issues.length > 0 && (
         <div role="alert" className="mt-2.5 rounded-[var(--radius-sm)] border border-[var(--danger-line)] bg-danger-bg px-2.5 py-2 text-[12px] text-danger">
@@ -136,6 +137,13 @@ export function EditPanel({ draft, base, changes, issues, stationName, onDiscard
           {preview.errors.length > 0
             ? <ul role="alert" className="m-0 list-disc space-y-0.5 pl-4 text-[12px] text-danger">{preview.errors.map(item => <li key={item}>{item}</li>)}</ul>
             : <p className="m-0 text-[12px] font-semibold text-ok">Máy chủ kiểm tra: hợp lệ</p>}
+          {preview.muted && (
+            <p className="m-0 text-[12px] text-fg-muted">
+              Cờ ngoài phạm vi huấn luyện sau khi lưu: {preview.muted.length
+                ? <>đã tắt <strong className="font-semibold text-fg">{preview.muted.map(metric => draft.ood_flags?.metrics[metric]?.label_vi ?? metric).join(', ')}</strong></>
+                : 'bật cho mọi chỉ số'}
+            </p>
+          )}
           {byHazard.size > 0 && (
             <table className="w-full border-collapse text-[12px]">
               <caption className="pb-1 text-left text-[11.5px] text-fg-subtle">Giá trị ví dụ sẽ được xếp bậc</caption>

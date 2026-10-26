@@ -1,7 +1,7 @@
 /**
  * Pure draft logic for the alert-tier editor: scope merge, editable-field
  * updates, diff and client validation (mirrors C1; the server re-validates).
- * Only `thresholds`, `actions_vi`, `persistence_days` and `scopes` are ever written.
+ * Only `thresholds`, `actions_vi`, `persistence_days`, `scopes` and `ood_flags.metrics.<m>.enabled` are ever written.
  */
 import type { AlertConfig, AlertConfigChange, EditableField, ExposureClass, HazardConfig, HazardOverride, ScopeOverrides } from '../../types/alerts'
 
@@ -101,6 +101,7 @@ function leaves(config: AlertConfig): Map<string, unknown> {
     for (const field of EDITABLE) for (const [tier, value] of Object.entries((hazard?.[field] as Record<string, unknown> | undefined) ?? {})) out.set(`${prefix}.${field}.${tier}`, value)
   }
   for (const [id, hazard] of Object.entries(config.hazards)) addHazard(`hazards.${id}`, hazard)
+  for (const [metric, item] of Object.entries(config.ood_flags?.metrics ?? {})) out.set(`ood_flags.metrics.${metric}.enabled`, item.enabled)
   for (const kind of ['exposure_class', 'station'] as const) {
     for (const [scopeId, overrides] of Object.entries((config.scopes?.[kind] ?? {}) as Record<string, ScopeOverrides>)) {
       for (const [id, override] of Object.entries(overrides ?? {})) addHazard(`scopes.${kind}.${scopeId}.${id}`, override)
@@ -119,6 +120,11 @@ export function diffConfig(before: AlertConfig, after: AlertConfig): AlertConfig
 /** "hazards.storm_wind.thresholds.2" â†’ readable Vietnamese. */
 export function describePath(path: string, config: AlertConfig | null, stationName?: (id: string) => string): { scope: string; hazard: string; field: string } {
   const parts = path.split('.')
+  if (parts.length === 1) return { scope: 'Mặc định', hazard: 'Cấu trúc tệp cấu hình', field: path === 'schema_version' ? 'phiên bản cấu trúc' : path }
+  if (parts[0] === 'ood_flags') {
+    const metric = parts[2]
+    return { scope: 'Mặc định', hazard: `Cờ ngoài phạm vi · ${config?.ood_flags?.metrics[metric]?.label_vi ?? metric}`, field: 'bật/tắt' }
+  }
   let scope = 'Mặc định', rest = parts.slice(1)
   if (parts[0] === 'scopes') {
     scope = parts[1] === 'exposure_class' ? `Lớp ${CLASS_LABEL[parts[2] as ExposureClass] ?? parts[2]}` : `Trạm ${stationName?.(parts[2]) ?? parts[2]}`
@@ -179,6 +185,7 @@ export const scopeName = (scope: Scope, stationName?: (id: string) => string) =>
 
 export function fmt(value: unknown): string {
   if (value === null || value === undefined) return '—'
+  if (typeof value === 'boolean') return value ? 'Bật' : 'Tắt'
   if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('vi-VN', { maximumFractionDigits: 3 }) : '—'
   return String(value)
 }
@@ -209,8 +216,25 @@ export function restoreFrom(current: AlertConfig, version: AlertConfig): AlertCo
   const station: Record<string, ScopeOverrides> = {}
   for (const [id, overrides] of Object.entries(version.scopes?.station ?? {})) { const kept = pick(overrides); if (Object.keys(kept).length) station[id] = kept }
   next.scopes = { exposure_class: exposure, station }
+  // A version saved before the toggles existed keeps the current toggles (nothing to restore).
+  for (const [metric, item] of Object.entries(next.ood_flags?.metrics ?? {})) {
+    const saved = version.ood_flags?.metrics?.[metric]?.enabled
+    if (typeof saved === 'boolean') item.enabled = saved
+  }
   return next
 }
+
+/** Turn one metric's "outside training range" flag on/off (global, not scoped). */
+export function setOodFlag(config: AlertConfig, metric: string, enabled: boolean): AlertConfig {
+  const next = clone(config)
+  const item = next.ood_flags?.metrics[metric]
+  if (item) item.enabled = enabled
+  return next
+}
+
+/** Metrics whose flag is off, in config order. */
+export const mutedOodMetrics = (config: AlertConfig | null | undefined) =>
+  Object.entries(config?.ood_flags?.metrics ?? {}).filter(([, item]) => !item.enabled).map(([metric]) => metric)
 
 /** Draft as sent to the server: NaN never leaves the client (validation blocks it anyway). */
 export const toPayload = (config: AlertConfig): AlertConfig => JSON.parse(JSON.stringify(config)) as AlertConfig

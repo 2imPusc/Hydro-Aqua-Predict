@@ -14,6 +14,13 @@ Contract C1 in docs/superpowers/plans/2026-10-23-phase1-parallel.md; decisions #
   ``persistence_days`` (and scope overrides of those three) relative to the defaults; see
   ``structural_errors``. ``validate`` only checks internal consistency.
 * ``persistence_days`` is validated and returned, never applied here (the hazard runner applies it).
+* Schema 2 adds the optional sibling section ``ood_flags`` = ``{"note_vi", "metrics": {metric:
+  {"label_vi", "feature", "enabled", "muted_reason_vi"?}}}``: per-metric on/off for the imputer's
+  "outside training range" flag (owner request 2026-10-26). Only ``enabled`` is editable; the metric
+  set, labels, imputer feature names and reasons are locked to the defaults. A version written
+  before schema 2 (no section) stays valid and gets the default section in ``load_effective``.
+  Muting changes only what is surfaced (aggregate ``ood`` / warnings / badges); the per-feature
+  ``ood_features`` list is always recorded (``ood_flag_settings`` / ``core.impute.apply_ood_flags``).
 
 Stdlib only so the research-map backend (which imports this module) stays light.
 """
@@ -35,11 +42,13 @@ _VERSION_RE = re.compile(r"^v(\d{4,})-(\d{8}T\d{6}Z)$")
 _CLAIM_RE = re.compile(r"^v(\d{4,})\.claim$")
 
 _META_KEYS = {"config_version", "parent_version", "changed_at", "changed_by", "reason_vi", "changes"}
-_TOP_KEYS = _META_KEYS | {"schema_version", "note_vi", "tiers", "hazards", "scopes"}
+_TOP_KEYS = _META_KEYS | {"schema_version", "note_vi", "tiers", "hazards", "scopes", "ood_flags"}
 _TIER_KEYS = {"tier", "label_vi", "color"}
 _HAZARD_KEYS = {"label_vi", "metric", "unit", "direction", "thresholds", "persistence_days",
                 "actions_vi", "guardrails", "evidence"}
 _SCOPE_KEYS = {"exposure_class", "station"}
+_OOD_KEYS = {"note_vi", "metrics"}
+_OOD_METRIC_KEYS = {"label_vi", "feature", "enabled", "muted_reason_vi"}
 
 
 class ConfigValidationError(ValueError):
@@ -100,6 +109,8 @@ def _deep_merge(base: dict, over: dict) -> dict:
 def load_effective(station_id: str | None = None, exposure_class: str | None = None) -> dict:
     """Newest valid version (else defaults), with scope overrides merged into ``hazards``."""
     cfg = copy.deepcopy(_newest_valid() or load_default())
+    if "ood_flags" not in cfg:  # version saved before schema 2: toggles come from the defaults
+        cfg["ood_flags"] = copy.deepcopy(load_default().get("ood_flags", {}))
     scopes = cfg.get("scopes") or {}
     hazards = cfg.get("hazards", {})
     for over in (
@@ -235,6 +246,40 @@ def _validate_hazard(hid: str, h: Any, tier_ids: set[int], errs: list[str], wher
         errs.append(f"{p}.label_vi: must be a string")
 
 
+def _validate_ood_flags(section: Any, errs: list[str]) -> None:
+    if not isinstance(section, dict):
+        errs.append("ood_flags: must be an object")
+        return
+    for k in sorted(set(section) - _OOD_KEYS):
+        errs.append(f"ood_flags: unknown key '{k}'")
+    if section.get("note_vi") is not None and not isinstance(section.get("note_vi"), str):
+        errs.append("ood_flags.note_vi: must be a string")
+    metrics = section.get("metrics")
+    if not isinstance(metrics, dict) or not metrics:
+        errs.append("ood_flags.metrics: required non-empty object")
+        return
+    seen: dict[str, str] = {}
+    for mid, m in metrics.items():
+        p = f"ood_flags.metrics.{mid}"
+        if not isinstance(m, dict):
+            errs.append(f"{p}: must be an object")
+            continue
+        for k in sorted(set(m) - _OOD_METRIC_KEYS):
+            errs.append(f"{p}: unknown key '{k}'")
+        if not isinstance(m.get("enabled"), bool):
+            errs.append(f"{p}.enabled: must be true or false")
+        feature = m.get("feature")
+        if not isinstance(feature, str) or not feature:
+            errs.append(f"{p}.feature: required non-empty string")
+        elif feature in seen:
+            errs.append(f"{p}.feature: '{feature}' already used by {seen[feature]}")
+        else:
+            seen[feature] = mid
+        for k in ("label_vi", "muted_reason_vi"):
+            if m.get(k) is not None and not isinstance(m.get(k), str):
+                errs.append(f"{p}.{k}: must be a string")
+
+
 def validate(config: dict) -> list[str]:
     """Return a list of error strings (empty = valid)."""
     errs: list[str] = []
@@ -255,6 +300,8 @@ def validate(config: dict) -> list[str]:
                 tier_ids.add(t["tier"])
         if 0 not in tier_ids:
             errs.append("tiers: tier 0 is required")
+    if "ood_flags" in config:
+        _validate_ood_flags(config["ood_flags"], errs)
     hazards = config.get("hazards")
     if not isinstance(hazards, dict) or not hazards:
         errs.append("hazards: required non-empty object")
@@ -301,6 +348,30 @@ _EDITABLE = ("thresholds", "actions_vi", "persistence_days")
 _LOCKED = ("metric", "unit", "direction", "label_vi", "evidence", "guardrails")
 
 
+def _ood_structural_errors(section: Any, default: Any) -> list[str]:
+    """Only ``ood_flags.metrics.<m>.enabled`` may differ from the defaults (section may be absent)."""
+    if not isinstance(section, dict) or not isinstance(default, dict):
+        return []
+    errs: list[str] = []
+    if section.get("note_vi") != default.get("note_vi"):
+        errs.append("ood_flags.note_vi: not editable")
+    sm, dm = section.get("metrics"), default.get("metrics") or {}
+    if not isinstance(sm, dict):
+        return errs
+    for mid in sorted(set(dm) - set(sm)):
+        errs.append(f"ood_flags.metrics.{mid}: metric cannot be removed")
+    for mid in sorted(set(sm) - set(dm)):
+        errs.append(f"ood_flags.metrics.{mid}: metric cannot be added")
+    for mid in sorted(set(sm) & set(dm)):
+        m, d = sm[mid], dm[mid]
+        if not isinstance(m, dict):
+            continue
+        for k in sorted((set(m) | set(d)) - {"enabled"}):
+            if m.get(k) != d.get(k):
+                errs.append(f"ood_flags.metrics.{mid}.{k}: not editable (only enabled)")
+    return errs
+
+
 def structural_errors(config: dict, defaults: dict | None = None) -> list[str]:
     """Errors for any change outside thresholds / actions_vi / persistence_days vs the defaults."""
     if not isinstance(config, dict):
@@ -323,6 +394,7 @@ def structural_errors(config: dict, defaults: dict | None = None) -> list[str]:
         for k in _LOCKED:
             if h.get(k) != d.get(k):
                 errs.append(f"hazards.{hid}.{k}: not editable")
+    errs.extend(_ood_structural_errors(config.get("ood_flags"), defaults.get("ood_flags")))
     scopes = config.get("scopes")
     if isinstance(scopes, dict):
         for kind, group in scopes.items():
@@ -354,6 +426,45 @@ def tier_for(hazard_id: str, value: float, config: dict) -> int | None:
         if (v >= thr) if ge else (v <= thr):
             tier = int(k)
     return tier
+
+
+# ---------------------------------------------------------------- out-of-training-range toggles
+
+def ood_flag_settings(config: dict | None = None) -> dict:
+    """Per-metric toggles of the imputer "outside training range" flag, ready for consumers.
+
+    ``features`` maps the imputer input feature name (``NH3`` = TAN on the provincial basis)
+    to ``{metric, label_vi, enabled, muted_reason_vi?}``. Features without an entry count as
+    enabled. Any read/validation problem falls back to "everything surfaced" (``source`` says
+    so): a broken config can never hide a flag.
+    """
+    source = "config"
+    try:
+        cfg = config if config is not None else load_effective()
+        section = cfg.get("ood_flags") or {}
+        version = cfg.get("config_version")
+        errs: list[str] = []
+        if section:
+            _validate_ood_flags(section, errs)
+        if errs:
+            raise ValueError("; ".join(errs))
+    except (OSError, ValueError, AttributeError, TypeError):
+        section, version, source = {}, None, "fallback_all_enabled"
+    features: dict[str, dict] = {}
+    for mid, m in (section.get("metrics") or {}).items():
+        entry = {"metric": mid, "label_vi": m.get("label_vi") or mid, "enabled": bool(m["enabled"])}
+        if m.get("muted_reason_vi"):
+            entry["muted_reason_vi"] = m["muted_reason_vi"]
+        features[m["feature"]] = entry
+    if not features and source == "config":
+        source = "absent_all_enabled"
+    return {
+        "config_version": version,
+        "source": source,
+        "features": features,
+        "muted_metrics": [v["metric"] for v in features.values() if not v["enabled"]],
+        "muted_features": [f for f, v in features.items() if not v["enabled"]],
+    }
 
 
 # ---------------------------------------------------------------- save
@@ -394,8 +505,12 @@ def save_version(config: dict, *, changed_by: str, reason_vi: str) -> str:
     d = _config_dir()
     d.mkdir(parents=True, exist_ok=True)
     parent = _newest_valid() or load_default()
+    if "ood_flags" not in parent:  # diff a pre-schema-2 parent against what was effective
+        parent = {**parent, "ood_flags": load_default().get("ood_flags", {})}
     body = {k: copy.deepcopy(v) for k, v in config.items() if k not in _META_KEYS}
     body.setdefault("schema_version", parent.get("schema_version", 1))
+    if "ood_flags" in body and isinstance(body["schema_version"], int):
+        body["schema_version"] = max(body["schema_version"], 2)
     while True:
         n = _next_number(d)
         try:

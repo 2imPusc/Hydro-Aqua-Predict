@@ -1,7 +1,7 @@
 {
-  "schema_version": 1,
-  "config_version": "default-2026-10-23",
-  "note_vi": "Ngưỡng mặc định lấy theo bằng chứng hiện có (docs/eval/2026-10-23-*.md). Admin ghi đè bằng phiên bản mới trong runtime/alert-config/; file này không bị sửa khi vận hành.",
+  "schema_version": 2,
+  "config_version": "default-2026-10-26",
+  "note_vi": "Ngưỡng mặc định lấy theo bằng chứng hiện có (docs/eval/2026-10-23-*.md). Admin ghi đè bằng phiên bản mới trong runtime/alert-config/; file này không bị sửa khi vận hành. Schema 2 (2026-10-26) thêm mục ood_flags: bật/tắt theo chỉ số cờ \"ngoài phạm vi huấn luyện\" của bộ nội suy; chi tiết từng chỉ số luôn được ghi log.",
   "tiers": [
     {"tier": 0, "label_vi": "Bình thường", "color": "ok"},
     {"tier": 1, "label_vi": "Theo dõi", "color": "info"},
@@ -75,5 +75,16 @@
   "scopes": {
     "exposure_class": {"sheltered": {}, "semi": {}, "exposed": {}},
     "station": {}
+  },
+  "ood_flags": {
+    "note_vi": "Bật/tắt theo chỉ số: chỉ số bị tắt không làm bật cờ chung 'ngoài phạm vi huấn luyện' và cảnh báo hiển thị; danh sách đầy đủ vẫn được ghi trong chẩn đoán và nhật ký.",
+    "metrics": {
+      "TAN": {"label_vi": "Amoni (NH4+-N)", "feature": "NH3", "enabled": true},
+      "pH": {"label_vi": "pH", "feature": "pH", "enabled": true},
+      "Temperature": {"label_vi": "Nhiệt độ nước", "feature": "Temperature", "enabled": true},
+      "TSS": {"label_vi": "Chất rắn lơ lửng (TSS)", "feature": "TSS", "enabled": false,
+              "muted_reason_vi": "cơ sở TSS cảm biến khác dữ liệu tỉnh — đang xem xét riêng"},
+      "COD": {"label_vi": "COD", "feature": "COD", "enabled": true}
+    }
   }
 }

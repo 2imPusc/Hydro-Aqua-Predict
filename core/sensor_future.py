@@ -194,6 +194,7 @@ def forecast_sensor_first(raw: pd.DataFrame, station_serial: str) -> dict:
                 "missing_features": item.get("missing_features", []),
                 "invalid_features": item.get("invalid_features", []),
                 "ood_features": item.get("ood_features", []),
+                "ood_features_muted": item.get("ood_features_muted", []),
             }
             for target, item in predictions.items()
         }

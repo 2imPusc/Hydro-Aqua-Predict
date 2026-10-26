@@ -82,6 +82,12 @@ def run_station(serial: str, target_date: date = None, monitor_only: bool = Fals
     print(f"  Score: {r['score']:.3f}  →  {r['label']}")
     print(f"  feature_set: {r['feature_set']} | imputed_fraction: {r['imputed_fraction']:.0%}")
     print(f"  ! {r['warning']}")
+    diag = r.get("imputation_diagnostics", {})
+    muted = (diag.get("ood_flags") or {}).get("muted_metrics") or []
+    if muted:
+        print(f"  (i) Cờ ngoài dải huấn luyện đang tắt: {', '.join(muted)} "
+              f"(cấu hình {diag['ood_flags'].get('config_version')}); ngoài dải thực tế (ghi đủ): "
+              f"{', '.join('TAN' if f == 'NH3' else f for f in diag.get('ood_features') or []) or 'không có'}")
     conf = r.get("confidence", {})
     _CMARK = {"strong": " (mạnh)", "weak": " (yếu)"}
     print("\n  Params (mẫu):")

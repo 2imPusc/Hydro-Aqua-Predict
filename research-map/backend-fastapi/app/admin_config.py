@@ -111,4 +111,19 @@ def save_alert_config(body: SaveBody):
 def preview_alert_config(body: PreviewBody) -> dict:
     _check_config_size(body.config)
     errors = ac.validate(body.config) + ac.structural_errors(body.config)
-    return {"status": "ready", "errors": errors, "tier_examples": [] if errors else tier_examples(body.config)}
+    return {"status": "ready", "errors": errors, "tier_examples": [] if errors else tier_examples(body.config),
+            "ood_flags": None if errors else ood_flags_summary(body.config)}
+
+
+def ood_flags_summary(config: dict) -> dict:
+    """Which metrics' "outside training range" flag the config mutes (display only; always logged)."""
+    s = ac.ood_flag_settings(config)
+    return {"source": s["source"], "muted_metrics": s["muted_metrics"],
+            "metrics": {v["metric"]: {"label_vi": v["label_vi"], "enabled": v["enabled"]} for v in s["features"].values()}}
+
+
+@router.get("/ood-flags")
+def get_ood_flags() -> dict:
+    """Effective per-metric toggles for displays (map/report badges): muted = shown as "đã tắt"."""
+    eff = ac.load_effective()
+    return {"status": "ready", "config_version": eff.get("config_version"), **ood_flags_summary(eff)}

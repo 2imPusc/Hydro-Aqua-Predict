@@ -22,6 +22,14 @@ export type ScopeOverrides = Record<string, HazardOverride>
 
 export type AlertConfigChange = { path: string; old: unknown; new: unknown }
 
+/**
+ * Schema 2 sibling section: per-metric on/off of the imputer "outside training range" flag.
+ * Only `enabled` is editable. Muting changes what is surfaced, never what is logged.
+ */
+export type OodMetric = { label_vi: string; feature: string; enabled: boolean; muted_reason_vi?: string }
+export type OodFlagsConfig = { note_vi?: string; metrics: Record<string, OodMetric> }
+export type OodFlagsSummary = { source: string; muted_metrics: string[]; metrics: Record<string, { label_vi: string; enabled: boolean }> }
+
 export type AlertConfig = {
   schema_version: number
   config_version: string
@@ -29,6 +37,8 @@ export type AlertConfig = {
   tiers: Array<{ tier: Tier; label_vi: string; color: string }>
   hazards: Record<string, HazardConfig>
   scopes: { exposure_class: Partial<Record<ExposureClass, ScopeOverrides>>; station: Record<string, ScopeOverrides> }
+  /** Schema 2; absent on versions saved before it (the server then fills the defaults). */
+  ood_flags?: OodFlagsConfig
   /** Present on runtime versions (after the first save). */
   parent_version?: string | null
   changes?: AlertConfigChange[]
@@ -45,7 +55,7 @@ export type AlertConfigVersionResponse = { status: 'ready' | 'unavailable'; reas
 export type AlertConfigInvalid = { status: 'invalid'; errors: string[] }
 export type AlertConfigSaved = { status: 'ready'; config_version: string }
 export type TierExample = { hazard: string; value: number; tier: Tier | null }
-export type AlertConfigPreview = { status: 'ready' | 'invalid'; errors: string[]; tier_examples?: TierExample[] }
+export type AlertConfigPreview = { status: 'ready' | 'invalid'; errors: string[]; tier_examples?: TierExample[]; ood_flags?: OodFlagsSummary | null }
 
 export type ActiveStorm = {
   id: string; name: string; run_time: string; members: number

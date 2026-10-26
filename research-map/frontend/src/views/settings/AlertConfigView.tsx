@@ -7,9 +7,10 @@ import { Chip, EmptyState, Segmented, Select, Skeleton, Tabs } from '../../compo
 import type { AlertConfig, AlertConfigResponse, AlertConfigVersion, AlertConfigVersionDetail, EditableField, ExposureClass } from '../../types/alerts'
 import { PageScroll } from '../shared/research'
 import { HazardCard } from './HazardCard'
+import { OodFlagsCard } from './OodFlagsCard'
 import { EditPanel, HistoryPanel, secondaryButton } from './SidePanels'
 import {
-  CLASSES, CLASS_LABEL, clone, countOverrides, diffConfig, mergedHazard, resetHazardOverride, restoreFrom, setLeaf, validateConfig, type Scope,
+  CLASSES, CLASS_LABEL, clone, countOverrides, diffConfig, mergedHazard, resetHazardOverride, restoreFrom, setLeaf, setOodFlag, validateConfig, type Scope,
 } from './model'
 
 type ScopeTab = 'default' | 'class' | 'station'
@@ -209,6 +210,8 @@ export default function AlertConfigView() {
                 onResetOverride={scope.kind === 'default' ? undefined : () => setDraft(current => (current ? resetHazardOverride(current, scope, id) : current))} />
             ))}
           </div>
+
+          <OodFlagsCard draft={draft} base={base} onToggle={(metric, enabled) => setDraft(current => (current ? setOodFlag(current, metric, enabled) : current))} />
         </div>
 
         <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-0" aria-label="Lưu và lịch sử">

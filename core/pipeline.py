@@ -9,6 +9,7 @@ import pandas as pd
 
 from core.fetch import fetch_raw
 from core.classify import classify_station
+from core.impute import load_ood_flags
 from core.spatial_impute import predict_virtual_stations
 from core.forecast import forecast
 from core.alerts import evaluate_aquaculture_risk
@@ -46,7 +47,7 @@ def _full_parameters(classification: dict) -> dict:
     return {**params.get("defaulted", {}), **params.get("imputed", {}), **params.get("measured", {})}
 
 
-def _station_future(sensor_future: dict, station_serial: str, region: str, species: str) -> dict:
+def _station_future(sensor_future: dict, station_serial: str, region: str, species: str, ood_flags: dict | None = None) -> dict:
     """Create per-station future values; virtual stations are spatial projections."""
     output = {station_serial: []}
     if sensor_future.get("status") != "ready":
@@ -59,6 +60,7 @@ def _station_future(sensor_future: dict, station_serial: str, region: str, speci
                 species=species,
                 date=point["timestamp"],
                 region=region,
+                ood_flags=ood_flags,
             )
         except Exception:
             continue
@@ -160,6 +162,8 @@ def run_pipeline(
 
     recent_df = df_raw.tail(history_points)
     historical_records = []
+    # Per-metric "outside training range" toggles: read once per run (alert-config ood_flags).
+    ood_flags = load_ood_flags()
 
     for _, latest_row in recent_df.iterrows():
         date_str = latest_row["fetchedAt"].strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -176,6 +180,7 @@ def run_pipeline(
                 species=species,
                 date=date_str,
                 region=region,
+                ood_flags=ood_flags,
             )
         except Exception:
             continue
@@ -230,13 +235,13 @@ def run_pipeline(
     aquaculture_alert = evaluate_aquaculture_risk(
         df_raw.tail(max(history_points, 20)), species=species, previous_alert=previous_alert
     )
-    contextual_models = predict_haiphong_contextual(latest_record["measured_params"], latest_record["timestamp"]) if region == "haiphong" else {"status": "not_applicable", "predictions": {}}
+    contextual_models = predict_haiphong_contextual(latest_record["measured_params"], latest_record["timestamp"], ood_flags=ood_flags) if region == "haiphong" else {"status": "not_applicable", "predictions": {}}
     inferred_do_alert = evaluate_inferred_do_alert(contextual_models, latest_record["measured_params"], previous_inferred_do_alert)
     weather = get_station_weather(station_serial)
     environment = get_station_environment(station_serial, weather=weather)
     weather_advisory = evaluate_weather_advisory(weather, now=now)
     sensor_future = forecast_sensor_first(df_raw, station_serial) if region == "haiphong" else {"status": "not_applicable", "timeline": []}
-    station_future = _station_future(sensor_future, station_serial, region, species)
+    station_future = _station_future(sensor_future, station_serial, region, species, ood_flags)
     forecast_advisory = evaluate_forecast_advisory(sensor_future, previous_forecast_advisory) if region == "haiphong" else {"severity": "BLOCKED", "state": "BLOCKED"}
     evaluation = {"issued_records": record_sensor_future(station_serial, sensor_future, weather, forecast_advisory), "resolved_outcomes": resolve_sensor_outcomes(df_raw), "metrics": sensor_metrics()} if region == "haiphong" else {"issued_records": 0, "resolved_outcomes": 0, "metrics": []}
     shadow_seconds = time.perf_counter() - shadow_started_at
@@ -256,6 +261,7 @@ def run_pipeline(
         "aquaculture_alert": aquaculture_alert,
         "contextual_models": contextual_models,
         "inferred_do_alert": inferred_do_alert,
+        "ood_flags": {k: ood_flags.get(k) for k in ("config_version", "source", "muted_metrics", "muted_features")},
         "weather": weather,
         "environment": environment,
         "weather_advisory": weather_advisory,

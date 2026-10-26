@@ -127,3 +127,36 @@ def test_unwritable_dir_503(client, monkeypatch):
     cfg["hazards"]["storm_wind"]["thresholds"]["2"] = 7
     r = client.post("/api/v1/admin/alert-config", json={"config": cfg, "reason_vi": "thử"})
     assert r.status_code == 503 and r.json()["reason"] == "config_dir_not_writable"
+
+
+# --- per-metric "outside training range" toggles (ood_flags, schema 2) ---------------
+
+def test_ood_flags_default_and_toggle_roundtrip(client):
+    g = client.get("/api/v1/admin/ood-flags").json()
+    assert g["status"] == "ready" and g["muted_metrics"] == ["TSS"]
+    assert g["metrics"]["TAN"]["enabled"] is True and g["metrics"]["TSS"]["enabled"] is False
+    cfg = _effective(client)
+    assert "cơ sở TSS" in cfg["ood_flags"]["metrics"]["TSS"]["muted_reason_vi"]
+    cfg["ood_flags"]["metrics"]["TSS"]["enabled"] = True
+    cfg["ood_flags"]["metrics"]["pH"]["enabled"] = False
+    p = client.post("/api/v1/admin/alert-config/preview", json={"config": cfg}).json()
+    assert p["errors"] == [] and p["ood_flags"]["muted_metrics"] == ["pH"]
+    r = client.post("/api/v1/admin/alert-config", json={"config": cfg, "reason_vi": "bật TSS, tắt pH"})
+    assert r.status_code == 201
+    v = r.json()["config_version"]
+    g = client.get("/api/v1/admin/ood-flags").json()
+    assert g["config_version"] == v and g["muted_metrics"] == ["pH"]
+    full = client.get(f"/api/v1/admin/alert-config/versions/{v}").json()["version"]
+    assert sorted(c["path"] for c in full["changes"]) == ["ood_flags.metrics.TSS.enabled", "ood_flags.metrics.pH.enabled"]
+
+
+def test_ood_flags_structure_locked_422(client, tmp_path):
+    cfg = _effective(client)
+    cfg["ood_flags"]["metrics"]["TSS"]["feature"] = "Turbidity"
+    r = client.post("/api/v1/admin/alert-config", json={"config": cfg, "reason_vi": "x"})
+    assert r.status_code == 422 and any("TSS.feature: not editable" in e for e in r.json()["errors"])
+    cfg = _effective(client)
+    cfg["ood_flags"]["metrics"]["TSS"]["enabled"] = "yes"
+    r = client.post("/api/v1/admin/alert-config", json={"config": cfg, "reason_vi": "x"})
+    assert r.status_code == 422 and any("enabled: must be true or false" in e for e in r.json()["errors"])
+    assert not (tmp_path / "alert-config").exists()

@@ -17,6 +17,9 @@ của model nhận giá trị ``measured["TAN"]`` qua ``provincial_basis_row``
 coi là thiếu (``missing_features``).  Input ngoài khoảng p1–p99 của dữ liệu huấn
 luyện vùng (``imputer_feature_bounds.json``) → giá trị vẫn trả về nhưng gắn cờ
 ``ood_features`` / ``ood_targets`` trong ``diagnostics`` (ngoại suy, không tin).
+Bật/tắt theo chỉ số (alert-config ``ood_flags``) chỉ đổi phần HIỂN THỊ (``ood``,
+``ood_targets``, cảnh báo); ``ood_features`` luôn ghi đủ, ``ood_features_muted``
+nêu chỉ số đã tắt (``apply_ood_flags``).
 """
 import json
 import sys
@@ -41,6 +44,7 @@ from core.config import (
     AMMONIA_FEATURE_SOURCE,
 )
 from core.chemistry import provincial_basis_row
+from core import alert_config
 from hap_shared.preprocessing import load_data, EXCLUDED_STATIONS
 
 # Salinity nằm trong targets: LOO-CV R²≈0.6-0.67 cả HP/QN (biến thiên thật,
@@ -324,8 +328,54 @@ def _load_json(path: Path, what: str) -> dict:
         return json.load(f)
 
 
-def impute_params(measured: Dict[str, float], region: str = DEFAULT_REGION) -> Dict:
+def load_ood_flags() -> dict:
+    """Effective per-metric toggles (``core.alert_config.ood_flag_settings``); load once per run."""
+    return alert_config.ood_flag_settings()
+
+
+def apply_ood_flags(diagnostics: dict, imputed_targets: list, ood_flags: dict | None) -> dict:
+    """Split ``ood_features`` into surfaced / muted per the admin toggles (in place).
+
+    ``ood_features`` (every out-of-range input) is never filtered — it is what gets logged.
+    ``ood`` / ``ood_targets`` (and the caller's ``input_flagged``) count only surfaced
+    features; ``ood_any`` / ``ood_targets_all`` keep the unmuted answer; ``ood_flags``
+    records the config version and which metrics were muted.
+    """
+    flags = ood_flags if ood_flags is not None else load_ood_flags()
+    toggles = flags.get("features") or {}
+    raw = list(diagnostics.get("ood_features") or [])
+    muted = [f for f in raw if f in toggles and not toggles[f].get("enabled", True)]
+    surfaced = [f for f in raw if f not in muted]
+    diagnostics["ood_features_surfaced"] = surfaced
+    diagnostics["ood_features_muted"] = muted
+    diagnostics["ood_any"] = bool(raw)
+    diagnostics["ood"] = bool(surfaced)
+    diagnostics["ood_targets_all"] = list(imputed_targets) if raw else []
+    diagnostics["ood_targets"] = list(imputed_targets) if surfaced else []
+    diagnostics["ood_flags"] = {
+        "config_version": flags.get("config_version"),
+        "source": flags.get("source"),
+        "muted_metrics": list(flags.get("muted_metrics") or []),
+        "muted_features": list(flags.get("muted_features") or []),
+    }
+    return diagnostics
+
+
+def ood_metric_label(feature: str, ood_flags: dict | None) -> str:
+    """Display name of an imputer feature (``NH3`` → ``TAN``, the provincial ammonium basis)."""
+    entry = ((ood_flags or {}).get("features") or {}).get(feature)
+    if entry:
+        return entry["metric"]
+    return "TAN" if feature == "NH3" else feature
+
+
+def impute_params(measured: Dict[str, float], region: str = DEFAULT_REGION,
+                  ood_flags: dict | None = None) -> Dict:
     """Adaptive impute theo VÙNG. COD trong measured → 5feat; vắng → 4feat.
+
+    ``ood_flags``: per-metric toggles from ``load_ood_flags()`` (None → load the effective
+    alert-config). They change only what is surfaced; ``diagnostics["ood_features"]`` is
+    always the full list.
 
     Returns {imputed, defaulted, cv_r2, feature_set, region}.
     """
@@ -394,10 +444,9 @@ def impute_params(measured: Dict[str, float], region: str = DEFAULT_REGION) -> D
             defaulted[p] = round(medians[p], 4)
 
     # Model outputs built from a missing or out-of-range input are extrapolations.
-    flagged = bool(diagnostics["ood_features"] or diagnostics["missing_features"])
-    diagnostics["ood_targets"] = sorted(imputed) if diagnostics["ood_features"] else []
     diagnostics["missing_input_targets"] = sorted(imputed) if diagnostics["missing_features"] else []
-    diagnostics["ood"] = bool(diagnostics["ood_features"])
+    apply_ood_flags(diagnostics, sorted(imputed), ood_flags)
+    flagged = bool(diagnostics["ood"] or diagnostics["missing_features"])
 
     return {"imputed": imputed, "defaulted": defaulted, "confidence": confidence,
             "cv_r2": cv_r2, "feature_set": tag, "region": region,
