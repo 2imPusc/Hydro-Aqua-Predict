@@ -163,3 +163,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định:** runtime +15 phút dùng ridge B4 (`hp-temperature-ridge-b4-15m-v2`) cho nhiệt độ. Mọi đầu ra mô hình qua chặn cố định lưu trong bundle (dải huấn luyện ± 1,5 °C cho đầu vào và dự báo, trần thay đổi 1,5 °C / 15 phút); vi phạm thì rơi về persistence có nhãn nguồn. TSS, pH, NH4 dùng persistence. Bundle XGBoost cũ giữ trong git nhưng không nạp. Đầu ra và sổ ghi mang `model_version`. Chủ dự án duyệt 25/10.
 - **Lý do:** mô hình cây không ngoại suy ngoài dải huấn luyện; khi mùa đổi (nước 24–26 °C, TSS ~3 mg/L) XGBoost sai 3–4 lần persistence. Ridge B4 đạt gate #16 trên lockbox 10–24/10 và ổn định theo tháng (RL-64).
 - **Hệ quả:** mô hình runtime mới phải có kiểm tra ngoài dải và so sánh theo tháng với persistence trước khi đưa vào; bảng chấm 15 phút tách theo nhãn nguồn (`ridge_b4` / `xgboost_time`).
+
+## #28 — 2026-10-26 · Hai đại lượng amoni: TAN cho chuẩn / mô hình tỉnh, NH3 không ion cho độc tính
+
+- **Quyết định:** từ cảm biến NH4 suy ra hai đại lượng. `TAN` (amoni tổng theo N, `NH4_TO_N_FACTOR` mặc định 1,0) dùng cho QCVN 10 B1 amoni 0,1 mg/L, mô hình nội suy, mô hình ngữ cảnh, HSI và điểm neo không gian, vì cột "NH3" của dữ liệu tỉnh là amoni theo N. NH3 không ion (Emerson) chỉ dùng cho cảnh báo độc tính, nhãn "NH3 không ion (độc tính)". Ánh xạ tường minh `AMMONIA_FEATURE_SOURCE = {"NH3": "TAN"}`; không đổi tên đặc trưng trong pickle, không huấn luyện lại. Đầu vào ngoài p1–p99 huấn luyện vẫn được nội suy nhưng gắn cờ. Chủ dự án duyệt 26/10.
+- **Lý do:** định tuyến cũ làm đầu vào amoni luôn ngoài miền huấn luyện và QCVN / HSI amoni luôn "đạt" (RL-69).
+- **Hệ quả:** kết luận QCVN amoni phụ thuộc cơ sở NH4 chưa xác nhận (48/64 → 4/64 ngày nếu cơ sở ion) nên luôn phải hiển thị cơ sở; số NH4 sau 31/07 nằm ngoài miền huấn luyện cho tới khi giải thích được bậc.
