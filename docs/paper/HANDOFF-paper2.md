@@ -4,15 +4,15 @@ Ngày: 28/10/2026. Làm song song, nhẹ, dùng chung dữ liệu và mô hình 
 
 ## Môi trường (đã tạo sẵn 28/10)
 
-- Thư mục làm việc riêng (git worktree): `D:impusc\HAP-paper2`, nhánh `paper/sensor-faults`. **Không** đổi nhánh trong
-  `D:impusc\Hydro-Aqua-Predict` — shadow runner và Docker chạy code từ thư mục đó.
+- Thư mục làm việc riêng (git worktree): `D:/2impusc/HAP-paper2`, nhánh `paper/sensor-faults`. **Không** đổi nhánh trong
+  `D:/2impusc/Hydro-Aqua-Predict` — shadow runner và Docker chạy code từ thư mục đó.
 - `data/`, `artifacts/`, `runtime/` và venv không nằm trong worktree; dùng chung từ thư mục chính:
   ```powershell
-  $env:HAP_DATA_DIR='D:impusc\Hydro-Aqua-Predict\data'
-  $env:HAP_ARTIFACTS_DIR='D:impusc\Hydro-Aqua-Predictrtifacts'
-  $env:HAP_RUNTIME_DIR='D:impusc\Hydro-Aqua-Predictuntime'
-  D:impusc\Hydro-Aqua-Predict\.venv\Scripts\python ...      # core / experiments
-  D:impusc\Hydro-Aqua-Predict\.venv-fm\Scripts\python ...   # torch / Chronos
+  $env:HAP_DATA_DIR='D:/2impusc/Hydro-Aqua-Predict/data'
+  $env:HAP_ARTIFACTS_DIR='D:/2impusc/Hydro-Aqua-Predict/artifacts'
+  $env:HAP_RUNTIME_DIR='D:/2impusc/Hydro-Aqua-Predict/runtime'
+  D:/2impusc/Hydro-Aqua-Predict/.venv/Scripts/python ...      # core / experiments
+  D:/2impusc/Hydro-Aqua-Predict/.venv-fm/Scripts/python ...   # torch / Chronos
   ```
 - Kết quả ghi vào thư mục chạy MỚI trong artifacts chung (ghi một lần). Không ghi gì vào `runtime/`.
 
@@ -52,7 +52,7 @@ báo và khoảng tin cậy đáng tin nhất: (a) bỏ qua, (b) đánh dấu th
 
 ## Quy tắc phối hợp
 
-- Nhánh `paper/sensor-faults` trong worktree `D:impusc\HAP-paper2`. Không push khi chưa được phép.
+- Nhánh `paper/sensor-faults` trong worktree `D:/2impusc/HAP-paper2`. Không push khi chưa được phép.
 - Mã chỉ ở `experiments/paper2_*.py`, `tests/test_paper2_*.py`. Không sửa `core/`, `research-map/`, task Windows.
 - Dùng lại mô hình / dữ liệu của bài 1 bằng cách import, không sao chép; không sửa file của bài 1 khi phiên đó đang chạy.
 - CPU tối đa 1–2 lõi. Đưa vào runtime chỉ qua quyết định mới do chủ dự án duyệt.
@@ -60,4 +60,4 @@ báo và khoảng tin cậy đáng tin nhất: (a) bỏ qua, (b) đánh dấu th
 ## Câu mở đầu cho phiên mới (dán vào)
 
 > Đọc `docs/paper/HANDOFF-paper2.md` và các tài liệu nó liệt kê. Làm việc trong worktree
-> `D:impusc\HAP-paper2` (nhánh `paper/sensor-faults` đã tạo sẵn), rồi thực hiện bước F1 theo đúng quy tắc trong file. Báo cáo bằng tiếng Việt.
+> `D:/2impusc/HAP-paper2` (nhánh `paper/sensor-faults` đã tạo sẵn), rồi thực hiện bước F1 theo đúng quy tắc trong file. Báo cáo bằng tiếng Việt.

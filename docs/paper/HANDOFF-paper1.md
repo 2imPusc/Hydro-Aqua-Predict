@@ -5,15 +5,15 @@ cho bài báo. Phần viết bài làm sau, khi đã có kết quả.
 
 ## Môi trường (đã tạo sẵn 28/10)
 
-- Thư mục làm việc riêng (git worktree): `D:impusc\HAP-paper1`, nhánh `paper/chronos2-weather`. **Không** đổi nhánh trong
-  `D:impusc\Hydro-Aqua-Predict` — shadow runner và Docker chạy code từ thư mục đó.
+- Thư mục làm việc riêng (git worktree): `D:/2impusc/HAP-paper1`, nhánh `paper/chronos2-weather`. **Không** đổi nhánh trong
+  `D:/2impusc/Hydro-Aqua-Predict` — shadow runner và Docker chạy code từ thư mục đó.
 - `data/`, `artifacts/`, `runtime/` và venv không nằm trong worktree; dùng chung từ thư mục chính:
   ```powershell
-  $env:HAP_DATA_DIR='D:impusc\Hydro-Aqua-Predict\data'
-  $env:HAP_ARTIFACTS_DIR='D:impusc\Hydro-Aqua-Predictrtifacts'
-  $env:HAP_RUNTIME_DIR='D:impusc\Hydro-Aqua-Predictuntime'
-  D:impusc\Hydro-Aqua-Predict\.venv\Scripts\python ...      # core / experiments
-  D:impusc\Hydro-Aqua-Predict\.venv-fm\Scripts\python ...   # torch / Chronos
+  $env:HAP_DATA_DIR='D:/2impusc/Hydro-Aqua-Predict/data'
+  $env:HAP_ARTIFACTS_DIR='D:/2impusc/Hydro-Aqua-Predict/artifacts'
+  $env:HAP_RUNTIME_DIR='D:/2impusc/Hydro-Aqua-Predict/runtime'
+  D:/2impusc/Hydro-Aqua-Predict/.venv/Scripts/python ...      # core / experiments
+  D:/2impusc/Hydro-Aqua-Predict/.venv-fm/Scripts/python ...   # torch / Chronos
   ```
 - Kết quả ghi vào thư mục chạy MỚI trong artifacts chung (ghi một lần). Không ghi gì vào `runtime/`.
 
@@ -73,7 +73,7 @@ không có → giả → dựng lại (Open-Meteo Previous Runs) → thu thật 
 
 ## Quy tắc phối hợp với phiên điều phối
 
-- Làm trên nhánh `paper/chronos2-weather` trong worktree `D:impusc\HAP-paper1`. Không push khi chưa được phép.
+- Làm trên nhánh `paper/chronos2-weather` trong worktree `D:/2impusc/HAP-paper1`. Không push khi chưa được phép.
 - Mã mới chỉ ở `experiments/paper1_*.py` và `tests/test_paper1_*.py`; không sửa `core/`, `research-map/`,
   task Windows. Cần sửa file dùng chung (ví dụ `forecast_sensor_v2.py`) thì thêm hàm, không đổi đầu ra cũ.
 - Thêm RL / RESULTS ở cuối file; khi merge xung đột thì đánh lại số RL.
@@ -83,4 +83,4 @@ không có → giả → dựng lại (Open-Meteo Previous Runs) → thu thật 
 ## Câu mở đầu cho phiên mới (dán vào)
 
 > Đọc `docs/paper/HANDOFF-paper1.md` và các tài liệu nó liệt kê. Làm việc trong worktree
-> `D:impusc\HAP-paper1` (nhánh `paper/chronos2-weather` đã tạo sẵn), rồi thực hiện bước T1 theo đúng quy tắc trong file. Báo cáo bằng tiếng Việt.
+> `D:/2impusc/HAP-paper1` (nhánh `paper/chronos2-weather` đã tạo sẵn), rồi thực hiện bước T1 theo đúng quy tắc trong file. Báo cáo bằng tiếng Việt.
