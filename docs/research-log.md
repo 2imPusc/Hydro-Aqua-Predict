@@ -835,3 +835,17 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Đề xuất (chờ chủ dự án):** cờ QC `nh4_tss_regime_change_20260731` (NH4 `suspect_scale` từ 31/07 14:06 → coi là thiếu cho QCVN / HSI / nội suy / neo, cảnh báo độc tính từ NH4 sau bậc không mang nghĩa "an toàn"; TSS `suspect_fouling` 07/06–31/07 14:15); cờ can thiệp 12/08 và 16/09; ghi chú cho người dùng; câu hỏi cho nhà cung cấp (hiệu chuẩn, hệ số, loại điện cực, đơn vị, gạt rửa TSS).
 - **Hạn chế:** chưa có xác nhận nhà cung cấp; một trạm, không có trạm cùng hãng đối chứng; vệ tinh thiếu 27/07–08/08; nền amoni là mẫu rời của năm khác. Tin công khai duy nhất gần đó: cá chết ở Phù Long cuối T6–đầu T7 (khác thời điểm, > 10 km) — ứng viên ground truth.
 - **Artifact:** `nh4-step-0731-20261026/`; `experiments/nh4_step_0731.py`; `tests/test_nh4_step_0731.py`.
+
+## RL-73 · 2026-10-28 · Bài báo 1 / T1: Chronos-2 zero-shot (không biến ngoại sinh) trên origin H1.4
+
+- **Câu hỏi:** Chronos-2 chỉ với chuỗi nhiệt độ có thắng ridge B4D (RL-66) và Chronos-Bolt base (RL-62) không? Tốc độ CPU bản small / base?
+- **Thiết lập:** `experiments/paper1_t1_chronos2.py` (nhánh `paper/chronos2-weather`); `preregistration.json` commit trước khi dự báo. `amazon/chronos-2` (base, chính) và `autogluon/chronos-2-small`, revision HF ghim; `.venv-fm` sẵn có `chronos-forecasting` 2.3.2. Ngữ cảnh, bước, kiểm tra không nhìn trước và nội suy y hệt H1.4 → chỉ đổi mô hình. 4.490 origin (stride 15), lockbox 10–24/10; mốc so là dự báo đã lưu (`actual` khớp 100 %). Gate #16; Holm trên 12 kiểm định chính. Lưu thêm phân vị q05–q95 cho T4. Torch 2 luồng.
+- **Kết quả (MAE lockbox °C, 15 ph / 1 h / 3 h / 6 h / 12 h):** Chronos-2 base 0,148 / 0,214 / 0,371 / 0,537 / 0,606; small 0,150 / 0,217 / 0,363 / 0,509 / 0,587; B4D 0,163 / 0,232 / 0,421 / 0,583 / 0,582; B5D 0,162 / 0,229 / 0,400 / 0,531 / 0,546; Bolt base 0,159 / 0,273 / 0,396 / 0,556 / 0,630.
+  - So với B4D: đạt gate ở 15 / 30 / 60 / 180 phút → "better" theo luật đặt trước; sau Holm chỉ 15 và 30 phút còn ý nghĩa. 6–12 h hòa (12 h tỉ số 1,04).
+  - So với Bolt base: thắng 15–60 phút (−7…−22 %, còn ý nghĩa sau Holm), hòa 3–12 h. So với TimesFM (stride 60): hòa 6/6.
+  - So với B5D: chỉ thắng 15 / 30 phút; 6 h 1,01, 12 h 1,11 (không ý nghĩa).
+  - Small ≈ base (|ΔMAE| ≤ 5 %, không gate) → luật đặt trước chọn **small cho T2**.
+  - Tốc độ (2 luồng, batch 64): small 0,23 s / origin, base 0,84 s / origin (đủ 6 chân trời).
+- **Kết luận:** Chronos-2 là mô hình nền tốt nhất trên NB1 và vượt ridge ở ≤ 3 h, nhưng không biến ngoại sinh thì không vượt B5D ở 6–12 h. H1 của bài phụ thuộc vào việc T2 thêm thời tiết / triều.
+- **Hạn chế:** một trạm, một lockbox ở giai đoạn biên độ lớn (RL-57, RL-72); lockbox đã được mở ở H1.4 / H1.9 và cấu hình kế thừa từ đó; điểm dự báo là trung bình cửa sổ; chưa đánh giá phân vị; chưa có TiRex (giấy phép "other").
+- **Artifact:** `paper1-t1-20261028/` (NOTES.md, `preregistration.json`, `fm-*`, `eval-Temperature-stride{15,60}/`, manifest sha256); `tests/test_paper1_t1.py`.
