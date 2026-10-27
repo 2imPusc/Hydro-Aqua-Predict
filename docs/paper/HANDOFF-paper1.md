@@ -60,6 +60,12 @@ không có → giả → dựng lại (Open-Meteo Previous Runs) → thu thật 
 | Bản tin thật cho NERRS quá khứ | **Chưa** | GFS/GEFS lưu trữ NOAA trên AWS (miễn phí) hoặc Open-Meteo Previous Runs (từ 2024) — kiểm tra phạm vi trước khi tải |
 | Triều NERRS | Một phần (độ sâu sonde) | NOAA CO-OPS nếu cần |
 
+Ghi chú truy cập (kiểm tra 28/10): CDMO / nerrsdata.org không truy cập tự động được từ máy này (trang chặn
+script — **không** tìm cách vượt); NCEI 0200366 (1994–2024) là "restricted public". NERRS sau 2011 chỉ có nếu
+chủ dự án tải tay bằng trình duyệt vào `data/foreign/nerrs_cdmo/raw/`. Phương án dự phòng công khai cho phép so
+nguồn bản tin nhiều trạm: **USGS NWIS** (nhiệt độ nước liên tục, API mở) + **NOAA GFS lưu trữ trên AWS** (bản tin
+đúng lúc phát hành) — kiểm tra phạm vi năm / trạm / giấy phép trước khi tải, tải ghi một lần có manifest.
+
 ## Kế hoạch thử nghiệm (không viết bài)
 
 - **T1 (tuần 1):** venv `.venv-fm` cài `chronos-forecasting` bản có Chronos-2; đo tốc độ CPU bản small/base;
