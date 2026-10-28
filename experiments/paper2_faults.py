@@ -70,17 +70,21 @@ TOLERANCES = {
 
 # Which NERRS SWMP variable (nerrs_load.read_wq_file: Temp, Sal, DO_mgl, pH, Turb) carries each NB1 fault
 # type in F3.  NERRS has no NH4 / COD: the NH4 ion-selective-electrode re-scale goes to DO_mgl (also an
-# electrochemical probe, positive, multiplicative), optical fouling to Turb, pH ramp to pH, stuck-at-0 to
-# DO_mgl, rail to Turb (cap = TURB_RAIL_NTU, YSI 6136 range end; to verify on NERRS metadata in F3).
+# electrochemical probe, positive, multiplicative), optical fouling to Turb, pH ramp to pH, rail to Turb
+# (cap = TURB_RAIL_NTU: NERRS metadata, e.g. rkbwq01-12.06m.doc, deletes Turb "> 1000 NTU, outside the range
+# of the probe").  Stuck-at-0 moved from DO_mgl to Turb in F2 (2026-10-28, before any scoring): estuarine
+# DO sits at 0.0-0.3 mg/L for hours during natural anoxia, so a stuck-0 DO fault is confounded by real data.
+# NB1 variables in composite events (E1/E2/E3): NH4 -> DO_mgl, TSS -> Turb, COD -> Turb, pH -> pH.
 TURB_RAIL_NTU = 1000.0
 NERRS_MAPPING = {
     "scale_step": "DO_mgl",
     "fouling": "Turb",
     "ramp_pH": "pH",
-    "stuck_zero": "DO_mgl",
+    "stuck_zero": "Turb",
     "ramp_to_rail": "Turb",
     "gap": "all",
 }
+NB1_TO_NERRS = {"NH4": "DO_mgl", "TSS": "Turb", "COD": "Turb", "pH": "pH", "Temperature": "Temp"}
 
 
 # ---------------------------------------------------------------------------------------------
