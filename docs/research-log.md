@@ -849,3 +849,19 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết luận:** Chronos-2 là mô hình nền tốt nhất trên NB1 và vượt ridge ở ≤ 3 h, nhưng không biến ngoại sinh thì không vượt B5D ở 6–12 h. H1 của bài phụ thuộc vào việc T2 thêm thời tiết / triều.
 - **Hạn chế:** một trạm, một lockbox ở giai đoạn biên độ lớn (RL-57, RL-72); lockbox đã được mở ở H1.4 / H1.9 và cấu hình kế thừa từ đó; điểm dự báo là trung bình cửa sổ; chưa đánh giá phân vị; chưa có TiRex (giấy phép "other").
 - **Artifact:** `paper1-t1-20261028/` (NOTES.md, `preregistration.json`, `fm-*`, `eval-Temperature-stride{15,60}/`, manifest sha256); `tests/test_paper1_t1.py`.
+
+## RL-74 · 2026-10-28 · Bài báo 1 / T2: Chronos-2 + thời tiết as-issued + triều + lịch
+
+- **Câu hỏi:** Thêm thời tiết dự báo as-issued, triều và giờ địa phương làm covariate cho Chronos-2 có vượt ridge B5D ≥ 5 % ở 6–12 h (H1) không? Dự báo dị thường so với chu kỳ 7 ngày hay trực tiếp?
+- **Thiết lập:** `experiments/paper1_t2_chronos2_cov.py` (commit 3704b58); `preregistration.json` trước mọi dự báo. Mô hình chính chronos-2-small (luật T1), cấu hình anom-full, stride 15, origin như T1. Thời tiết: 4 biến từ snapshot dựng lại (decision #13), quá khứ không nhìn trước, tương lai = `join_as_issued` (kiểm tra trùng khớp đạt). Triều: fit điều hòa 6 thành phần trên mực nước mô hình Open-Meteo, đóng băng trước 28/08. Lịch: sin/cos giờ địa phương. Ablation (anom, anom-cal, anom-cal-weather, direct-full) và base ở stride 60. Gate #16; Holm trên 12 kiểm định chính.
+- **Kết quả (MAE lockbox °C, 15 ph / 1 h / 3 h / 6 h / 12 h):** T2 small anom-full 0,157 / 0,235 / 0,410 / 0,602 / 0,766; T1 small 0,150 / 0,217 / 0,363 / 0,509 / 0,587; B5D 0,162 / 0,229 / 0,400 / 0,531 / 0,546.
+  - **H1 không đạt:** tỉ số vs B5D 1,13 (6 h) / 1,40 (12 h; B5D thắng, Holm 0,027). Cùng kết luận vs B5D_nopH.
+  - vs T1 small: T1 thắng 15 ph–3 h (Holm ý nghĩa 15–60 ph).
+  - Ablation stride 60: chỉ dị thường (không covariate) đã kém T1 10–18 % ở 3–12 h; anom-full kém direct-full 24 % / 40 % ở 6 / 12 h. Lịch, thời tiết, triều mỗi bước |Δ| ≤ 4 % (trừ lịch +12 % ở 12 h), không gate.
+  - direct-full (phụ): vs B5D 0,91 / 1,00 ở 6 / 12 h, hòa 6/6; fold trượt không hơn B5D.
+  - Base anom-full: tốt hơn small anom-full 1–11 %, vẫn 1,06 / 1,25 vs B5D.
+  - Post-hoc: bias lockbox của T2 tăng tới +0,26 °C ở 12 h (T1 ≤ 0,03); PI80 rộng hơn.
+  - Tốc độ: small anom-full 1,74 s / origin, base 7,37 s.
+- **Kết luận:** H1 bác bỏ. Phép dị thường 7 ngày là nguyên nhân chính làm kém; biến ngoại sinh as-issued gần như không thêm thông tin cho Chronos-2 trên NB1. Dự báo trực tiếp có covariate chỉ ngang B5D. Cần T3 (NERRS nhiều trạm) để biết có phải đặc thù NB1.
+- **Hạn chế:** lockbox đã mở (H1.4 / H1.9 / T1); một trạm, giai đoạn biên độ lớn (RL-57, RL-72); triều là fit của chuỗi mô hình, nhật triều trùng pha chu kỳ ngày; chỉ 4 / 7 biến thời tiết; ablation và base chỉ stride 60 (n ≈ 335); direct-full chọn sau khi xem dữ liệu.
+- **Artifact:** `paper1-t2-20261028/` (NOTES.md, `preregistration.json`, `fm-*`, `eval-Temperature-stride{15,60}/`, manifest sha256); `tests/test_paper1_t2.py`.
