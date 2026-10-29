@@ -713,12 +713,18 @@ def stage_evaluate(args) -> None:
     from experiments import paper1_t1_chronos2 as t1
 
     ds = DATASETS[args.dataset]
-    out = run_dir() / f"eval-{args.dataset}"
+    block_end = getattr(args, "block_end", None)
+    out = run_dir() / (f"eval-{args.dataset}" + (f"-posthoc-blocks-to-{block_end}" if block_end else ""))
     if out.exists():
         raise FileExistsError(f"refusing_to_overwrite:{out}")
     wide, models = _wide(args.dataset)
-    edges = pd.date_range(ds["test"][0], pd.Timestamp(ds["test"][1]) + pd.Timedelta(minutes=1), periods=N_BLOCKS + 1)
+    # Post-hoc only: --block-end moves the end of the block window (the test window itself is unchanged).
+    end = pd.Timestamp(block_end) if block_end else pd.Timestamp(ds["test"][1])
+    edges = pd.date_range(ds["test"][0], end + pd.Timedelta(minutes=1), periods=N_BLOCKS + 1)
     wide["block"] = np.clip(np.searchsorted(edges.to_numpy(), wide["issued_at"].to_numpy(), side="right") - 1, 0, N_BLOCKS - 1)
+    empty = sorted(set(range(N_BLOCKS)) - set(wide["block"].unique()))
+    if empty:
+        print(f"WARNING empty_blocks:{empty} (gate needs >= 4 of {N_BLOCKS} blocks)")
     spacing = 24.0 / len(ds["origin_hours"]) if not ds["rotate"] else 24.0
 
     metrics = []
@@ -757,7 +763,7 @@ def stage_evaluate(args) -> None:
     primary = table.role.eq("primary")
     table.loc[primary, "holm_p"] = t1.holm(table.loc[primary, "dm_p"]).to_numpy()
 
-    verdict = {"dataset": args.dataset, "n_rows": int(len(wide)), "n_stations": int(wide.station.nunique()),
+    verdict = {"dataset": args.dataset, "posthoc_block_end": block_end, "empty_blocks": empty, "n_rows": int(len(wide)), "n_stations": int(wide.station.nunique()),
                "n_origins": int(wide[["station", "issued_at"]].drop_duplicates().shape[0]),
                "pairs": {f"{c}__vs__{r}": overall(table[(table.model == c) & (table.reference == r)]) for c, r, _ in pairs}}
     if args.dataset == "cdmo":
@@ -793,6 +799,7 @@ def main() -> None:
     for name in ("prepare", "origins", "ridge", "evaluate"):
         p = sub.add_parser(name)
         p.add_argument("--dataset", choices=sorted(DATASETS), required=True)
+    p.add_argument("--block-end", default=None, help="POST-HOC: end of the gate block window (default: test end)")
     p = sub.add_parser("forecast")
     p.add_argument("--dataset", choices=sorted(DATASETS), required=True)
     p.add_argument("--config", choices=sorted(CONFIGS), required=True)
