@@ -835,3 +835,48 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Đề xuất (chờ chủ dự án):** cờ QC `nh4_tss_regime_change_20260731` (NH4 `suspect_scale` từ 31/07 14:06 → coi là thiếu cho QCVN / HSI / nội suy / neo, cảnh báo độc tính từ NH4 sau bậc không mang nghĩa "an toàn"; TSS `suspect_fouling` 07/06–31/07 14:15); cờ can thiệp 12/08 và 16/09; ghi chú cho người dùng; câu hỏi cho nhà cung cấp (hiệu chuẩn, hệ số, loại điện cực, đơn vị, gạt rửa TSS).
 - **Hạn chế:** chưa có xác nhận nhà cung cấp; một trạm, không có trạm cùng hãng đối chứng; vệ tinh thiếu 27/07–08/08; nền amoni là mẫu rời của năm khác. Tin công khai duy nhất gần đó: cá chết ở Phù Long cuối T6–đầu T7 (khác thời điểm, > 10 km) — ứng viên ground truth.
 - **Artifact:** `nh4-step-0731-20261026/`; `experiments/nh4_step_0731.py`; `tests/test_nh4_step_0731.py`.
+
+## RL-73 · 2026-10-28 · Bài báo 1 / T1: Chronos-2 zero-shot (không biến ngoại sinh) trên origin H1.4
+
+- **Câu hỏi:** Chronos-2 chỉ với chuỗi nhiệt độ có thắng ridge B4D (RL-66) và Chronos-Bolt base (RL-62) không? Tốc độ CPU bản small / base?
+- **Thiết lập:** `experiments/paper1_t1_chronos2.py` (nhánh `paper/chronos2-weather`); `preregistration.json` commit trước khi dự báo. `amazon/chronos-2` (base, chính) và `autogluon/chronos-2-small`, revision HF ghim; `.venv-fm` sẵn có `chronos-forecasting` 2.3.2. Ngữ cảnh, bước, kiểm tra không nhìn trước và nội suy y hệt H1.4 → chỉ đổi mô hình. 4.490 origin (stride 15), lockbox 10–24/10; mốc so là dự báo đã lưu (`actual` khớp 100 %). Gate #16; Holm trên 12 kiểm định chính. Lưu thêm phân vị q05–q95 cho T4. Torch 2 luồng.
+- **Kết quả (MAE lockbox °C, 15 ph / 1 h / 3 h / 6 h / 12 h):** Chronos-2 base 0,148 / 0,214 / 0,371 / 0,537 / 0,606; small 0,150 / 0,217 / 0,363 / 0,509 / 0,587; B4D 0,163 / 0,232 / 0,421 / 0,583 / 0,582; B5D 0,162 / 0,229 / 0,400 / 0,531 / 0,546; Bolt base 0,159 / 0,273 / 0,396 / 0,556 / 0,630.
+  - So với B4D: đạt gate ở 15 / 30 / 60 / 180 phút → "better" theo luật đặt trước; sau Holm chỉ 15 và 30 phút còn ý nghĩa. 6–12 h hòa (12 h tỉ số 1,04).
+  - So với Bolt base: thắng 15–60 phút (−7…−22 %, còn ý nghĩa sau Holm), hòa 3–12 h. So với TimesFM (stride 60): hòa 6/6.
+  - So với B5D: chỉ thắng 15 / 30 phút; 6 h 1,01, 12 h 1,11 (không ý nghĩa).
+  - Small ≈ base (|ΔMAE| ≤ 5 %, không gate) → luật đặt trước chọn **small cho T2**.
+  - Tốc độ (2 luồng, batch 64): small 0,23 s / origin, base 0,84 s / origin (đủ 6 chân trời).
+- **Kết luận:** Chronos-2 là mô hình nền tốt nhất trên NB1 và vượt ridge ở ≤ 3 h, nhưng không biến ngoại sinh thì không vượt B5D ở 6–12 h. H1 của bài phụ thuộc vào việc T2 thêm thời tiết / triều.
+- **Hạn chế:** một trạm, một lockbox ở giai đoạn biên độ lớn (RL-57, RL-72); lockbox đã được mở ở H1.4 / H1.9 và cấu hình kế thừa từ đó; điểm dự báo là trung bình cửa sổ; chưa đánh giá phân vị; chưa có TiRex (giấy phép "other").
+- **Artifact:** `paper1-t1-20261028/` (NOTES.md, `preregistration.json`, `fm-*`, `eval-Temperature-stride{15,60}/`, manifest sha256); `tests/test_paper1_t1.py`.
+
+## RL-74 · 2026-10-28 · Bài báo 1 / T2: Chronos-2 + thời tiết as-issued + triều + lịch
+
+- **Câu hỏi:** Thêm thời tiết dự báo as-issued, triều và giờ địa phương làm covariate cho Chronos-2 có vượt ridge B5D ≥ 5 % ở 6–12 h (H1) không? Dự báo dị thường so với chu kỳ 7 ngày hay trực tiếp?
+- **Thiết lập:** `experiments/paper1_t2_chronos2_cov.py` (commit 3704b58); `preregistration.json` trước mọi dự báo. Mô hình chính chronos-2-small (luật T1), cấu hình anom-full, stride 15, origin như T1. Thời tiết: 4 biến từ snapshot dựng lại (decision #13), quá khứ không nhìn trước, tương lai = `join_as_issued` (kiểm tra trùng khớp đạt). Triều: fit điều hòa 6 thành phần trên mực nước mô hình Open-Meteo, đóng băng trước 28/08. Lịch: sin/cos giờ địa phương. Ablation (anom, anom-cal, anom-cal-weather, direct-full) và base ở stride 60. Gate #16; Holm trên 12 kiểm định chính.
+- **Kết quả (MAE lockbox °C, 15 ph / 1 h / 3 h / 6 h / 12 h):** T2 small anom-full 0,157 / 0,235 / 0,410 / 0,602 / 0,766; T1 small 0,150 / 0,217 / 0,363 / 0,509 / 0,587; B5D 0,162 / 0,229 / 0,400 / 0,531 / 0,546.
+  - **H1 không đạt:** tỉ số vs B5D 1,13 (6 h) / 1,40 (12 h; B5D thắng, Holm 0,027). Cùng kết luận vs B5D_nopH.
+  - vs T1 small: T1 thắng 15 ph–3 h (Holm ý nghĩa 15–60 ph).
+  - Ablation stride 60: chỉ dị thường (không covariate) đã kém T1 10–18 % ở 3–12 h; anom-full kém direct-full 24 % / 40 % ở 6 / 12 h. Lịch, thời tiết, triều mỗi bước |Δ| ≤ 4 % (trừ lịch +12 % ở 12 h), không gate.
+  - direct-full (phụ): vs B5D 0,91 / 1,00 ở 6 / 12 h, hòa 6/6; fold trượt không hơn B5D.
+  - Base anom-full: tốt hơn small anom-full 1–11 %, vẫn 1,06 / 1,25 vs B5D.
+  - Post-hoc: bias lockbox của T2 tăng tới +0,26 °C ở 12 h (T1 ≤ 0,03); PI80 rộng hơn.
+  - Tốc độ: small anom-full 1,74 s / origin, base 7,37 s.
+- **Kết luận:** H1 bác bỏ. Phép dị thường 7 ngày là nguyên nhân chính làm kém; biến ngoại sinh as-issued gần như không thêm thông tin cho Chronos-2 trên NB1. Dự báo trực tiếp có covariate chỉ ngang B5D. Cần T3 (NERRS nhiều trạm) để biết có phải đặc thù NB1.
+- **Hạn chế:** lockbox đã mở (H1.4 / H1.9 / T1); một trạm, giai đoạn biên độ lớn (RL-57, RL-72); triều là fit của chuỗi mô hình, nhật triều trùng pha chu kỳ ngày; chỉ 4 / 7 biến thời tiết; ablation và base chỉ stride 60 (n ≈ 335); direct-full chọn sau khi xem dữ liệu.
+- **Artifact:** `paper1-t2-20261028/` (NOTES.md, `preregistration.json`, `fm-*`, `eval-Temperature-stride{15,60}/`, manifest sha256); `tests/test_paper1_t2.py`.
+
+## RL-75 · 2026-10-29 · Bài báo 1 / T3: NERRS nhiều trạm, thời tiết dự báo vs quan trắc
+
+- **Câu hỏi:** Kết quả T2 (Chronos-2 + covariate không vượt ridge B5D) có chung cho nhiều trạm không (T3-H1: Chronos-2 small cal-fc vượt ridge B5D-fc ≥ 5 % ở 6 và 12 h)? Thời tiết dự báo as-issued nắm được bao nhiêu giá trị so với thời tiết quan trắc trạm met (trần trên)?
+- **Thiết lập:** `experiments/paper1_t3_nerrs.py` (commit a38c171); `preregistration.json` trước mọi dự báo. CDMO 726235: 8 trạm WQ (Rookery Bay, GTM, Mission-Aransas), train 02/2024–01/2025, test 02–12/2025, 4 origin / ngày, 7.707 origin. NCEI 0052765: 33 trạm, train 2007–2009, test thực tế 2010 (met 2011 không có cờ `<0>`), 11.082 origin. Thời tiết 3 biến (nhiệt độ, gió, mưa; PAR bỏ trước init): dự báo = Open-Meteo Previous Runs theo luật lead as-issued; quan trắc = trạm met NERRS. Chronos-2 small zero-shot, mục tiêu trực tiếp (đăng ký trước, rút từ T2): none / cal / cal-fc / cal-obs / anom-cal-fc. Ridge theo trạm × chân trời: B4D-n, B5D-fc, B5D-obs. Gate-NERRS (≥ 4/5 khối + DM-HLN), Holm 12, CI bootstrap khối ngày. CPU 2 luồng.
+- **Kết quả (MAE gộp CDMO °C, 1 h / 3 h / 6 h / 12 h):** Chronos none 0,156 / 0,265 / 0,362 / 0,469; cal-fc 0,162 / 0,275 / 0,375 / 0,477; cal-obs 0,160 / 0,268 / 0,357 / 0,445; ridge B4D-n 0,167 / 0,283 / 0,355 / 0,429; B5D-fc 0,161 / 0,270 / 0,326 / 0,372; B5D-obs 0,162 / 0,269 / 0,318 / 0,348.
+  - **T3-H1 không đạt:** cal-fc / B5D-fc 1,15 (6 h) / 1,28 (12 h), ridge thắng gate, Holm p ≈ 0, 0/8 trạm.
+  - cal-fc kém Chronos thuần 2–6 % mọi chân trời; lịch một mình cũng kém 2–6 %; dị thường (anom-cal-fc) kém cal-fc 6–9 %.
+  - Thang thời tiết: ridge B5D-fc / B4D-n 0,92 / 0,87 (6 / 12 h, gate mọi chân trời, 8/8 trạm), B5D-obs / B4D-n 0,90 / 0,81; dự báo nắm ~79 % / 70 % lợi ích trần (post-hoc). Chronos cal-fc / cal ≈ 1,0 (vô ích), cal-obs / cal 0,96 / 0,93 (gate).
+  - Chronos none thắng ridge B4D-n ở 1 h / 3 h (0,94 / 0,93, gate), thua ở 12 h.
+  - NCEI: gate đăng ký trước vô hiệu (khối 4–5 nằm trong 2011, trống → mọi cặp "hòa"); DM vẫn nghiêng về ridge ở 6–12 h. Post-hoc (khối trong 2010): ridge B5D-obs thắng cal-obs ở 6 / 12 h (1,05 / 1,15), Chronos none thắng B4D-n ở 1 / 3 h → cùng hướng CDMO.
+  - Tốc độ (s / origin): none 0,046, cal-fc 0,405, cal-obs 0,299.
+- **Kết luận:** H1 bác bỏ lần hai (NB1 ở T2 → 8 trạm CDMO; H1 dùng thời tiết dự báo nên chỉ kiểm được trên CDMO). 33 trạm NCEI 2010 nhân rộng hướng với thời tiết quan trắc (ridge thắng ở 6–12 h, biên 360 phút chỉ 1,05). NOTES.md kết luận 5 viết "41 trạm" là nói quá; bản này là bản đúng. Mẫu NB1 (Chronos thuần ≈ B5D ở 6 h) không tổng quát: trên NERRS ridge + thời tiết as-issued thắng rõ ở 6–12 h. Thời tiết dự báo có giá trị thật nhưng chỉ khi đưa qua đặc trưng ridge; qua covariate Chronos-2 thì không. Chronos-2 thuần là lựa chọn tốt nhất ở ≤ 3 h.
+- **Hạn chế:** gate NCEI đăng ký trước hỏng do cửa sổ khối (sửa post-hoc, code thêm `--block-end` và cảnh báo khối trống); CDMO 3 khu cận nhiệt, 11 tháng; Open-Meteo tại tọa độ trạm met; 3 biến thời tiết; ridge và Chronos nhận thời tiết theo cách khác nhau; chỉ small, không fine-tune; tỉ lệ lợi ích trần không có CI.
+- **Artifact:** `paper1-t3-20261029/` (NOTES.md, `preregistration.json`, `weather-fc/`, `data-{cdmo,ncei}/`, `ridge-*`, `fm-*`, `eval-cdmo/`, `eval-ncei/`, `eval-ncei-posthoc-blocks-to-2011-01-01/`, manifest sha256); `tests/test_paper1_t3.py`.
