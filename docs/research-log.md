@@ -836,7 +836,7 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Hạn chế:** chưa có xác nhận nhà cung cấp; một trạm, không có trạm cùng hãng đối chứng; vệ tinh thiếu 27/07–08/08; nền amoni là mẫu rời của năm khác. Tin công khai duy nhất gần đó: cá chết ở Phù Long cuối T6–đầu T7 (khác thời điểm, > 10 km) — ứng viên ground truth.
 - **Artifact:** `nh4-step-0731-20261026/`; `experiments/nh4_step_0731.py`; `tests/test_nh4_step_0731.py`.
 
-## RL-73 · 2026-10-28 · Bài báo 2 / F1: thư viện chèn sự cố cảm biến hiệu chỉnh trên sự cố thật NB1
+## RL-76 · 2026-10-28 · Bài báo 2 / F1: thư viện chèn sự cố cảm biến hiệu chỉnh trên sự cố thật NB1
 
 - **Câu hỏi:** bộ chèn sự cố (để chấm F2/F3 có đáp án đúng) có tái tạo được biên độ và thời gian của các sự cố thật ở NB1 không?
 - **Thiết lập:** `experiments/paper2_faults.py` (nhánh `paper/sensor-faults`). Nguyên hàm `scale_step`, `ramp` (cộng / log-tuyến tính, trần), `fouling` (tăng → bình nguyên → làm sạch có lắng), `stuck`, `gap`; sự cố ghép dạng dữ liệu (`FaultSpec`, `NB1_EVENTS`), nhãn theo kênh, `place_onsets` có hạt giống. "3 sự cố" = ba can thiệp RL-72 (E1 31/07, E2 12/08, E3 16/09), thêm pH 19/09, bám bẩn TSS 30/05→08/06, COD lên trần 06/06. Mỗi sự cố chèn vào đoạn sạch thật cùng biến, đo lại bằng cùng hàm (`detect_level_step` RL-72…); dung sai đặt trước. Ánh xạ NERRS chốt trước F3: đổi thang / kẹt 0 → `DO_mgl`, bám bẩn / trần → `Turb` (trần 1000 NTU giả định), pH → `pH`.
@@ -847,7 +847,7 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Artifact:** `paper2-f1-20261028/` (NOTES.md, `nb1_fault_catalog.json`, `reproduction.csv`, `fig_reproduction.png`, manifest); `tests/test_paper2_faults.py` (13 test).
 - **Tiếp theo:** F2 — bộ phát hiện đổi chế độ (theo RL-72) + mặt nạ QC, chấm trên sự cố chèn vào NERRS.
 
-## RL-74 · 2026-10-28 · Bài báo 2 / F2: bộ phát hiện đổi chế độ nhân quả + mặt nạ QC, chấm trên sự cố chèn
+## RL-77 · 2026-10-28 · Bài báo 2 / F2: bộ phát hiện đổi chế độ nhân quả + mặt nạ QC, chấm trên sự cố chèn
 
 - **Câu hỏi:** bộ phát hiện chỉ dùng dữ liệu quá khứ bắt các sự cố kiểu NB1 nhanh và chắc đến đâu, với bao nhiêu báo động giả; mặt nạ QC che được bao nhiêu mẫu lỗi?
 - **Thiết lập:** `experiments/paper2_detect.py` (đăng ký trong docstring trước lượt chạy). `range` (Turb ≥ 1000 NTU = trần, metadata NERRS), `stuck`, `step` (trung vị 1 h so với 1 h trước, bản nhân quả của RL-72), `drift` (24 h so với nền 7 ngày), `cross` (≥ 2 kênh cùng lúc), `gap`; log cho biến dương. Ngưỡng nhỏ nhất cho ≤ 1 đợt / 30 ngày trên NERRS sạch 2007–08; chấm 1.718 lần chèn (9 loại, tham số F1) trên 2009–11, 33 trạm. Sai lệch sau lượt thử 1: chỉ tính báo động trên kênh bị chèn và ghép mỗi lần chèn với một lần chèn giả → chỉ số chính là phần vượt ngẫu nhiên, CI bootstrap cụm theo trạm. Ánh xạ "kẹt 0" chuyển sang Turb (DO thiếu oxy tự nhiên).
@@ -858,7 +858,7 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Artifact:** `paper2-f2-20261028/` (NOTES.md, `thresholds.json`, `clean_fa_*`, `injections.csv`, `detection_summary.csv`, `nb1_*`); `tests/test_paper2_detect.py` (15 test).
 - **Tiếp theo:** F3 — so (a)–(e) trên NERRS với các sự cố chèn này, dùng `flags` / `changepoints` của F2; rồi áp lên NB1.
 
-## RL-75 · 2026-10-30 · Bài báo 2 / F3: cơ chế xử lý khi cảm biến gặp sự cố (a)–(e) trên NERRS chèn lỗi
+## RL-78 · 2026-10-30 · Bài báo 2 / F3: cơ chế xử lý khi cảm biến gặp sự cố (a)–(e) trên NERRS chèn lỗi
 
 - **Câu hỏi:** khi cảm biến ven biển có sự cố kiểu NB1, cách nào giữ dự báo và khoảng tin cậy đáng tin nhất: (a) bỏ qua, (b) mặt nạ QC, (c) khởi động lại ngữ cảnh tại điểm đổi chế độ, (d) thích nghi lúc chạy, (e) ACI?
 - **Thiết lập:** `experiments/paper2_mechanisms.py` (đăng ký trong docstring trước lượt thử). Chấm theo giá trị sạch; cơ chế chỉ dùng chuỗi quan sát lỗi. Đúng vị trí chèn + chèn giả của F2 (2009–11, 33 trạm, 9 loại). Thêm (c′) căn mức tại điểm đổi (đăng ký trước, dựa RL-72); (d) là proxy (bù sai số trượt mũ), không phải FSNet/TAFAS. Ridge biểu diễn Δ + ngày–đêm của bài 1 (RL-68) trên mọi lần chèn có mô hình (158–196 / loại); Chronos-Bolt small 20 / loại + 4 chèn giả / loại; 2 luồng CPU. Luật: giảm MAE 0–24 h ≥ 30 % (h = 1 h, CI theo lần chèn không chứa 0) ở ≥ 6/8 loại.
