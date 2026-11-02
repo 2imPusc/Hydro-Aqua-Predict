@@ -54,7 +54,7 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 1022 tests; requires_data ones skip without data/
+.venv\Scripts\python -m pytest -q                       # 1033 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
