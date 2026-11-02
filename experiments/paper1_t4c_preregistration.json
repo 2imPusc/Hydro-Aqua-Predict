@@ -1,0 +1,60 @@
+{
+ "run": "paper1-t4c-20261102",
+ "written": "2026-11-02, after the exploratory dev stage, before any interval or coverage was computed on conf",
+ "question": "Does a conformalised PI80 built on the hybrid stack-B5D (ridge B5D-fc + Chronos-2 none q50 - current) reach nominal coverage on unseen CDMO stations, with Winkler no worse than ridge B5D-fc + the same conformal rule?",
+ "code": "experiments/paper1_t4c_hybrid_pi.py (stages dev, init, conf, manifest); tests/test_paper1_t4c.py. Code, selection rule and tests committed at f5f5027 BEFORE the dev stage was run; the init stage records the git head of the commit that adds this file.",
+ "inputs": {
+  "points": "paper1-t4b-20261102/predictions-{dev,conf}.parquet: actual, stack-B5D, ridge-B5D-fc, ridge-B5D-fc-3h, none",
+  "quantiles": "Chronos-2 small none q10/q50/q90: conf fm-conf/test-<station>.parquet, dev T3 fm-cdmo-chronos-2-small-none.parquet; q50 must equal T4b 'none' (atol 1e-4) or the run stops",
+  "amplitude": "A(t) = max - min Temp over the trailing 24 h up to issued_at (>= 48 values), conf from paper1-t4b data-conf/, dev from paper1-t3 data-cdmo/; floor = 0.25 x median calibration A per station",
+  "no_reforecast": true
+ },
+ "sets": {
+  "dev": "8 T3 stations (Rookery Bay, GTM, Mission-Aransas). Exploratory, already seen in T3/T4/T4b; used only to choose the primary method by the rule below.",
+  "conf": "12 CDMO 184841 stations, reserves Apalachicola, Sapelo, Jobos. Point MAE already seen in T4b; no interval, coverage or Winkler computed before this file was committed."
+ },
+ "split": "Inside each station: calibration = rows with known_at < 2025-05-01 (Feb-Apr 2025); evaluation = rows with issued_at >= 2025-05-01 (May-Dec 2025); straddling rows dropped and counted. Rows with actual NaN dropped.",
+ "feedback": "known_at = issued_at + horizon (the true value is observed at the valid time, never before). A matured outcome enters the ACI / aci_amp state only at origins with issued_at >= known_at. Stride 360 min (00/06/12/18 LST). gamma = 0.075 / ceil(h / 360) (T4 rule); literal gamma 0.005 x 15 / h is a sensitivity. Note: this fixes the T4 NB1 deviation (known_at equal to valid_at there because actual_at was empty); on CDMO T4 already used issued_at + horizon.",
+ "constructions": {
+  "abs_<rule>": "conformal on |y - point|, symmetric interval point +/- q",
+  "cqr_shift_<rule>": "lo = stack + (q10 - q50), hi = stack + (q90 - q50); CQR score max(lo - y, y - hi); interval [lo - q, hi + q]; a negative q that crosses collapses to the midpoint (fraction reported as frac_zero_width)",
+  "rules": "static (split conformal on calibration), aci (ACI with delayed feedback), aci_amp (ACI on scores / max(A, floor), core.forecast_intervals.aci_amp_half_width); identical code path to T4 (paper1_t4_conformal.methods_for_group)"
+ },
+ "dev_selection": {
+  "rule": "eligible = coverage in [0.75, 0.85] in >= 15/18 dev cells; among eligible, most dev cells passing the full cell rule; tie -> lowest mean Winkler ratio vs ridge B5D-fc + abs_static; tie -> simpler. Fixed in the code committed at f5f5027 before the dev stage ran.",
+  "result_exploratory": {
+   "cqr_shift_aci_amp": "coverage 18/18, pass 18/18, mean common ratio 0.898",
+   "cqr_shift_aci": "coverage 18/18, pass 16/18, 0.892",
+   "abs_aci_amp": "coverage 16/18, pass 16/18, 0.941",
+   "abs_aci": "coverage 16/18, pass 15/18, 0.912",
+   "abs_static": "coverage 12/18 (not eligible)",
+   "cqr_shift_static": "coverage 11/18 (not eligible)"
+  },
+  "dev_caveat": "On dev the selected method's same-rule reference (ridge + abs_aci_amp) is weaker than ridge + abs_aci at 6-12 h (equal-reserve Winkler 720 min: stack cqr_shift_aci_amp 1.808, ridge abs_aci_amp 1.855, ridge abs_aci 1.752). Hence the pre-declared secondary reading vs ridge + abs_aci."
+ },
+ "primary_method": "cqr_shift_aci_amp",
+ "primary_reference": ["ridge-B5D-fc", "abs_aci_amp"],
+ "reference_choice": "ridge-B5D-fc (T3 recipe, 30-min training origins) is primary: it is the T3/T4 operational baseline named in the plan. ridge-B5D-fc-3h (same training origins as stack-B5D) is secondary; T4b found the two ridges within 0.995-1.007 in MAE.",
+ "hypothesis": "H-T4c: stack-B5D + cqr_shift_aci_amp has PI80 coverage in [0.75, 0.85], frac_infinite <= 0.01 and mean Winkler <= 1.00 x ridge-B5D-fc + abs_aci_amp in every cell (reserve x horizon, 15/30/60/180/360/720 min) on conf.",
+ "cell_rule": "As T4 except the Winkler ratio threshold: n >= 50, coverage in [0.75, 0.85] (inclusive), frac_infinite <= 0.01, Winkler ratio <= 1.00 on rows finite for both (paired by station, issued_at, horizon). Decision on point estimates; day-block bootstrap 95 % CIs (1000 draws, blocks = calendar days pooling all stations of a reserve) are descriptive.",
+ "decision_unit": "reserve (3). A reserve passes iff all 6 horizon cells pass. Verdict: supported = 3/3 reserves, partially_supported = 2/3, rejected = 0-1/3.",
+ "decompositions": "Reported with the same reserve rule: coverage-only cells (cell_coverage) and Winkler-only cells (cell_winkler).",
+ "secondary": [
+  "reference ridge-B5D-fc-3h + abs_aci_amp",
+  "reference ridge-B5D-fc + abs_aci (strongest ridge rule on dev)",
+  "the five non-selected candidates vs their same-rule ridge",
+  "literal gamma (selected method and reference both literal)",
+  "known_at + 1 min (an outcome can be used only at an origin strictly after its valid time)",
+  "Chronos none + cqr_aci_amp vs ridge-B5D-fc + abs_aci_amp (T4 pairing on the new stations)",
+  "weekly coverage and worst ISO week per reserve x horizon (>= 20 rows)"
+ ],
+ "limitations_known_in_advance": [
+  "conf test year 2025 is the same as dev; CDMO 2025 data are provisional",
+  "conf point forecasts (MAE) were seen in T4b; only intervals are new",
+  "3 reserves: the reserve rule is descriptive, no inferential test; stations within a reserve are not independent",
+  "calibration Feb-Apr vs evaluation May-Dec: seasonal shift penalises static rules",
+  "selection on dev used the same 18-cell rule that is tested on conf; dev margins (coverage 0.797-0.801, ratio 0.80-1.00) are optimistic",
+  "Chronos none has no weather; stack-B5D / ridge use as-issued Previous Runs weather"
+ ],
+ "conf_protocol": "conf stage runs once into a write-once directory; anything else on conf is labelled post-hoc in NOTES.md. Negative or partial verdicts are reported as such."
+}

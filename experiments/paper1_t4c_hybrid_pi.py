@@ -350,6 +350,8 @@ def stage_conf(_args) -> None:
     sens = []
     t = candidate_table(rows, by, RIDGE3H)
     sens.append(t[t["candidate"] == primary].assign(sensitivity="reference_ridge_3h"))
+    m = t4.summarise(rows[(rows["model"] == cand[0]) & (rows["method"] == cand[1])], by)
+    sens.append(cells(m, t4.winkler_ratio_cells(rows, cand, (RIDGE, "abs_aci"), by), by).assign(sensitivity="reference_ridge_abs_aci"))
     for name in CANDIDATES:
         if name != primary:
             sens.append(table[table["candidate"] == name].assign(sensitivity=f"other_candidate:{name}"))

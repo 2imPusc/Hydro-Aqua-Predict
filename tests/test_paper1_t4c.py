@@ -139,3 +139,11 @@ def test_stage_conf_refuses_without_preregistration(tmp_path, monkeypatch):
     monkeypatch.setattr(t4c, "run_dir", lambda: tmp_path)
     with pytest.raises(FileNotFoundError):
         t4c.stage_conf(None)
+
+
+def test_preregistration_matches_code():
+    import json
+    prereg = json.loads(t4c.PREREG_FILE.read_text(encoding="utf-8"))
+    assert prereg["primary_method"] in t4c.CANDIDATES
+    assert tuple(prereg["primary_reference"]) == t4c.reference_of(prereg["primary_method"])
+    assert prereg["run"] == t4c.RUN_NAME
