@@ -14,7 +14,7 @@ trượt hoặc không lấy được.
 ## Sai lệch khi kiểm (phải đọc)
 
 Yêu cầu là chỉ kiểm metadata hoặc mẫu nhỏ. Tôi gửi yêu cầu `Range: 0-20000` tới data.go.kr cho 5 file, máy chủ **bỏ qua Range**
-và curl nhận tổng cộng khoảng **160 MB** (khoảng 22 / 60 / 67 / 6,5 / 4,9 MB, file đầu bị cắt do timeout) trước khi tôi phát hiện.
+và curl nhận tổng cộng khoảng **160 MB** (khoảng 22 / 60 / 67 / 6,5 / 4,9 MB; 4 file đầu bị timeout 60 s cắt giữa chừng, riêng Gwangyang 4,9 MB về trọn file) trước khi tôi phát hiện.
 Tôi cắt mỗi file còn 60 KB đầu để đọc tiêu đề cột và một đoạn đầu, xóa phần còn lại, rồi xóa luôn phần 60 KB sau khi đọc. Không
 có gì được ghi vào `data/` hay giữ lại trong dự án. Vì vậy mọi "đã xác minh" về nội dung dưới đây chỉ dựa trên **60 KB đầu file**.
 Lần tải thật về sau phải là quyết định riêng của chủ dự án.
@@ -55,7 +55,7 @@ Lần tải thật về sau phải là quyết định riêng của chủ dự �
 
 | Nguồn | URL | Biến / đơn vị | Tần suất | Năm | Số trạm | QC | Giấy phép | Cách tải | Đã xác minh | Chưa xác minh / Kết luận |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Skidaway River Estuary (SECOORA / IOOS) | `erddap.secoora.org/erddap/info/skidaway-river-estuary` | `ammonium_microg_l_1`, µg/L | **Khoảng hằng tuần, không phải cảm biến** | 2023→09/2026 | 1 | QARTOD có cột, nhưng `qc_agg` chỉ có giá trị 2 (chưa đánh giá) | Dùng tự do, trích dẫn | ERDDAP CSV | Dòng có NH4: 22 / 34 / 54 / 6 theo năm 2023–26; thời điểm các dòng 01–03/2024 cách nhau khoảng 1 tuần | Có vẻ là chương trình lấy mẫu hằng tuần tại cầu tàu SkIO (trang SkIO), chưa xác nhận trực tiếp. **Trượt tần suất** |
+| Skidaway River Estuary (SECOORA / IOOS) | `erddap.secoora.org/erddap/info/skidaway-river-estuary` | `ammonium_microg_l_1`, µg/L | **Khoảng hằng tuần, không phải cảm biến** | 2023→09/2026 | 1 | QARTOD có cột, nhưng `qc_agg` chỉ có giá trị 2 (chưa đánh giá) | Dùng tự do, trích dẫn | ERDDAP CSV | Dòng có NH4: 22 / 34 / 54 / 6 theo năm 2023–26; thời điểm các dòng 01–03/2024 cách nhau khoảng 1 tuần (9 dòng đó NH4 đều NaN, `qc_agg` = 2) | Có vẻ là chương trình lấy mẫu hằng tuần tại cầu tàu SkIO (trang SkIO), chưa xác nhận trực tiếp. **Trượt tần suất** |
 | ModMon Neuse / Pamlico (SECOORA) | `erddap.secoora.org` (`neuse-river-*`, `pamlico-sound-*`) | NH4 | Khảo sát tàu | Marker 64: 1994–2006 | khoảng 20 | Chưa kiểm | Như trên | ERDDAP | Dải thời gian Marker 64 từ thông báo ERDDAP | Các trạm khác chưa kiểm dải thời gian. **Trượt** |
 | USGS NWIS | `api.waterdata.usgs.gov` / `waterservices.usgs.gov` | 00608 NH3+NH4 hòa tan, mg/L | **Không có chuỗi tức thời**; chỉ Daily Mean | 1990–2025 | 72 chuỗi | Có duyệt | Công khai | API mở | Dịch vụ site `iv`: 0 ở mọi bang đã thử (đối chứng GA 00010 = 127); OGC: 72 / 72 Daily Mean, kinh độ / vĩ độ thuộc vùng nội địa Trung Tây | Mã 00610, 00613, 62955 trả 0 chuỗi; có thể còn mã khác. **Trượt tần suất + không ven biển** |
 | LOBO Elkhorn Slough (MBARI) | `www3.mbari.org/lobo/getLOBOdata.htm` | **Biểu mẫu không liệt kê ammonium** (có nitrate, DO, Turb…) | Giờ | 2003→ | khoảng 5 | Có mức chất lượng | Chưa kiểm | CGI công khai | Danh sách biến của biểu mẫu: không có NH4 | Bài AGU 2012 có nhắc phép đo NH4 tại chỗ; dữ liệu đó chưa thấy công khai. **Không tìm thấy NH4** |
