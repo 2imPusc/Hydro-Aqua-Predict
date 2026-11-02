@@ -923,3 +923,24 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Hạn chế:** sự cố chèn lý tưởng hóa; FM ~14–15 vị trí giữ lại / loại; ngưỡng đặt trước, không quét (tổ hợp khác phải đăng ký lại); hại FM dựa trên tính chất "không bật = (a)" (đã kiểm bằng ridge); NB1 không có đáp án, chỉ có nhiệt độ làm tham chiếu.
 - **Sai lệch:** điều kiện (i) sửa sau chạy thử 1 trạm **trước** commit đăng ký (xét bước nhảy trong ±W mẫu quanh điểm đổi định vị lại); chuỗi chạy bị giới hạn 2 h cắt giữa bước Bolt, đã chạy lại tách riêng, mã không đổi.
 - **Artifact:** `paper2-f4-20261030/` (NOTES.md, `preregistration.json`, `results_{ridge,bolt,chronos2}.csv`, `results_cdmo_*.csv`, `triggers_nerrs.csv`, `cdmo_*`, `summary.csv`, `selection.json`, `verdict.csv`, `nb1_*`, manifest); `tests/test_paper2_bounded_align.py` (11 test).
+
+## RL-T4b-đính-chính · 2026-11-02 · Đính chính câu "Chronos thuần tốt nhất ≤ 3 h" của RL-75
+
+- **Đính chính:** câu này của RL-75 chỉ kiểm với B4D-n, không đúng khi so với ridge B5D-fc. Mục RL-75 giữ nguyên, mục này thay thế câu đó.
+- **Kiểm tra (phân tích lại dự báo T3 đã lưu, tỉ số đã biết trước, không phải giả thuyết mới):** gate-NERRS `none` vs `ridge-B5D-fc`, 8 trạm, Holm 6. Tỉ số MAE 15 ph / 30 ph / 1 h / 3 h / 6 h / 12 h: 1,147 (ridge thắng) / 1,023 (hòa) / 0,967 (none thắng) / 0,982 (hòa) / 1,110 (ridge thắng) / 1,259 (ridge thắng). Thắng ở 1 h gần như chỉ do GTM: 0,905, so với Mission-Aransas 1,004 và Rookery 1,014; 4/8 trạm. Chronos kém persistence ở 15 ph (1,106; không đạt gate theo chiều nào).
+- **Trên trạm mới (RL-T4b):** none / B5D-fc 1,25 / 1,10 / 1,04 / 1,04, ridge thắng gate ở 15 ph–1 h, 3 h hòa theo luật mức khu.
+- **Câu đúng:** Chronos thuần thắng ridge không thời tiết ở 1–3 h trên 8 trạm T3, nhưng không tốt hơn ridge có thời tiết as-issued ở ≤ 3 h, và ở 15 ph kém cả persistence.
+- **Artifact:** `paper1-t4b-20261102/t3-correction/gate_none.csv`.
+
+## RL-T4b · 2026-11-02 · Bài báo 1 / T4b: lai Chronos-2 + ridge cùng đặc trưng thời tiết, xác nhận trên trạm chưa dùng
+
+- **Câu hỏi:** Kết luận T3 có bị lẫn cách mã hóa thời tiết không? Lai Chronos none với ridge B5D-fc có vượt cả hai trên trạm chưa dùng không?
+- **Thiết lập:** `experiments/paper1_t4b_hybrid.py` (commit 3ad298b), đăng ký trước commit 501ddfe. Xác nhận: CDMO 184841, 12 trạm / 3 khu (Apalachicola, Sapelo, Jobos), train 02/2024–01/2025, test 02–12/2025, 13.639 origin; bước 0 chỉ xem độ phủ. Phát triển: 8 trạm T3, chỉ khám phá. Nhánh: resid-none, stack-B5D, avg, switch-180. Chronos năm train nhân quả, 672 bước, origin mỗi 3 h; nhánh có học so với ridge cùng tập origin. Gate-NERRS, Holm 42, CI bootstrap, luật mức khu khai báo trước (tỉ số < 1 ở 3/3 khu, CI < 1 ở ≥ 2/3), Wilcoxon / dấu theo trạm làm phụ. Dev tái lập T3 với sai lệch ridge 0,0.
+- **Kết quả (MAE gộp conf °C, 15 ph / 30 ph / 1 h / 3 h / 6 h / 12 h):** persistence 0,062 / 0,110 / 0,193 / 0,452 / 0,696 / 0,868; none 0,074 / 0,099 / 0,144 / 0,263 / 0,369 / 0,477; B5D-fc 0,060 / 0,090 / 0,138 / 0,253 / 0,327 / 0,373; stack-B5D 0,059 / 0,088 / 0,134 / 0,242 / 0,319 / 0,369; avg 0,062 / 0,089 / 0,134 / 0,242 / 0,322 / 0,390; resid-none 0,074 / 0,098 / 0,143 / 0,257 / 0,359 / 0,441.
+  - **stack-B5D: supported**, thắng cả hai ở 30 ph–12 h, 15 ph hòa. Tỉ số với ridge cùng tập origin 0,992 / 0,976 / 0,964 / 0,952 / 0,974 / 0,989. So với ridge công thức T3 (phụ), 12 h hòa.
+  - **avg: partial**, thắng cả hai chỉ ở 1 h và 3 h (0,970 / 0,955); 6 h hòa, 12 h 1,046. Mẫu "tốt hơn cả hai" thấy ở dev không lặp lại ở 6 h.
+  - **switch-180: không có giá trị riêng**, thua ridge ở 15 ph–1 h, hòa 3 h; thắng ở 6 / 12 h chỉ là ridge thắng none.
+  - **resid-none: not_supported**, thua ridge 1,10 / 1,18 ở 6 / 12 h, 0/12 trạm. Theo luật: lợi thế ridge còn nguyên khi cùng đặc trưng thời tiết.
+- **Kết luận:** Dùng dự báo Chronos làm đặc trưng cho ridge có lợi thật và nhất quán, nhưng chỉ 1–5 %, ở 12 h khoảng 1 %. Mức cải thiện ở trạm mới chỉ bằng khoảng nửa ở dev. Khoảng cách 6–12 h của T3 không chỉ do cách mã hóa thời tiết. Chưa đề xuất đưa vào runtime.
+- **Hạn chế:** 3 khu nên luật mức khu chỉ là mô tả; trạm trong khu không độc lập; cùng năm 2025 với dev, CDMO 2025 tạm thời; Jobos thưa (job19, job10 trống ở một số khối); resid-none không có lag nên không tách được cách mã hóa với học theo trạm; dữ liệu huấn luyện của Chronos-2 ngoài tầm kiểm soát; chưa đánh giá phân vị.
+- **Artifact:** `paper1-t4b-20261102/` (NOTES.md, `preregistration.json`, `step0_coverage.json`, `eval-{dev,conf}/`, `t3-correction/`, manifest sha256); `tests/test_paper1_t4b.py`.
