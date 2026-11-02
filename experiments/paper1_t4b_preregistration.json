@@ -1,0 +1,169 @@
+{
+ "run": "paper1-t4b-20261102",
+ "written_at_utc": "2026-11-02T05:33:56.347285+00:00",
+ "git_head": "3ad298be00fa1288a27bb08b4123d59bdb06ac69",
+ "worktree_clean": true,
+ "question": "Why: T3 (RL-75) compared ridge B5D-fc (8 aggregated weather features, learned per station) with zero-shot Chronos-2 (raw\nseries), so its conclusion mixes model and encoding. Its line \"pure Chronos is best at <= 3 h\" was only tested against B4D-n.\nA post-hoc mean of Chronos none and B5D-fc looked better than both on the same 8 stations, which therefore cannot confirm it.",
+ "sets": {
+  "dev": {
+   "stations": [
+    "gtmfmwq",
+    "gtmpiwq",
+    "gtmsswq",
+    "marscwq",
+    "rkbfbwq",
+    "rkbfuwq",
+    "rkblhwq",
+    "rkbmbwq"
+   ],
+   "reserves": [
+    "Rookery Bay",
+    "Guana Tolomato Matanzas",
+    "Mission-Aransas"
+   ],
+   "status": "exploratory, already looked at (RL-75, review 2026-11-02)",
+   "source": "paper1-t3-20261029 (read-only)",
+   "origins": "T3 origins-3wx (eligibility includes observed weather)"
+  },
+  "conf": {
+   "stations": {
+    "apacpwq": "Apalachicola",
+    "apadbwq": "Apalachicola",
+    "apaebwq": "Apalachicola",
+    "apaeswq": "Apalachicola",
+    "sapcawq": "Sapelo",
+    "sapdcwq": "Sapelo",
+    "saphdwq": "Sapelo",
+    "sapldwq": "Sapelo",
+    "job09wq": "Jobos",
+    "job10wq": "Jobos",
+    "job19wq": "Jobos",
+    "job20wq": "Jobos"
+   },
+   "status": "confirmatory",
+   "zip": "D:\\2impusc\\Hydro-Aqua-Predict\\data\\foreign\\nerrs_cdmo\\raw\\184841.zip",
+   "zip_sha256": "04a8c6fd559530c93a21d2f9a7be786339b7b053fa73e406a41c3d9933193d37",
+   "origins": "eligibility on target and forecast weather presence only; no observed-weather requirement"
+  }
+ },
+ "prior_use_of_conf_data": "Temp and forecasts of 184841 were not used by T3. Paper 2 F4 used only DO/Turb of 184841. Step 0 read flags / presence only, never a forecast error.",
+ "step0_files_sha256": {
+  "step0_coverage.json": "6c976f79aa4efb5b995a7e11444d45cb63137a0e854a6c78c7b941f9eadc4ce2",
+  "data-conf\\apacpwq.parquet": "38f829901c169f41a0e3cd7cb176345d9ad04211214b6d547673f8d14f31d759",
+  "data-conf\\apadbwq.parquet": "232d9fd2f38fee41ba6fa97fa51ba2cfc47484ad83fea76c3316cece859ce244",
+  "data-conf\\apaebwq.parquet": "5165fadcfb8af016c4d2507835117876fd705269b651d6a31b4109638e31c598",
+  "data-conf\\apaeswq.parquet": "e1841f2e4ea4c8b6cffe0ac295a61d781a0e9ff6752b6b46c1c6cb8e7cf05ac9",
+  "data-conf\\job09wq.parquet": "8e4a8e0ec3d3ea7d69da498b1301a3f291ebbd1d82afdd241b57b30722010eff",
+  "data-conf\\job10wq.parquet": "75489fc93aab37c5324e602d7d6c2ac5a245cbdcadb9d12cae90fe6086116bdd",
+  "data-conf\\job19wq.parquet": "bc1108c27976295c32a1398e9979dc4c543479406eb7ebbe1ccff454a3ddfae6",
+  "data-conf\\job20wq.parquet": "95d6cc8d0d352c2459f999cc2126c3bdb6978f1f1ed205fd16fc7abe733dc764",
+  "data-conf\\sapcawq.parquet": "29ba5ad0444337dd86ab5eecec922712cfd0736eb0540a1a78679ea59b35b926",
+  "data-conf\\sapdcwq.parquet": "c98ae24942287bd0f50eb624179f00f87b3d9724db9857ed2a16f36acfeb81e3",
+  "data-conf\\saphdwq.parquet": "f9a442c47cbabd5c22bcba8710a882ef761a743562f5435701fc6b86bbf76591",
+  "data-conf\\sapldwq.parquet": "7b9ac7107abe3212d684362521f042489162994e193d72d8d0a96b0433749c10",
+  "data-conf\\stations.json": "7a1b4d5b43e2372edeb23fc95b5cb4c4fa81e56e7a85a5b7ce6c2326c113d639",
+  "weather-fc\\apacpwq.json": "70eb0fce2c0fcee85ca026f086228cf3b8622aa341c0a60c1c06e2c1dc721e22",
+  "weather-fc\\apadbwq.json": "817cd23d1dead194dd5a881b0c253e43173a7b40f610a3fb414c04ca78423b82",
+  "weather-fc\\apaebwq.json": "1dc5054a969c213251a8b523fe5b3ea20177485fe924f36e9c06308bf6324817",
+  "weather-fc\\apaeswq.json": "1a992c3b4852b6323b1a05d32e337873ba36cf86997d405a10140e40b5839e85",
+  "weather-fc\\fetch_log.json": "a7dcc59bb2b5b95abf3f3b028031bb88f11a9944c0f9ada7eeddd819430abc69",
+  "weather-fc\\job09wq.json": "2d7c00b8f9f837f4605440510b523bc2decdfdf2f7b6b6be65f17c9166012703",
+  "weather-fc\\job10wq.json": "33a1b8228c91c911372ee3555dc5e2b0f5a1e95816cd007e96f206a242cb6b55",
+  "weather-fc\\job19wq.json": "b28f16e2e7a4635b2735a6dd94095db8a7828b0dd8558bf4df304efa20432751",
+  "weather-fc\\job20wq.json": "1f2029057c3d84483189b8dd541c5a6f88d0c804d2ac0938d8f513f37720d9f6",
+  "weather-fc\\sapcawq.json": "4357889c5bcee40f891fc76c41156fbab3890bb8d61bd7662755393aabd5ac5e",
+  "weather-fc\\sapdcwq.json": "8c698abd941de5743c145ce64c4f42a0a78f81d3ef603cc640701ebeba932d37",
+  "weather-fc\\saphdwq.json": "4dd235a311ece58afaca73a03b32a4f18d948f807833637da30c2601a9795afa",
+  "weather-fc\\sapldwq.json": "b8fcd375561a220a83fc657167c82466c6e26be3668835074accfbb9348c4692"
+ },
+ "periods": {
+  "train": [
+   "2024-02-01",
+   "2025-02-01"
+  ],
+  "test": [
+   "2025-02-01",
+   "2025-12-31 12:00"
+  ],
+  "origin_hours": [
+   0,
+   6,
+   12,
+   18
+  ],
+  "block_end": {
+   "dev": "2025-12-31 12:00",
+   "conf": "2025-12-31 06:00"
+  }
+ },
+ "weather": {
+  "source": "Open-Meteo Previous Runs best_match at WQ station coordinates (same code as T3)",
+  "variables": [
+   "temperature_2m",
+   "wind_speed_10m",
+   "precipitation"
+  ],
+  "rule": "T3 as-issued lead rule",
+  "features": "t3.weather_features: 8 features, unchanged"
+ },
+ "chronos": {
+  "model": "chronos-2-small",
+  "repo": "autogluon/chronos-2-small",
+  "revision": "ddec01313e50b6bc58ebaa92ede81bc24a3d9f9a",
+  "config": "none",
+  "context_steps": 672,
+  "prediction_length": 48,
+  "point": "q50",
+  "threads": 2,
+  "train_origins": "every 180 min in the train window, eligibility on presence; targets end before test start. Zero-shot, so train-year forecasts are out-of-sample by construction; the model's own training cutoff is outside this repo's control."
+ },
+ "ridge": {
+  "recipe": "t3.ridge_fit_predict, per station x horizon, lambdas and selection as T3",
+  "ridge-B5D-fc": "T3 recipe, 30-min training origins; dev must reproduce T3's stored forecasts to 1e-6",
+  "ridge-B5D-fc-3h": "same features, 3-h training origins = training set of the trained arms",
+  "resid-none": "target actual - q50, features = the 8 weather features only",
+  "stack-B5D": "delta target, B5D-fc features + (q50 - current)"
+ },
+ "arms": [
+  "resid-none",
+  "stack-B5D",
+  "avg",
+  "switch-180"
+ ],
+ "switch_minutes": 180,
+ "horizons": [
+  15,
+  30,
+  60,
+  180,
+  360,
+  720
+ ],
+ "baselines": [
+  "persistence",
+  "diurnal-7d",
+  "ridge-B4D-n",
+  "ridge-B5D-fc",
+  "ridge-B5D-fc-3h",
+  "none"
+ ],
+ "verdict_rules": {
+  "gate": "t3.gate_nerrs unchanged (>= 4/5 equal time blocks lower MAE and RMSE, DM-HLN p < 0.05 on per-slot mean absolute loss, lag = ceil(h / 6 h)). Block windows are fixed in advance: dev ends 2025-12-31 12:00 (as T3), conf ends 2025-12-31 06:00 (last eligible origin in step 0).",
+  "references": "Each arm is compared with Chronos none and with ridge B5D-fc. Trained arms (resid-none, stack-B5D) use ridge-B5D-fc-3h, a B5D-fc retrained on the identical 3-h training-origin set, so that training stride is not confounded with hybridisation; avg and switch-180 use ridge-B5D-fc in the T3 recipe (30-min training origins). Trained arm vs the T3-recipe ridge and ridge-3h vs T3-recipe ridge are secondary.",
+  "holm_family": "conf only, 42 tests: {resid-none, stack-B5D, avg} x {none, ridge reference} x 6 horizons (36) + switch-180 x its non-degenerate reference x 6 horizons (ridge at h <= 180, none at h > 180).",
+  "reserve_call": "For a pair at a horizon, 'win' iff pooled gate passes AND Holm p < 0.05 AND MAE ratio < 1 in 3/3 reserves AND day-block bootstrap 95 % CI of the ratio is entirely below 1 in >= 2/3 reserves. 'loss' is the mirror image (reference passes the gate, ratio > 1 in 3/3, CI entirely above 1 in >= 2/3). Otherwise 'tie'. With 3 reserves no inferential test at reserve level exists: this is a descriptive consistency rule, and reserves are the unit of independence.",
+  "arm_conclusion": "An arm 'beats both' at a horizon iff its reserve_call is 'win' against both references. Label: 'supported' if >= 4/6 horizons, 'partial' if 1-3, 'not_supported' if 0. Claim 'hybrid helps at 6-12 h' needs 'beats both' at both 360 and 720 for that arm. switch-180 equals one reference at every horizon, so it is judged only against the other: same labels on reserve_call 'win' vs the non-degenerate reference.",
+  "encoding_reading": "Read at 360 and 720 min from resid-none vs ridge-B5D-fc-3h: if the call is 'loss' at either horizon, 'ridge advantage survives identical weather features' (the T3 gap is not only encoding); otherwise 'T3 gap at 6-12 h not attributable to the Chronos backbone given identical features'. stack-B5D contains the ridge features and is not used for this reading.",
+  "station_level": "Per pair x horizon, secondary, plan section 5.3: share of stations won, median MAE skill, two-sided Wilcoxon signed-rank and sign test on per-station MAE differences. Stations in one reserve are not independent (apaebwq / apaeswq share one site and weather cell), so reserve_call decides, not these tests.",
+  "persistence": "Every model vs persistence: gate and ratio per horizon, secondary; skill = 1 - MAE / MAE persistence.",
+  "dev_protocol": "dev is exploratory: reported with the same tables, never used to choose an arm, threshold, feature or lambda rule. Only a coding bug found on dev may change the code, and then by a committed amendment listed in NOTES.md before conf is scored.",
+  "conf_protocol": "evaluate --set conf runs once into a write-once directory. Anything else on conf is labelled post-hoc in NOTES.md.",
+  "negative_results": "A negative or tied verdict is reported as such."
+ },
+ "n_boot": 1000,
+ "known_limits_before_scoring": [
+  "Jobos: job19wq has 0 eligible origins in blocks 1-2 and job10wq 3 in block 1, so Jobos block 1 is essentially job09 + job20.",
+  "apaebwq / apaeswq are bottom and surface sondes of one site and share weather.",
+  "CDMO 2025 is provisional; same 11-month test year as T3, so dev and conf share weather events only if regional."
+ ]
+}
