@@ -108,10 +108,20 @@ NB1 (``stage_nb1``, illustration only, outside the rule): NB1 NH4 hourly medians
 thresholds from NB1 2026-06-01..2026-07-30 (pre-E1) with the same FA rule, Chronos-2 small (no NB1 ridge),
 around E1 31/07 14:00 and E3 16/09 15:00: mean 1-h forecast level 0-24 h after per mechanism vs observed pre / post.
 
+AMENDMENT 1 (owner decision 2026-11-02, after the registration, BEFORE any scoring; ``preregistration_amendment.json``
+with its own git head, ``AMENDMENT_DECISIONS``): (A) v2 / v3 keep the a-priori F4 thresholds and remain the
+confirmatory test; ``v2c`` = v2 with the magnitude ratio (``V2C_RATIO_GRID``) and a scale on the reference thresholds
+(``V2C_REF_SCALE_GRID``) chosen per station on the uninjected calibration base so that qualifying triggers are <= 1 /
+30 d (``calibrate_v2c``) - a SECONDARY result, outside the rule and the Holm family (raw p).  Harm 10 % (F4 budget)
+is a sensitivity of the 5 % rule.  PI80 secondary condition (handoff): ACI coverage pooled over origins 24 h - 7 d
+after onset in [0.75, 0.85] -> pass, per station x type x mechanism (``pi_secondary``); does not gate the verdict.
+drift_down is stated as a synthetic fault.  Everything else as registered.
+
 Stages (write-once run dir ``paths.EXPERIMENT_OUTPUT_DIR / RUN_NAME``; ``--output`` for scratch runs):
     python -I experiments/paper2_f5_nh4.py calibrate   # filter, split, thresholds, placements (no forecasts)
     python -I experiments/paper2_f5_nh4.py timing      # ridge + Chronos-2 on 3 CALIBRATION onsets of one station
     python -I experiments/paper2_f5_nh4.py prereg      # preregistration.json (git head, design, calibration sha256)
+    python -I experiments/paper2_f5_nh4.py amend       # preregistration_amendment.json (v2c, before scoring)
     python -I experiments/paper2_f5_nh4.py score --model ridge|chronos2 [--sensitivity NAME]
     python -I experiments/paper2_f5_nh4.py evaluate
     python -I experiments/paper2_f5_nh4.py nb1
@@ -200,9 +210,15 @@ RIDGE_ALPHA = 1.0
 CHRONOS2_NAME = "chronos-2-small"
 TORCH_THREADS = 2
 FM_BUDGET_H = 12.0
-MECHS =("a", "b", "c_align", "v2", "v3", "d")
+MECHS = ("a", "b", "c_align", "v2", "v3", "v2c", "d")
 TESTED = ("b", "c_align", "v2", "v3", "d")
+SECONDARY_MECHS = ("v2c",)          # amendment 1: outside the rule and the Holm family
 GAIN_MIN, HARM_MAX, ALPHA, MIN_N = 0.30, 0.05, 0.05, 8
+HARM_MAX_SENS = 0.10                # amendment 1: F4's harm budget as a sensitivity
+# amendment 1: v2c = v2 with magnitude / reference thresholds set on the calibration period (<= 1 trigger / 30 d)
+V2C_RATIO_GRID = (3.0, 4.0, 5.0, 6.0, 8.0, 10.0, 15.0, 20.0, 30.0, 50.0)
+V2C_REF_SCALE_GRID = (1.0, 0.5, 0.25, 0.1)
+V2C_FA_TARGET_PER_30D = 1.0
 TYPES_NEEDED, STATIONS_NEEDED = 3, 2
 N_BOOT = 4000
 PI_BAND = (0.75, 0.85)
@@ -518,12 +534,46 @@ VARIANTS = {"v1": ("instant", "magnitude"), "v2": ("instant", "magnitude", "ref_
             "v3": ("instant", "magnitude", "ref_quiet")}
 
 
+def v2c_qualifies(s: dict, v2c: dict) -> bool:
+    """Amendment 1: (i) instant as F4; |shift| >= log(ratio); every available reference delta below
+    REF_THRESHOLDS x ref_scale (>= 1 reference available)."""
+    if not s["instant"] or abs(s["shift"]) < np.log(v2c["ratio"]) or s["ref_available"] < 1:
+        return False
+    for name, thr in REF_THRESHOLDS.items():
+        d = s.get(f"ref_d{name}", np.nan)
+        if np.isfinite(d) and d >= thr * v2c["ref_scale"]:
+            return False
+    return True
+
+
+def calibrate_v2c(cal: pd.DataFrame, params: dict) -> dict:
+    """Amendment 1: on the uninjected calibration base, the first (ratio ascending, then ref_scale loosest first)
+    combination on the grids with <= V2C_FA_TARGET_PER_30D qualifying triggers / 30 d; none -> last combination,
+    flagged ``capped``.  Uses only calibration hours."""
+    x = cal["NH4"]
+    det = detect_h(x, params)
+    inp = F5Inputs(x, flags_h(det), change_points_h(det["step"]), ref=cal[["temp", "sal"]])
+    days = x.notna().sum() / 24.0
+    curve, chosen = [], None
+    for ratio in V2C_RATIO_GRID:
+        for scale in V2C_REF_SCALE_GRID:
+            n = sum(v2c_qualifies(s, {"ratio": ratio, "ref_scale": scale}) for s in inp.cps)
+            r = _rate(n, days)
+            curve.append((ratio, scale, n, round(r, 4)))
+            if chosen is None and r <= V2C_FA_TARGET_PER_30D:
+                chosen = {"ratio": ratio, "ref_scale": scale}
+    v2_rate = _rate(len(inp.qual["v2"]), days)
+    out = chosen or {"ratio": V2C_RATIO_GRID[-1], "ref_scale": V2C_REF_SCALE_GRID[-1]}
+    return out | {"capped": chosen is None, "cal_days": round(float(days), 2), "n_cp_cal": len(inp.cps),
+                  "v2_triggers_per30d_cal": round(v2_rate, 4), "curve": curve}
+
+
 class F5Inputs:
     """Mechanism inputs for the NH4 column: (a), (b), F3 (c'), F4 v1-v3.  ``key(mech, t)`` depends on data <= t only;
     identical keys share one forecast (a silent F4 variant is exactly (a))."""
 
     def __init__(self, obs: pd.Series, flags: pd.Series, cps: list, ref: pd.DataFrame | None = None,
-                 c: float = NH4_C, w: int = W_H):
+                 c: float = NH4_C, w: int = W_H, v2c: dict | None = None):
         self.obs, self.c, self.w = obs.astype(float), c, w
         self.masked = self.obs.where(~flags.reindex(obs.index).fillna(False).astype(bool).to_numpy())
         z = z_of(self.obs, c).to_numpy(dtype=float)
@@ -537,6 +587,8 @@ class F5Inputs:
             self.cps.append({"alarm": alarm, "cp": obs.index[k], "k": k} | assess_cp_h(z, k, a, d, refs, w))
         self.cps.sort(key=lambda s: s["alarm"])
         self.qual = {v: [i for i, s in enumerate(self.cps) if all(s[cnd] for cnd in conds)] for v, conds in VARIANTS.items()}
+        self.v2c = v2c
+        self.qual["v2c"] = [i for i, s in enumerate(self.cps) if v2c is not None and v2c_qualifies(s, v2c)]
         self._cache: dict = {}
 
     def active(self, t: pd.Timestamp) -> int:
@@ -585,7 +637,7 @@ class F5Inputs:
 
     def trigger_info(self, onset: pd.Timestamp, last_origin: pd.Timestamp) -> dict:
         row = {"n_cp": len(self.cps)}
-        for v in VARIANTS:
+        for v in (*VARIANTS, "v2c"):
             q = self.qual[v]
             hits = [self.cps[i]["alarm"] for i in q
                     if onset - pd.Timedelta(hours=1) <= self.cps[i]["alarm"] <= onset + pd.Timedelta(hours=24)]
@@ -701,7 +753,7 @@ def prepare_h(window: pd.DataFrame, kind: str, onset: pd.Timestamp, params: dict
     obs = window if sham else inject_nh4(window, kind, onset, resolution)[0]
     det = detect_h(obs["NH4"], params)
     cps = change_points_h(det["step"])
-    inp = F5Inputs(obs["NH4"], flags_h(det), cps, ref=obs[["temp", "sal"]])
+    inp = F5Inputs(obs["NH4"], flags_h(det), cps, ref=obs[["temp", "sal"]], v2c=params.get("v2c"))
     return obs, det, inp
 
 
@@ -894,12 +946,16 @@ def summarise(res: pd.DataFrame, horizon: int = 60, window: str = "post24") -> p
     return pd.DataFrame(rows)
 
 
-def verdict(summ: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Confirmatory rule on a 1-h post24 summary.  Returns (per test, per model x mechanism x station + overall)."""
+def verdict(summ: pd.DataFrame, harm_max: float = HARM_MAX, mechs=TESTED,
+            use_holm: bool = True) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Confirmatory rule on a 1-h post24 summary.  Returns (per test, per model x mechanism x station + overall).
+    ``harm_max`` = 0.10 is the amendment-1 sensitivity; ``mechs=("v2c",), use_holm=False`` the secondary v2c table
+    (raw p, outside the Holm family)."""
     tests, stations = [], []
     for (model, st), g in summ.groupby(["model", "station"], sort=False):
-        fam = g[g["set"].isin(RULE_KINDS) & g["mech"].isin(TESTED)]
-        adj = holm({(r.mech, r.set): (r.p if r.n >= MIN_N else np.nan) for r in fam.itertuples()})
+        fam = g[g["set"].isin(RULE_KINDS) & g["mech"].isin(mechs)]
+        raw = {(r.mech, r.set): (r.p if r.n >= MIN_N else np.nan) for r in fam.itertuples()}
+        adj = holm(raw) if use_holm else raw
         for r in fam.itertuples():
             pa = adj[(r.mech, r.set)]
             ok = bool(r.n >= MIN_N and np.isfinite(pa) and pa < ALPHA and r.reduction >= GAIN_MIN)
@@ -908,7 +964,7 @@ def verdict(summ: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                           "evaluable": bool(r.n >= MIN_N), "pass": ok})
     t = pd.DataFrame(tests)
     for (model, st), g in summ.groupby(["model", "station"], sort=False):
-        for mech in TESTED:
+        for mech in mechs:
             tm = t[(t["model"] == model) & (t["station"] == st) & (t["mech"] == mech)] if len(t) else t
             n_pass = int(tm["pass"].sum()) if len(tm) else 0
             harm = {}
@@ -916,7 +972,7 @@ def verdict(summ: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                 row = g[(g["set"] == s) & (g["mech"] == mech)]
                 harm[s] = (float(-row["reduction"].iloc[0]), int(row["n"].iloc[0])) if len(row) else (np.nan, 0)
             used = [s for s in ("sham_random", "sham_event") if harm[s][1] >= MIN_N]
-            harm_ok = bool("sham_random" in used and all(harm[s][0] <= HARM_MAX for s in used))
+            harm_ok = bool("sham_random" in used and all(harm[s][0] <= harm_max for s in used))
             stations.append({"model": model, "station": st, "mech": mech, "types_passing": n_pass,
                              "passing": ", ".join(tm.loc[tm["pass"], "set"]) if len(tm) else "",
                              "harm_random": harm["sham_random"][0], "n_random": harm["sham_random"][1],
@@ -929,6 +985,24 @@ def verdict(summ: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         over["useful"] = over["sum"] >= STATIONS_NEEDED
         s = s.merge(over.rename(columns={"sum": "stations_useful", "count": "stations"}), on=["model", "mech"])
     return t, s
+
+
+def pi_secondary(res: pd.DataFrame, horizon: int = 60) -> pd.DataFrame:
+    """Amendment 1 secondary condition (handoff): per model x station x fault type x mechanism, ACI (e) PI80
+    coverage vs truth pooled over origins from 24 h to 7 d after onset (= "back in band within <= 24 h") in
+    [0.75, 0.85] -> pass.  Static coverage reported alongside.  Does not gate the main verdict."""
+    r = res[(res["horizon_min"] == horizon) & res["set"].isin(FAULT_KINDS)]
+    rows = []
+    for (model, st, kind, mech), g in r.groupby(["model", "station", "set", "mech"], sort=False):
+        w = g["n_post7"].clip(lower=0)
+        cov = float(np.average(g["cov_aci_post7"].fillna(0), weights=w)) if w.sum() else np.nan
+        cs = float(np.average(g["cov_static_post7"].fillna(0), weights=w)) if w.sum() else np.nan
+        rows.append({"model": model, "station": st, "set": kind, "mech": mech, "n": len(g),
+                     "cov_aci_post7": cov, "cov_static_post7": cs,
+                     "cov_aci_post24": float(g["cov_aci_post24"].mean()),
+                     "pass_aci": bool(np.isfinite(cov) and PI_BAND[0] <= cov <= PI_BAND[1]),
+                     "pass_static": bool(np.isfinite(cs) and PI_BAND[0] <= cs <= PI_BAND[1])})
+    return pd.DataFrame(rows)
 
 
 # =============================================================================================
@@ -1119,6 +1193,54 @@ def stage_prereg(out: Path, _args) -> None:
     print(out / "preregistration.json")
 
 
+AMENDMENT_DECISIONS = {
+    "A_B_F4_thresholds": "F4 v2 / v3 keep the a-priori F4 thresholds and stay the confirmatory test; v2c (magnitude "
+                         "ratio + reference thresholds set on the calibration period to <= 1 trigger / 30 d) is a "
+                         "SECONDARY result, outside the rule and outside the Holm family",
+    "1_min_separation": "8 d kept",
+    "2_hard_range_in_b": "off (x < 0 only), as registered",
+    "3_scale_up_factor": "x6.72 (30-s anatomy), as registered",
+    "4_drift_down": "downward log-linear drift borrowed from the TSS fouling shape; it is a SYNTHETIC fault "
+                    "(no NB1 NH4 drift observed)",
+    "5_stuck": "frozen at the last valid value, as registered",
+    "6_harm": "5 % on random AND event shams stays the rule; 10 % (F4 budget) added as a sensitivity",
+    "7_PI80": "secondary condition (handoff): ACI (e) PI80 coverage back in [0.75, 0.85] within <= 24 h after the "
+              "fault = pooled coverage over origins 24 h-7 d; pass / fail per station x type x mechanism; does not "
+              "gate the main verdict",
+}
+
+
+def stage_amend(out: Path, _args) -> None:
+    """Amendment 1 (owner decision 2026-11-02, before any scoring): v2c calibration on calibration hours only."""
+    prereg = _require_prereg(out)
+    if list(out.glob("results_*.csv")):
+        raise RuntimeError("amendment after scoring is not allowed")
+    v2c = {}
+    for pk in STATIONS:
+        s = station_setup(pk)
+        v2c[pk] = calibrate_v2c(s["cal"], prereg["detectors"]["thresholds"][pk])
+        print(pk, {k: v for k, v in v2c[pk].items() if k != "curve"}, flush=True)
+    _write_new(out / "preregistration_amendment.json", {
+        "run": RUN_NAME, "amendment": 1, "script": SCRIPT, "git_head": git_head(),
+        "created": pd.Timestamp.now(tz="UTC").isoformat(), "preregistration_git_head": prereg["git_head"],
+        "status": "registered before any forecast / mechanism on the scoring period",
+        "decisions": AMENDMENT_DECISIONS,
+        "v2c_rule": {"ratio_grid": V2C_RATIO_GRID, "ref_scale_grid": V2C_REF_SCALE_GRID,
+                     "ref_thresholds_base": REF_THRESHOLDS, "fa_target_per_30d": V2C_FA_TARGET_PER_30D,
+                     "order": "ratio ascending, then ref_scale loosest first; first meeting the target",
+                     "instant": "F4 (i) unchanged", "decay": "none (as v2)"},
+        "v2c": v2c, "harm_sensitivity": HARM_MAX_SENS, "pi_band": PI_BAND,
+        "new_outputs": ["verdict_harm10.csv", "verdict_v2c.csv", "verdict_v2c_tests.csv", "pi_secondary.csv"]})
+    print(out / "preregistration_amendment.json")
+
+
+def _require_amendment(out: Path) -> dict:
+    p = out / "preregistration_amendment.json"
+    if not p.exists():
+        raise FileNotFoundError("amend_first")
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
 def _require_prereg(out: Path) -> dict:
     p = out / "preregistration.json"
     if not p.exists():
@@ -1138,6 +1260,7 @@ def event_onsets(s: dict, params: dict) -> list[pd.Timestamp]:
 
 def stage_score(out: Path, args) -> None:
     prereg = _require_prereg(out)
+    amend = _require_amendment(out)
     sens = SENSITIVITY[args.sensitivity] if args.sensitivity else None
     if sens and args.model != "ridge":
         raise ValueError("sensitivity runs are ridge-only")
@@ -1147,7 +1270,9 @@ def stage_score(out: Path, args) -> None:
     rows, ev_rows, fa_rows = [], [], []
     for pk in STATIONS:
         s = station_setup(pk, sens)
-        params = params_all[pk] if not sens else calibrate_h([s["cal"]["NH4"]])
+        params = dict(params_all[pk]) if not sens else calibrate_h([s["cal"]["NH4"]])
+        params["v2c"] = ({k: amend["v2c"][pk][k] for k in ("ratio", "ref_scale")} if not sens else
+                         {k: v for k, v in calibrate_v2c(s["cal"], params).items() if k in ("ratio", "ref_scale")})
         if args.model == "ridge":
             model = RidgeH().fit(s["cal"]["NH4"], s["cal"][["temp", "sal"]])
         if sens:
@@ -1190,6 +1315,13 @@ def stage_evaluate(out: Path, _args) -> None:
         _write_new(out / f"summary{sfx}.csv", summ)
         _write_new(out / f"verdict_tests{sfx}.csv", tests)
         _write_new(out / f"verdict{sfx}.csv", st)
+        main24 = summ[(summ["horizon_min"] == 60) & (summ["window"] == "post24")]
+        t10, s10 = verdict(main24, harm_max=HARM_MAX_SENS)
+        _write_new(out / f"verdict_harm10{sfx}.csv", s10)
+        tc, sc = verdict(main24, mechs=SECONDARY_MECHS, use_holm=False)
+        _write_new(out / f"verdict_v2c_tests{sfx}.csv", tc)
+        _write_new(out / f"verdict_v2c{sfx}.csv", sc)
+        _write_new(out / f"pi_secondary{sfx}.csv", pi_secondary(res))
         _write_new(out / f"detection{sfx}.csv", detection_summary(res))
 
 
@@ -1226,7 +1358,7 @@ def stage_nb1(out: Path, _args) -> None:
     _write_new(out / "nb1_thresholds.json", {k: v for k, v in params.items() if not k.endswith("_curve")})
 
 
-STAGES = {"calibrate": stage_calibrate, "timing": stage_timing, "prereg": stage_prereg, "score": stage_score,
+STAGES = {"calibrate": stage_calibrate, "timing": stage_timing, "prereg": stage_prereg, "amend": stage_amend, "score": stage_score,
           "evaluate": stage_evaluate, "nb1": stage_nb1}
 
 

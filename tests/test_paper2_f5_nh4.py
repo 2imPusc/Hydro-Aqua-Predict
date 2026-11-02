@@ -317,3 +317,74 @@ def test_write_new_refuses_overwrite(tmp_path):
     f5._write_new(p, {"a": 1})
     with pytest.raises(FileExistsError):
         f5._write_new(p, {"a": 2})
+
+
+# ----------------------------------------------------------------------------------------- amendment 1
+
+def _cp(shift, instant=True, dtemp=0.1, dsal=0.5, avail=2):
+    return {"shift": shift, "instant": instant, "ref_dtemp": dtemp, "ref_dsal": dsal, "ref_available": avail}
+
+
+def test_v2c_qualifies_thresholds():
+    rule = {"ratio": 10.0, "ref_scale": 0.5}
+    assert f5.v2c_qualifies(_cp(LN(20)), rule)
+    assert f5.v2c_qualifies(_cp(-LN(20)), rule)
+    assert not f5.v2c_qualifies(_cp(LN(6.72)), rule)              # below the calibrated ratio
+    assert not f5.v2c_qualifies(_cp(LN(20), dsal=1.2), rule)      # 1.2 >= 2.0 x 0.5
+    assert not f5.v2c_qualifies(_cp(LN(20), instant=False), rule)
+    assert not f5.v2c_qualifies(_cp(LN(20), avail=0, dtemp=np.nan, dsal=np.nan), rule)
+    assert f5.v2c_qualifies(_cp(LN(20), dsal=np.nan, avail=1), rule)
+
+
+def test_calibrate_v2c_meets_target_on_calibration_only():
+    fr = _frame(24 * 120, seed=13)
+    rng = np.random.default_rng(1)
+    for d in range(10, 110, 6):                                    # natural x3-x5 steps that revert after 2 d
+        i = 24 * d + 5
+        fr.iloc[i:i + 48, 0] *= rng.uniform(3, 5)
+    p = f5.calibrate_h([fr["NH4"]])
+    v = f5.calibrate_v2c(fr, p)
+    assert v["ratio"] in f5.V2C_RATIO_GRID and v["ref_scale"] in f5.V2C_REF_SCALE_GRID
+    rate = [c for c in v["curve"] if c[0] == v["ratio"] and c[1] == v["ref_scale"]][0][3]
+    assert v["capped"] or rate <= f5.V2C_FA_TARGET_PER_30D
+    det = f5.detect_h(fr["NH4"], p)
+    inp = f5.F5Inputs(fr["NH4"], f5.flags_h(det), f5.change_points_h(det["step"]), ref=fr[["temp", "sal"]],
+                      v2c={"ratio": v["ratio"], "ref_scale": v["ref_scale"]})
+    assert len(inp.qual["v2c"]) == [c for c in v["curve"] if c[:2] == (v["ratio"], v["ref_scale"])][0][2]
+
+
+def test_v2c_mechanism_in_run_and_secondary_verdict_without_holm():
+    summ = _summary({"A": {"scale_down": 0.6, "scale_up": 0.6, "drift_down": 0.6}}, {}, p=0.02)
+    summ.loc[summ["mech"] == "c_align", "mech"] = "v2c"
+    t, s = f5.verdict(summ, mechs=f5.SECONDARY_MECHS, use_holm=False)
+    assert t["pass"].sum() == 3 and s["useful_station"].all()      # raw p 0.02 passes without Holm
+    t2, _ = f5.verdict(summ)
+    assert "v2c" not in set(t2["mech"])                            # outside the confirmatory family
+
+
+def test_harm_sensitivity_ten_percent():
+    good = {"scale_down": 0.6, "scale_up": 0.5, "stuck": 0.4}
+    summ = _summary({"A": good, "B": good, "C": good}, {"A": 0.07, "B": 0.08, "C": 0.12})
+    _, s5 = f5.verdict(summ)
+    _, s10 = f5.verdict(summ, harm_max=f5.HARM_MAX_SENS)
+    c5, c10 = s5[s5["mech"] == "c_align"], s10[s10["mech"] == "c_align"]
+    assert not c5["useful"].any() and c10["useful"].all() and c10["stations_useful"].iloc[0] == 2
+
+
+def test_pi_secondary_band():
+    rows = []
+    for i, cov in enumerate((0.80, 0.78, 0.82)):
+        for mech, c in (("a", 0.4), ("c_align", cov)):
+            rows.append({"model": "ridge", "station": "A", "set": "scale_down", "onset": i, "mech": mech,
+                         "horizon_min": 60, "n_post7": 50, "cov_aci_post7": c, "cov_static_post7": c,
+                         "cov_aci_post24": c})
+    pi = f5.pi_secondary(pd.DataFrame(rows)).set_index("mech")
+    assert pi.loc["c_align", "pass_aci"] and not pi.loc["a", "pass_aci"]
+    assert pi.loc["c_align", "cov_aci_post7"] == pytest.approx(0.80)
+
+
+def test_amend_refuses_after_scoring(tmp_path):
+    (tmp_path / "preregistration.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "results_ridge.csv").write_text("x\n", encoding="utf-8")
+    with pytest.raises(RuntimeError):
+        f5.stage_amend(tmp_path, None)
