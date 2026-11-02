@@ -1,0 +1,101 @@
+{
+  "step": "paper1-t4",
+  "run_name": "paper1-t4-20261102",
+  "question": "After conformalising stored Chronos-2 quantiles (no re-forecasting), is PI80 calibrated in each diurnal-amplitude regime, at an interval score not worse than ridge + aci_amp?",
+  "written_before_any_coverage_was_computed": true,
+  "prior_exposure": [
+    "T2 NOTES.md reported lockbox PI80 mean width at 60 min (raw q10-q90, T1 0.50, T2 0.63) as a post-hoc remark. No coverage of any Chronos-2 quantile was computed in T1-T3.",
+    "The NB1 lockbox 10-24/10 was already opened for point forecasts (H1.4, H1.9, T1, T2).",
+    "aci_amp (24 h window, range) was chosen in RL-19 after seeing an earlier lockbox; nothing is re-tuned here."
+  ],
+  "h3": {
+    "chosen_definition": "PI80 of Chronos-2 + aci_amp has coverage in [0.75, 0.85] AND frac_infinite <= 0.01 AND mean Winkler <= 1.05 x ridge + aci_amp (same rows, finite on both sides), in every horizon x regime cell.",
+    "source_conflict": "HANDOFF-paper1.md: coverage only, both regimes. Plan 5.1: coverage in both regimes + Winkler not worse than ridge + aci_amp by more than 5 %.",
+    "why_this_definition": "The plan's definition strictly contains the handoff's. Coverage alone can be bought with wider intervals, and the paper's question is whether Chronos-2 intervals are useful against the strong baseline; Winkler penalises exactly that. frac_infinite <= 0.01 is the H1.3 / RL-19 gate. The handoff reading stays visible: h3a (coverage + frac_infinite only) is reported separately for each dataset.",
+    "h3a_coverage_only": "coverage in band and frac_infinite <= 0.01",
+    "h3b_winkler": "mean Winkler ratio <= 1.05",
+    "coverage_band": [0.75, 0.85],
+    "max_frac_infinite": 0.01,
+    "max_winkler_ratio": 1.05,
+    "min_cell_rows": 50,
+    "horizons_minutes": [15, 30, 60, 180, 360, 720],
+    "decision_is_on_point_estimates": "as the H1.3 / RL-19 gate; day-block bootstrap CIs are descriptive",
+    "verdict_rule": {
+      "nb1": "'fail' if any large-regime cell fails, otherwise 'not_fully_testable_large_only_pass'. NB1 can never give a plain pass, see nb1_regime_check.",
+      "cdmo": "'pass' only if all 3 reserves pass in all horizon x regime cells (36 cells), otherwise 'fail'. Cells under min_cell_rows count as not passed.",
+      "overall": "'rejected' if NB1 or CDMO fails; otherwise 'partially_supported' (never 'supported', because the NB1 small regime is untested)."
+    }
+  },
+  "nb1_regime_check": {
+    "regimes_as_defined": "small = before 2026-08-15, large = after 2026-08-20 (plan 5.1; RL-57 amplitude 0.5-1.2 vs 3.7-4.05 C)",
+    "t1_origins": "2026-09-04T17:30Z to 2026-10-24T05:00Z, stride 15 min, 4490 origins: all after 2026-08-20",
+    "trailing_24h_amplitude_by_period": {
+      "fold1": [2.20, 3.60], "fold2": [1.35, 3.85], "fold3": [3.60, 6.10], "fold4": [2.00, 4.40], "fold5": [2.65, 5.40], "lockbox": [2.75, 7.20]
+    },
+    "conclusion": "T1 has zero origins in the small regime, and even by amplitude never reaches 0.5-1.2 C. The stored forecasts cannot test the small regime, and re-forecasting is out of scope. H3 is therefore NOT fully testable on NB1: only the large regime is tested. The definition is not changed to hide this.",
+    "descriptive_only_not_h3": "lockbox rows split at the lockbox median of A(t); scenario S1 (below)."
+  },
+  "cdmo_regime": {
+    "definition": "per station, trailing 24 h range A(t) at issue time (min 48 of 96 values) vs the station median of A over train 2024-02-01 to 2025-01-31 sampled daily at 00:00 LST: small = A < median, large = A >= median",
+    "series": "station Temp from T3 data-cdmo/<station>.parquet, values with time_lst <= issued_at",
+    "why": "CDMO has no calendar break like NB1; a state-based split fixed on pre-test data uses no outcome and no test information. Train medians 1.10-2.50 C.",
+    "caveat": "A modest split (q10-q90 about x1.5-3 within station, seasonal and tidal), not the suspected x5 sensor regime change of NB1. A CDMO pass does not transfer to the NB1 claim."
+  },
+  "sites": {
+    "rule": "reserve = first 3 letters of station code: rkb (4 stations), gtm (3), mar (1). Inference unit is the reserve (rows pooled within it); the station table is descriptive. 8 stations are not 8 independent observations."
+  },
+  "models": {
+    "nb1": {
+      "primary": "chronos-2-small (paper1-t1-20261028/fm-Temperature-chronos-2-small-stride15.parquet)",
+      "secondary": "chronos-2-base (same run, stride15)",
+      "ridge_baseline": "ridge B5_external_as_issued_diurnal (B5D) from forecast-h1-diurnal-20261025/bench-Temperature, same origins",
+      "ridge_secondary": ["B5_external_as_issued_diurnal_nopH", "B4_quality_diurnal"]
+    },
+    "cdmo": {
+      "primary": "chronos-2-small + none (paper1-t3-20261029/fm-cdmo-chronos-2-small-none.parquet)",
+      "ridge_baseline": "ridge-B5D-fc from paper1-t3-20261029/ridge-cdmo.parquet, same origins",
+      "ridge_secondary": ["ridge-B4D-n"]
+    }
+  },
+  "alpha": 0.2,
+  "methods": {
+    "raw": "[q10, q90] as stored",
+    "cqr_static": "CQR score s = max(q10 - y, y - q90); [q10 - Q, q90 + Q]; Q = finite-sample conformal quantile of calibration scores",
+    "cqr_aci": "same score, ACI with delayed feedback (forecast_conformal.aci_intervals), pool seeded with calibration scores",
+    "cqr_aci_amp": "PRIMARY. s / max(A, floor), ACI with delayed feedback, Q = q_norm x max(A_now, floor), by core.forecast_intervals.aci_amp_half_width",
+    "cqr_aci_amp_literal": "sensitivity: as cqr_aci_amp with the literal RL-19 gamma",
+    "sym_aci_amp": "sensitivity: |y - q50| with aci_amp, ignoring stored quantile spread",
+    "ridge_static / ridge_aci / ridge_aci_amp / ridge_aci_amp_literal": "|y - prediction| score, same calibration rows, amplitude, floor and gamma rule",
+    "crossed_interval": "Q < -(q90-q10)/2 gives L > U: collapsed to the midpoint, width 0",
+    "missing_amplitude": "core rule: infinite interval, counted in frac_infinite, never a guessed scale. Calibration rows without amplitude are dropped."
+  },
+  "gamma": {
+    "primary": "gamma = 0.075 / lag, lag = max(1, ceil(h / stride)) origins. stride 15 min on NB1, 360 min on CDMO.",
+    "why": "RL-19 gamma = 0.005 x 15 / h was derived for one origin per minute, where feedback lags h origins and the step per feedback lag is 0.075. This generalisation keeps 0.075 per lag and equals RL-19 exactly at stride 1. The literal formula on stride 15 / 360 would be 15-360 times less adaptive and close to static at long horizons.",
+    "sensitivity": "literal RL-19 gamma = 0.005 x 15 / h, reported on both datasets, not used in the verdict"
+  },
+  "amplitude": {
+    "kind_window": "range, 24 h, window (t - 24 h, t] (RL-19)",
+    "floor": "0.25 x median calibration amplitude, per station, shared by Chronos-2 and ridge",
+    "nb1_series": "persistence prediction (lag_1m) of B5D at horizon 15, indexed by issued_at, min_count 720",
+    "cdmo_series": "station Temp, min_count 48"
+  },
+  "causality": {
+    "known_at": "NB1: max(valid_at, actual_at) from the bench row (join asserted, actual must match). CDMO: issued_at + h on the 15-min grid.",
+    "join_check": "T1 small and bench B5D have 0 duplicate (issued_at, horizon) rows and 26345/26345 matched keys (checked on keys only).",
+    "rule": "origin s feeds the pool and alpha only when known_at_s <= issued_at_t; tested on synthetic frames"
+  },
+  "calibration": {
+    "nb1_primary": "last 3 rolling folds with forecast_conformal.calibration_residuals (drop known_at >= first lockbox issued_at); evaluate the lockbox",
+    "cdmo_primary": "rows with known_at < 2025-05-01; evaluate issued_at >= 2025-05-01 (T3 forecasts start 2025-02-01, so about 3 months, n about 258-356 per station x horizon). Rows in between are dropped and counted. No test row is used in calibration.",
+    "scenario_S1_descriptive": "NB1 only: calibrate on folds 1-2 (A about 2-3 C), evaluate folds 3-5 (A up to 6 C), lockbox untouched. Not H3."
+  },
+  "reports": {
+    "metrics": "coverage, frac_infinite, mean and median width, mean Winkler on finite rows, by horizon x regime x group",
+    "groups": "NB1: one site. CDMO: reserve (decision), equal-weight mean of reserves, station (descriptive).",
+    "daily": "NB1 local date, min 60 rows. CDMO LST date by reserve, min 4 rows, and ISO week, min 20 rows. Worst period is reported.",
+    "ci": "95 % day-block bootstrap, 1000 draws, seed 0, descriptive, ignores between-site dependence",
+    "not_run": "NCEI 0052765, because the task scopes T4 to NB1 and the 8 CDMO stations."
+  },
+  "post_hoc_rule": "Anything decided after seeing coverage is labelled post-hoc in NOTES.md and RL."
+}
