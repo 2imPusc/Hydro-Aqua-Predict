@@ -924,7 +924,7 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Sai lệch:** điều kiện (i) sửa sau chạy thử 1 trạm **trước** commit đăng ký (xét bước nhảy trong ±W mẫu quanh điểm đổi định vị lại); chuỗi chạy bị giới hạn 2 h cắt giữa bước Bolt, đã chạy lại tách riêng, mã không đổi.
 - **Artifact:** `paper2-f4-20261030/` (NOTES.md, `preregistration.json`, `results_{ridge,bolt,chronos2}.csv`, `results_cdmo_*.csv`, `triggers_nerrs.csv`, `cdmo_*`, `summary.csv`, `selection.json`, `verdict.csv`, `nb1_*`, manifest); `tests/test_paper2_bounded_align.py` (11 test).
 
-## RL-P2A · 2026-11-02 · Bài báo 2: rà soát đăng ký trước F1–F4 và các câu cần sửa trước khi viết (số RL tạm)
+## RL-80 · 2026-11-02 · Bài báo 2: rà soát đăng ký trước F1–F4 và các câu cần sửa trước khi viết
 
 - **Câu hỏi:** bước nào trong F1–F4 kiểm chứng được là đăng ký trước, và những câu nào trong RL-76..79 không được đưa nguyên vào bài?
 - **Mốc thời gian (giờ +07, tự kiểm từ `manifest.json` và `git log`; ngày tác giả = ngày commit):**
@@ -943,3 +943,16 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Mỗi loại sự cố gắn một biến** (`injections.csv`): `scale_down`, `scale_up`, `E1`, `E3`, `gap` → DO; `stuck0`, `fouling`, `rail` → Turb; `ph_ramp` → pH. Cơ chế × loại sự cố lẫn với biến: không phân biệt được "cơ chế kém với bám bẩn" và "cơ chế kém với Turb". E1 / E3 có kênh phụ nhưng chấm trên DO. Không biến nào là NH4; NERRS không có NH4 liên tục, nên F4 trượt do Turb tự nhiên và DO gần 0 chưa nói được hại trên NH4.
 - **Không đổi:** RL-76..79 và artifact giữ nguyên; kết luận "không cơ chế nào đạt" và "F4 trượt cổng" không đổi hướng. Đây là sửa cách diễn đạt và phạm vi.
 - **Tiếp theo:** nguồn NH4 liên tục cho F5: `docs/paper/2026-11-02-nh4-continuous-candidates.md`.
+
+## RL-81 · 2026-11-02 · Bài báo 1 / T4: conformal hóa phân vị Chronos-2 theo chế độ biên độ (H3)
+
+- **Câu hỏi:** PI80 của Chronos-2 sau conformal (aci_amp, RL-19) có trong [0,75; 0,85] ở từng chế độ biên độ, với Winkler không kém ridge + aci_amp quá 5 % không?
+- **Thiết lập:** `experiments/paper1_t4_conformal.py`, `experiments/paper1_t4_preregistration.json` (commit 4729634, trước mọi phép tính độ phủ). Phân vị đã lưu T1 (NB1, small; phụ base) và T3 (CDMO `none`), không dự báo lại. Điểm CQR từ q10/q90; raw, tĩnh, ACI có trễ, aci_amp qua `core.forecast_intervals`; mốc ridge B5D / B5D-fc cùng origin. **Định nghĩa H3 chốt:** độ phủ + `frac_infinite` ≤ 0,01 + Winkler ≤ 1,05 ở mọi ô (của plan, chứa của handoff, vì độ phủ đơn thuần mua được bằng khoảng rộng); đọc theo handoff báo riêng. γ = 0,075 / trễ phản hồi theo origin (trùng RL-19 ở bước 1 phút); γ nguyên văn là độ nhạy. NB1: hiệu chuẩn fold 3–5, lockbox 10–24/10. CDMO: hiệu chuẩn tới 01/05/2025; chế độ = A(t) so với trung vị năm train của trạm; đơn vị quyết định là khu (3), không phải trạm (8).
+- **Kiểm tra chế độ:** origin T1 từ 04/09, A(t) 1,35–7,2 °C → chế độ nhỏ NB1 có 0 hàng; **H3 không kiểm đầy đủ được trên NB1**. Chế độ CDMO là phân chia nhẹ, không tương đương ×5 của NB1.
+- **Kết quả:** **H3 bị bác.** NB1 chế độ lớn 6/6 ô: độ phủ 0,800 / 0,800 / 0,799 / 0,792 / 0,772 / 0,787 (15 ph–12 h; raw 0,64–0,78), tỉ số Winkler 0,81–0,98, ngày tệ nhất 0,48–0,78; CI độ phủ 6–12 h rộng (0,70–0,87). CDMO 23/36 ô, 0/3 khu đủ: độ phủ 33/36 (3 ô trượt sát biên), Winkler 25/36; ≤ 3 h 21/24, 6–12 h 2/12 (tỉ số tới 1,40). Theo handoff (chỉ độ phủ) CDMO vẫn trượt 3 ô.
+- **Post-hoc:** aci_amp làm lệch độ phủ giữa hai chế độ CDMO rõ hơn ACI thường ở 3–12 h (Chronos 0,76 / 0,84 so với 0,78 / 0,82; ridge 0,73 / 0,87 so với 0,81 / 0,79), không lặp lại ưu thế RL-19. Ridge + ACI có Winkler thấp hơn ridge + aci_amp, nên mốc đăng ký dễ hơn mốc tốt nhất (NB1 12 h Chronos kém B5D + ACI 13 %).
+- **Kết luận:** conformal sửa được độ phủ phân vị gốc của Chronos-2. Ở ≤ 3 h khoảng này cạnh tranh được với ridge; ở 6–12 h ridge + thời tiết vẫn tốt hơn về Winkler trên CDMO, cùng hướng T3. Chưa có bằng chứng cho chế độ nhỏ ở NB1.
+- **Hạn chế:** lockbox NB1 đã mở, 14 ngày, nghi đầu dò (RL-57, RL-72); CDMO 3 khu, mar 1 trạm, hiệu chuẩn lệch mùa; luật γ mới; Chronos không thời tiết so với ridge có thời tiết; NCEI không chạy.
+- **Sai lệch:** mô tả trung vị train trong bản đăng ký 1,10–2,50, code tính 1,10–2,55 °C; luật không đổi.
+- **Sai lệch (thêm khi merge):** lockbox NB1 có `actual_at` rỗng toàn bộ, nên `known_at` (trễ phản hồi ACI) thực chất bằng `valid_at`; chưa chạy lại để đo ảnh hưởng. NOTES / RESULTS của lần chạy dùng số tạm "RL-T4" = RL-81.
+- **Artifact:** `paper1-t4-20261102/` (NOTES.md, `preregistration.json`, `verdict.json`, `h3_cells_*`, `metrics_*`, `sensitivity.csv`, `daily_*`, `weekly_cdmo.csv`, `worst_period.csv`, `intervals-*.parquet`, manifest); `tests/test_paper1_t4.py` (22 test).
