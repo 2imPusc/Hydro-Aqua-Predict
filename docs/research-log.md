@@ -989,3 +989,16 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Sai lệch:** không có về tiêu chí hay mã. `Content-Disposition` trong manifest raw bị lỗi mã ký tự (chỉ siêu dữ liệu). Thêm output phụ `columns.json`, `segments.json`.
 - **Số RL:** NOTES của lần chạy dùng số tạm "RL-P2B" = RL-84.
 - **Artifact:** `paper2-f5step0-20261102/` (`preregistration.json`, `stations.csv`, `verdict.json`, `segments.json`, `columns.json`, NOTES.md, `manifest.json`); `tests/test_paper2_kr_nh4_step0.py` (7 test).
+
+## RL-T4c · 2026-11-02 · Bài báo 1 / T4c: PI80 cho mô hình lai stack-B5D
+
+- **Câu hỏi:** sau conformal, PI80 dựng trên `stack-B5D` (RL-83) có đúng danh nghĩa trên 12 trạm CDMO chưa dùng không, với Winkler ≤ 1,00 × ridge B5D-fc + cùng quy tắc?
+- **Thiết lập:** `experiments/paper1_t4c_hybrid_pi.py`. Code và luật chọn commit ở f5f5027 trước khi chạy dev; đăng ký trước `experiments/paper1_t4c_preregistration.json` ở ce89038, trước mọi khoảng trên conf. Chỉ dùng điểm T4b và phân vị Chronos đã lưu. Sáu ứng viên: stack × {|phần dư|, CQR với q10/q90 Chronos dịch về quanh stack} × {static, ACI, aci_amp}. Mốc: ridge-B5D-fc + cùng quy tắc. Hiệu chuẩn trong trạm: `known_at` < 01/05/2025, chấm từ 01/05. **Trễ phản hồi đúng:** `known_at = issued_at + horizon`, γ = 0,075 / ⌈h / 360⌉. Ô như T4 (n ≥ 50, độ phủ [0,75; 0,85], `frac_infinite` ≤ 0,01, Winkler ≤ 1,00). Khu đạt khi 6/6 ô; 3/3 khu → supported, 2/3 → partial.
+- **Dev (khám phá):** chọn `cqr_shift_aci_amp`, 18/18 ô (cqr_shift_aci 16, abs_aci_amp 16, abs_aci 15; hai cách static không hợp lệ).
+- **Kết quả conf:** **partially_supported, 12/18 ô.** Apalachicola 6/6, Sapelo 6/6, Jobos 0/6. Độ phủ 0,798–0,802 ở mọi ô (CI 0,78–0,82). Tỉ số Winkler 0,86–0,99 (Winkler 18/18 ô). Jobos trượt chỉ vì 2,4–2,7 % khoảng vô hạn: thiếu A(t) 24 h do sensor thưa. Phụ: so ridge-3h 12/18; γ nguyên văn 12/18; `known_at` + 1 ph 12/18; Chronos thuần + cqr_aci_amp 4/18 (tỉ số tới 1,32).
+- **Đọc phụ đã khai báo:** so với quy tắc ridge mạnh nhất (ridge + ACI thường) chỉ 7/18. Stack dịch CQR tốt hơn 2–10 % ở 30 ph–3 h, nhưng kém 2–5 % ở 15 ph và 12 h tại Apalachicola và Sapelo. Ở 6–12 h, stack + ACI đối xứng tốt nhất (Winkler đều 3 khu 12 h: 1,749, so với 1,812 của lựa chọn chính và 1,759 của ridge + ACI). Như T4, aci_amp làm mốc ridge yếu đi.
+- **Kết luận:** lai + conformal có trễ đúng cho PI80 đúng danh nghĩa trên trạm mới. Thắng mốc đăng ký, nhưng lợi Winkler so với ridge tốt nhất chỉ có ở 30 ph–3 h. Phân vị Chronos đáng giá cho khoảng ở ≤ 3 h, không phải 12 h. Chưa đề xuất runtime.
+- **Hạn chế:** conf cùng năm 2025 với dev (CDMO 2025 tạm thời); điểm conf đã xem ở T4b, chỉ khoảng là mới; 3 khu nên luật mức khu là mô tả, trạm trong khu không độc lập; chọn trên dev bằng chính luật 18 ô; hiệu chuẩn lệch mùa; trượt của Jobos phụ thuộc quy ước "thiếu A(t) → vô hạn"; mốc chính không phải quy tắc ridge tốt nhất.
+- **Sai lệch:** không có về code, tham số hay luật. Độ phủ Jobos bỏ hàng vô hạn (0,795–0,797) là post-hoc mô tả.
+- **Số RL:** tạm "RL-T4c"; đánh số khi merge.
+- **Artifact:** `paper1-t4c-20261102/` (NOTES.md, `preregistration.json`, `dev/`, `verdict.json`, `cells_primary.csv`, `candidate_cells.csv`, `sensitivity.csv`, `comparisons.csv`, `metrics_*.csv`, `weekly_primary.csv`, `worst_week_primary.csv`, `intervals-conf.parquet`, manifest sha256); `tests/test_paper1_t4c.py` (11 test).
