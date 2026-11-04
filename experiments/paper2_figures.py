@@ -32,7 +32,7 @@ import pandas as pd  # noqa: E402
 
 from core import paths  # noqa: E402
 
-RUN_NAME = "paper2-figures-20261104"
+RUN_NAME = "paper2-figures-20261104b"  # 20261104 (first render) clipped Busan (c') benefit -0.74 off the y axis
 EXP = paths.EXPERIMENT_OUTPUT_DIR
 RUNS = {"f1": "paper2-f1-20261028", "f2": "paper2-f2-20261028", "f3": "paper2-f3-20261029",
         "f4": "paper2-f4-20261030", "f5": "paper2-f5-20261102", "f5nb1": "paper2-f5nb1-20261104"}
@@ -210,7 +210,7 @@ def fig_benefit_harm(tab: pd.DataFrame) -> plt.Figure:
         ax.set_xticks([0, 0.05, 0.5, 2])
         ax.set_xticklabels(["0", "5 %", "50 %", "200 %"], fontsize=7)
         ax.minorticks_off()
-        ax.set_ylim(-0.6, 1.0)
+        ax.set_ylim(min(-0.6, float(tab["benefit"].min()) - 0.1), 1.0)
         ax.set_xlabel("Hại trên sham (MAE tăng)")
     axes[0].set_ylabel("Lợi ích ÷20, 0–24 h, h = 1 h")
     handles = [plt.Line2D([], [], ls="", marker=MARKER[m], markersize=7, markerfacecolor=COLOR[m],
