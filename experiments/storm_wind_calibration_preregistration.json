@@ -1,0 +1,73 @@
+{
+  "id": "RL-HZCAL",
+  "run": "storm-wind-cal-20261104",
+  "script": "experiments/storm_wind_calibration.py (written after this file is committed)",
+  "git_head_at_registration": "80f43aa881f572078d9c47eface8fbe662bc2c78",
+  "created": "2026-11-04T02:55:00Z",
+  "status": "registered before the parametric model has been evaluated at any SYNOP station; the QC run (80f43aa) looked at observed storm-window maxima only (obs side, no model)",
+  "question": "Does a multiplicative correction of the best-track parametric site-wind model (core.storm_advisory.site_exposure) fitted on 4TA SYNOP 10-min mean wind reduce its error on held-out storms at open-sea stations?",
+  "inputs": {
+    "synop": "data/vn_synop/derived/synop_3h_v2.parquet",
+    "synop_sha256": "23709e3f8de41726db42b276b35cabeea113ef2f3334e232623ae871256fa51c",
+    "ibtracs": {
+      "ibtracs.WP.list.v04r01.20261022.csv": "119e278fd752ed0c764349fc19a9673296d920224b49ddbcc919679279788a21",
+      "ibtracs.last3years.list.v04r01.20261022.csv": "876c3859bb30e3c6b24b6ac69f944d4ed384010f51d661d66163544dbd569ed3"
+    },
+    "track_merge": "experiments/storm_hindcast.load_tracks (WP file, last3years replaces same SID)",
+    "obs_qc": "experiments/synop_qc_hpqn.json wind_qc_rule (commit 80f43aa): wspd_valid = not NaN, <= 60, not spike"
+  },
+  "model": {
+    "function": "core.storm_advisory.site_exposure, unchanged: TOKYO > HKO > USA x 0.93 > CMA intensity; wind radii (lower bound) else modified Rankine alpha 0.5, RMW USA_RMW or 30 nmi, capped at 34 kt x 0.93 outside R34",
+    "track": "core.storm_advisory.interpolate_track, 30 min"
+  },
+  "stations": {
+    "open_sea": ["48839", "48834", "48828"],
+    "coastal": ["48829", "48836", "48838"],
+    "sheltered": ["48833", "48837", "48/50", "48826", "48/60"],
+    "headline_group": "open_sea (closest analogue to an open-water cage); other groups get their own fitted factor, reported on test but not in the verdict"
+  },
+  "storms": "IBTrACS SEASON 2000-2025 whose 30-min track comes within 300 km of the station; obs and track times must be <= 2025-12-04 (end of SYNOP)",
+  "pairing": {
+    "rule": "valid obs times (obs_utc) inside the passage window, each matched to the nearest densified track row within 15 min that is itself within 300 km; the model is evaluated at those times only",
+    "unit": "passage = (storm, station); obs_max = max obs over paired times; model_max = max model over the SAME paired times",
+    "eligible": "n_pairs >= 2 and a paired obs within +-3 h of the continuous-track model peak and model_max > 0",
+    "secondary_column": "model_peak_cont_ms (continuous-track peak) reported, never scored"
+  },
+  "split": {
+    "train": "SEASON 2000-2019",
+    "test": "SEASON 2020-2025 (contains YAGI 2024; Co To 8/day from 06/2020, Hon Dau 8/day 2023-2024)",
+    "model_selection": "leave-one-season-out CV inside train, open_sea passages"
+  },
+  "variants": {
+    "C0": "raw model",
+    "C1": "single factor k: obs ~ k * model, k = argmin sum |obs - k model| (experiments.synop_storm.fit_factor) on train open_sea",
+    "C2": "two distance bands by passage min_dist_km: k_near (<= 100 km), k_far (> 100 km), each fitted as C1",
+    "selection_rule": "selected = C2 if CV-MAE(C2) < 0.95 * CV-MAE(C1), else C1; decided on train only, before the test set is scored"
+  },
+  "metrics": {
+    "primary": "MAE (m/s) of passage max wind, test open_sea passages, selected vs C0",
+    "secondary": [
+      "bias (model - obs) and MAE by distance band of min_dist_km (0-50, 50-100, 100-200, 200-300) and storm intensity class at closest approach (Beaufort lt8, 8-11, ge12)",
+      "the same split by exposure_method at model_max (wind_radii = lower bound, censored; rankine; rankine_capped_by_r34)",
+      "tiers from the default storm_wind thresholds (Beaufort 6/8/10/12 -> tier 1-4) on obs vs model Beaufort: exact tier agreement, POD and FAR for obs >= Beaufort 8 and >= 10",
+      "per-storm sign test (test, open_sea): storm mean |error| selected vs C0",
+      "coastal / sheltered: group and per-station factors fitted on train, MAE on test (descriptive)"
+    ]
+  },
+  "helps_criterion": {
+    "H1": "test MAE(selected) <= 0.85 * test MAE(C0)",
+    "H2": "storm-cluster bootstrap (resample test SIDs with replacement, 2000 reps, seed 20261104): 95th percentile of MAE(selected) - MAE(C0) < 0",
+    "H3": "test exact tier agreement(selected) >= C0, and POD(obs >= Beaufort 8)(selected) >= C0 when the test set has any obs >= Beaufort 8",
+    "verdict": "helps = H1 and H2 and H3; suggestive = H1 and H3 without H2; does_not_help otherwise"
+  },
+  "expected_small_n": "test open_sea passages are expected in the tens, with only a handful at Beaufort >= 8 (Yagi dominates); the verdict is about the bulk of passages, not about extreme storms",
+  "outputs_if_helps": {
+    "code_constant_proposal": "a site-wind multiplier (or two by distance) for the parametric path (storm_hindcast, hazard_runner_replay --wind-source best_track), written in the artifact and RL only; core/ is not changed",
+    "alert_config_proposal": "only when helps: thresholds T_i' = beaufort(BEAUFORT_LOWER_MS[L_i] / k) for L_i in 6/8/10/12 (k = selected factor, k_near if C2), clipped to the storm_wind guardrails; a schema-2 copy of config/alert_tiers.default.json with config_version proposal-hzcal-20261104 is written to the artifact dir only (never runtime/alert-config/), and only if at least one threshold changes. Its note says it applies to the parametric best-track wind, not to Open-Meteo forecast wind"
+  },
+  "not_claimed": [
+    "best track is a post-analysis oracle: no forecast skill",
+    "SYNOP stations are land / island sites, not cages",
+    "licence of 4TA unconfirmed: no SYNOP numbers in paper drafts"
+  ]
+}
