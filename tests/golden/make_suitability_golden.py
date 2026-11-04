@@ -1,4 +1,4 @@
-"""Freeze suitability-scoring outputs as a golden fixture (H4.2, decisions #H42).
+"""Freeze suitability-scoring outputs as a golden fixture (H4.2, decisions #31).
 
 The fixture ``tests/fixtures/suitability_golden.json`` was generated from the code *before* the
 ``SuitabilityScorer`` refactor; ``tests/test_suitability_golden.py`` asserts the refactored code

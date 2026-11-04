@@ -149,7 +149,7 @@ def _classify_by_scoring(grid_df: pd.DataFrame, available_params: list,
                           species: str) -> pd.DataFrame:
     """Rule-based classification using breakpoints + weighted scoring.
 
-    Thin wrapper over ``SuitabilityScorer`` with ``species_rule_config`` (H4.2, decisions #H42).
+    Thin wrapper over ``SuitabilityScorer`` with ``species_rule_config`` (H4.2, decisions #31).
     """
     config = rule_config(_load_thresholds(species), SPECIES[species].get('label_thresholds'),
                          name=f"rule:{species}")

@@ -1,4 +1,4 @@
-"""One interface for site-suitability scoring (roadmap H4.2, decisions #H42).
+"""One interface for site-suitability scoring (roadmap H4.2, decisions #31).
 
 Inputs: a table of layer values (one row per cell / point / time step, one column per
 criterion) plus a :class:`SuitabilityConfig` (criteria, weights, thresholds, missing-value

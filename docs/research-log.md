@@ -1016,7 +1016,7 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Ghi thêm khi merge:** ở Oido, v2 gây hại 48–49 % trên sham ngẫu nhiên (ridge 0,490, Chronos-2 0,484; n = 10; `verdict.csv`), trong khi Busan v2 không bật lần nào (hại 0). NOTES của lần chạy dùng số tạm "RL-F5" = RL-86.
 - **Artifact:** `paper2-f5-20261102/` (NOTES.md, `preregistration.json`, `preregistration_amendment.json`, `thresholds.json`, `results_*.csv`, `summary*.csv`, `verdict*.csv`, `pi_secondary*.csv`, `detection*.csv`, `nb1_*`, manifest sha256); `tests/test_paper2_f5_nh4.py` (29 test).
 
-## RL-T4FIX · 2026-11-04 · Bài báo 1 / T4: chạy lại ô NB1 với `known_at` có trễ ingest (sửa sai lệch RL-81)
+## RL-87 · 2026-11-04 · Bài báo 1 / T4: chạy lại ô NB1 với `known_at` có trễ ingest (sửa sai lệch RL-81)
 
 - **Câu hỏi:** sai lệch ghi khi merge RL-81 (`actual_at` rỗng trên lockbox NB1 → `known_at` = `valid_at`) có làm đổi phán quyết RL-81 / RL-85 không?
 - **Chẩn đoán:** bench `forecast-h1-diurnal-20261025` chỉ ghi `actual_at` cho fold rolling (`forecast_sensor_v2._prediction_block`, có chủ ý). Trên rolling `actual_at − valid_at` = 0 s ở q01–q99 (±120 s = dung sai ghép), nên dựng lại `actual_at` không đổi gì. Lỗi thật: origin cách 15 ph, `valid_at` trùng một origin, điều kiện `known_at ≤ issued_at` → kết quả lúc t phản hồi ngay vào origin phát lúc t, điều pipeline live không làm được.
@@ -1026,10 +1026,10 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
   - Độ nhạy: L = 1 ph 6/6, L = 60 ph 6/6, L = 15 ph + γ theo trễ hiệu dụng 6/6; L = 1440 ph (bộ thu ngày, cận thô) 3/6, ≤ 1 h trượt vì 31–56 % khoảng vô hạn, 3–12 h vẫn đạt (cơ chế chưa phân tích, post-hoc). Các độ nhạy RL-81 (literal γ, sym, nopH, B4D, base, S1) giữ số ô đạt.
 - **Kết luận:** sai lệch RL-81 là về ghi chép, không về số: phản hồi chậm thêm một origin không đổi được kết quả. Câu "PI80 conformal Chronos đúng danh nghĩa ở chế độ lớn NB1" đứng vững khi trễ ingest ≤ 1 h; không đứng vững nếu chỉ có dữ liệu theo lô ngày ở ≤ 1 h.
 - **Hạn chế:** trễ 15 ph chưa đo được (cần runner ghi giờ nhận); CDMO không chạy lại; runtime `core/forecast_evaluation` vẫn dùng `max(valid_at, observed_at)` không trễ.
-- **Số RL:** tạm "RL-T4FIX"; đánh số khi merge.
+- **Số RL:** RL-87 (số tạm khi làm: RL-T4FIX; code, prereg và artifact giữ tên tạm).
 - **Artifact:** `paper1-t4fix-20261104/` (NOTES.md, `preregistration.json`, `compare_cells.csv`, `h3_cells_nb1_<variant>.csv`, `sensitivity.csv`, `verdict.json`, `intervals-nb1-primary.parquet`, manifest sha256); `tests/test_paper1_t4fix.py` (11 test).
 
-## RL-HZCAL · 2026-11-04 · QC SYNOP 4TA HP/QN và hiệu chỉnh mô hình gió bão tham số (task 1.5 + 2.1)
+## RL-88 · 2026-11-04 · QC SYNOP 4TA HP/QN và hiệu chỉnh mô hình gió bão tham số (task 1.5 + 2.1)
 
 - **Câu hỏi:** (1) dữ liệu gió 4TA ở 11 trạm HP/QN dùng được tới đâu; (2) hệ số nhân hiệu chỉnh trên SYNOP có làm mô hình gió tại điểm từ best track (`core/storm_advisory.site_exposure`: bán kính gió cận dưới / Rankine biến đổi α 0,5, RMW 30 nmi, chặn R34) bớt sai trên các cơn bão để riêng không?
 - **QC (mô tả, `synop-qc-hpqn-20261104c`, `docs/eval/2026-11-04-synop-qc-hpqn.md`):** 72 giá trị > 60 m/s **không giải mã lại được** (4TA đã là văn bản giải mã, không còn nhóm dddff; chữ số không tương quan với gió lân cận; hướng NNE / WSW chiếm 58 %). Thêm luật gai (≥ 20 m/s, lân cận ±6 h < một nửa, miễn trừ khi có bão ≤ 300 km ±12 h): 68 dòng 20–60 m/s, ví dụ Bạch Long Vĩ 60 tháng 3/2017. Lịch 8 lần/ngày: Bạch Long Vĩ, Móng Cái, Bãi Cháy, Tiên Yên, Phù Liễn cả kỳ; Cô Tô, Cửa Ông từ 06/2020; Hòn Dấu, Văn Lý 03/2023–12/2024 và từ 10/2025; Quảng Hà, Uông Bí luôn 4 lần/ngày. Trạm cho phiên Open-Meteo: 9 trạm (trừ 48/50, 48/60), `experiments/synop_qc_hpqn.json`.
@@ -1043,8 +1043,9 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết luận:** sai số chủ yếu là phân tán (MAE ~4–5 m/s) chứ không phải lệch đều, nên nhân một hệ số không đủ; trạm hở nhất (Bạch Long Vĩ) cho thấy mô hình không cần giảm cho mặt nước hở. Giữ nguyên `storm_advisory` và ngưỡng bậc mặc định.
 - **Hạn chế:** best track là oracle; trạm SYNOP là đảo / bờ, không phải lồng; gió 3 h (hoặc 6 h) bỏ sót đỉnh ở cả hai phía; test chỉ 9 lượt đo ≥ cấp 8; gai trong bão không bị loại (miễn trừ); giấy phép 4TA chưa rõ — không đưa số vào bài báo.
 - **Sai lệch:** trường `created` trong prereg (02:55:00Z) gõ tay trước commit; thời điểm chuẩn là commit `74f7548` 02:54:02 UTC, ghi trong `result.json` / `manifest.json`.
+- **Số RL:** RL-88 (số tạm khi làm: RL-HZCAL; code, prereg và artifact giữ tên tạm).
 - **Artifact:** `synop-qc-hpqn-20261104c/` (`-20261104`, `-b` bị thay thế: quy tắc tháng chuyển 8 lần/ngày), `storm-wind-cal-20261104/` (`result.json`, `passages_all.csv`, `test_open_sea_by_*.csv`, `factors_other_groups.csv`, `yagi_2024.csv`, manifest); code `experiments/synop_storm.py`, `synop_qc.py`, `storm_wind_calibration.py`; test `tests/test_synop_storm.py`, `tests/test_storm_wind_calibration.py`.
-## RL-WXBIAS · 2026-11-04 · Task 2.2: sai số dự báo Open-Meteo tại trạm SYNOP ven biển theo hạn
+## RL-89 · 2026-11-04 · Task 2.2: sai số dự báo Open-Meteo tại trạm SYNOP ven biển theo hạn
 
 - **Câu hỏi:** dự báo Open-Meteo mà advisory đọc (mưa, gió, T, RH) sai bao nhiêu tại trạm ven biển theo hạn 1–7 ngày; hiệu chỉnh (cộng / ánh xạ phân vị) cho luật mưa / gió có đáng không?
 - **Thiết lập:** `experiments/wx_bias.py`. Thật = 4TA SYNOP v2 (decisions #30; giấy phép chưa rõ → chỉ dùng hệ thống, không đưa vào bài báo) tại Bãi Cháy 48833, Phù Liễn 48826, Bạch Long Vĩ 48839, Hòn Dáu 48828, Cô Tô 48834; bỏ giá trị theo từng biến khi `qc_flags` có biến đó (hz-cal chưa có danh sách QC). Dự báo = Previous Runs `*_previous_day1..7` (≈ 24N h, giờ phát hành thật không rõ), `timezone=UTC`, `wind_speed_unit=ms` (xin m/s thay vì đổi km/h), `best_match` (core/weather.py), `ecmwf_ifs025` (hazard_runner), `gfs_seamless` (phụ); tọa độ trạm, chọn ô mặc định. Tải ghi một lần: `data/weather_previous_runs/synop-coastal-2024-2025/` (90 JSON, 37 MB, manifest sha256 từng file; `paths.WEATHER_PREVIOUS_RUNS_DIR` mới). Dự báo có từ 2024-01-19 (best_match, gfs) / 2024-02-03 (ecmwf_ifs025) → ~22 tháng tới 2025-12-04. Ghép: T / RH / gió tại `obs_utc` (8 giờ synop); mưa 6 h tại 00/06/12/18 UTC = giờ H-5..H; mưa 24 h chỉ 12 UTC (19 h, ngày khí hậu; rain24h = tổng 4 rain6h ≥ 99 %); 72 h = 3 ngày liền. File NB1 Previous Runs của RL-38 không có trong `artifacts/` → không dùng lại.
@@ -1056,20 +1057,20 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Kết luận:** hiệu chỉnh mưa / gió **không đáng** ở dạng chung: không cải thiện CSI trên năm test, và sai số đuôi gió đổi dấu theo mức che chắn trạm nên một hệ số chung (hay hệ số của trạm khác) có thể sai chiều ở NB1. NB1 (vịnh Cát Bà, khuất) không có quan trắc gió để chọn. Đề xuất `config/weather_bias_correction.v0.json` (`active: false`) chỉ ghi quyết định no-go và lý do, không có tham số. Muốn làm tiếp: cần gió đo tại / gần NB1 rồi đánh giá lại theo trạm. Thời tiết vẫn chỉ để quan sát, không điều khiển cảnh báo.
 - **Hạn chế:** ~22 tháng, mỗi mùa ≤ 2 lần (số theo mùa chỉ tham khảo); hạn = "previous_dayN", không phải hạn thật của bản tin advisory (thường < 24 h) → hạn 1 là cận trên của sai số; gió SYNOP là trung bình 10 phút số nguyên, dự báo là giá trị giờ; trạm đất liền (Phù Liễn ~110 m, ô lưới cao 0 m) không đại diện mặt nước; Hòn Dáu 2025 thiếu ~45 %; Bf8 chỉ 32 sự kiện (gộp, cả kỳ), Bf10 8 → chỉ mô tả.
 - **Sai lệch:** lần tải đầu dừng ở file 35 vì phản hồi rỗng; thêm retry rồi chạy tiếp (bỏ qua file đã có, không ghi đè). Thêm output phụ `best_match_identity.csv`. Một lần chạy thử trong bộ nhớ trên dữ liệu tải dở (34/90 file, không ghi gì) trước khi chạy chính; phán quyết thử khác ở đúng một cặp (gió 35 km/h × QM: go trên dữ liệu dở, no-go trên đủ). Sau lần thử không sửa tiêu chí hay `evaluate_preregistered`; chỉ thêm retry tải và output mô tả `best_match_identity.csv`. Ứng viên cộng bị chặn dưới ở 0 (đăng ký ghi phép trừ thuần) — chỉ ảnh hưởng mưa / gió gần 0.
-- **Số RL:** số tạm "RL-WXBIAS"; đánh số khi merge.
+- **Số RL:** RL-89 (số tạm khi làm: RL-WXBIAS; code, prereg và artifact giữ tên tạm).
 - **Artifact:** `wx-bias-20261104/` (`pairs.parquet`, `scores_station_model_var_lead_season.csv`, `contingency.csv`, `wind_dailymax_contingency.csv`, `wind_tier_mapping.csv`, `wind_quantiles.csv`, `coverage.csv`, `best_match_identity.csv`, `verdict.json`, `weather_bias_correction.v0.json`, `preregistration.json`, 4 hình, manifest sha256); `tests/test_wx_bias.py` (11 test).
-## RL-F5NB1 · 2026-11-04 · Bài báo 2 / F5: chạy lại minh họa NB1 có tham chiếu nhiệt độ
+## RL-90 · 2026-11-04 · Bài báo 2 / F5: chạy lại minh họa NB1 có tham chiếu nhiệt độ
 
 - **Câu hỏi:** khi stage `nb1` của F5 có tham chiếu nhiệt độ (RL-86 chạy với `ref=None`, lỗi mã), F4 v2 / v3 có bật ở E1 / E3 NH4 NB1 không?
 - **Thiết lập:** `experiments/paper2_f5_nh4.py nb1` (commit `c2fc708`, `ec5eabf`): `nb1_inputs` truyền trung vị giờ `Temperature` làm tham chiếu (NB1 không có độ mặn), v2c hiệu chỉnh trên nền trước E1 như detector; Chronos-2 small, 2 luồng. Stage mô tả, không đáp án, không phán quyết → **không cần đăng ký trước**. Ghi vào thư mục mới, không đụng `paper2-f5-20261102/`. 4 test mới.
 - **Kết quả:** **E1:** v1 / v2 / v3 / v2c bật tại 31/07 15:00 (trễ 1 h; dịch ÷16,9; nhiệt độ đổi 0,05 °C); v2 đưa dự báo 0–24 h về 102,3 so với mức trước bậc 104,4 (0,98×), v3 0,76× (giảm dần), (a) 11,2, (c′) 103,4. **E3:** không biến thể nào bật — do điều kiện (iii) độ lớn, không phải tham chiếu: trên trung vị giờ, điểm đổi 15:00 chỉ dịch ×2,3 (< ×3), nhiệt độ đổi 0,35 °C (yên); 5 điểm đổi sau (18–21/09) đều < ×3 và có nhiệt độ đổi ≥ 0,5 °C. F4 (phút, RL-79) có bật E3 → khác biệt do độ phân giải giờ. v2c NB1 = ngưỡng F4 (0 bật / 57,8 ngày) = v2. (a) / (b) / (c′) trùng lượt RL-86.
 - **Kết luận:** thay câu "v2 / v3 không bật vì … không truyền nhiệt độ" của RL-86: trên NB1 giờ, căn mức có giới hạn nhận đúng E1 nhưng bỏ sót E3 vì độ lớn; không chỉnh ngưỡng. Không đổi kết luận F5.
 - **Hạn chế:** NB1 không có đáp án; chỉ một kênh tham chiếu; trung vị giờ làm mờ bậc trong giờ.
-- **Số RL:** số tạm "RL-F5NB1", đánh số khi merge.
+- **Số RL:** RL-90 (số tạm khi làm: RL-F5NB1; code, prereg và artifact giữ tên tạm).
 - **Artifact:** `paper2-f5nb1-20261104/` (NOTES.md, `nb1_illustration.csv`, `nb1_changepoints.csv`, `nb1_triggers.csv`, `nb1_thresholds.json`, manifest sha256); `tests/test_paper2_f5_nh4.py` (+4 test).
 
-## RL-P2FIG · 2026-11-04 · Bài báo 2: dàn ý và hình
+## RL-91 · 2026-11-04 · Bài báo 2: dàn ý và hình
 
 - **Việc:** `docs/papers/paper2/outline.md` (tên, luận điểm, đóng góp kể cả âm, dàn ý theo RL, hình / bảng, phương án có / không TAFAS–FSNet, nơi nộp, đe dọa tính hợp lệ). `experiments/paper2_figures.py` chỉ đọc artifact F1–F5 → `paper2-figures-20261104b/` (lượt `paper2-figures-20261104/` cắt mất một điểm, bỏ). Không có kết quả mới.
 - **Khuyến nghị:** không thêm TAFAS / FSNet (phương án A); chủ dự án quyết.
-- **Số RL:** số tạm "RL-P2FIG".
+- **Số RL:** RL-91 (số tạm khi làm: RL-P2FIG; code, prereg và artifact giữ tên tạm).

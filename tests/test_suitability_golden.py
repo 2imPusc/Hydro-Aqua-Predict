@@ -1,4 +1,4 @@
-"""Golden test for suitability scoring (H4.2, decisions #H42).
+"""Golden test for suitability scoring (H4.2, decisions #31).
 
 ``tests/fixtures/suitability_golden.json`` holds outputs of the pre-refactor rule scorer
 (``_classify_by_scoring``) and the legacy cobia HSI (``core.spatial_overlay`` and its copy in

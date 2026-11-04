@@ -1,4 +1,4 @@
-"""Unit tests for hap_shared.suitability_scorer (H4.2, decisions #H42)."""
+"""Unit tests for hap_shared.suitability_scorer (H4.2, decisions #31)."""
 from __future__ import annotations
 
 import json

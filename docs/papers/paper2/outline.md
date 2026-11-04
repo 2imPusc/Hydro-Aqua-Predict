@@ -1,8 +1,8 @@
 # Bài báo 2 — dàn ý (bản 1, 04/11/2026)
 
 Tài liệu nền cùng chủ đề nằm ở `docs/paper/` (`HANDOFF-paper2.md`, `2026-10-27-sota-and-plan.md`,
-`2026-11-02-nh4-continuous-candidates.md`). File này chỉ là dàn ý; mọi con số lấy từ RL-76…RL-86 và RL-F5NB1,
-không có kết quả mới ngoài lượt chạy lại NB1 (RL-F5NB1, mô tả).
+`2026-11-02-nh4-continuous-candidates.md`). File này chỉ là dàn ý; mọi con số lấy từ RL-76…RL-86 và RL-90,
+không có kết quả mới ngoài lượt chạy lại NB1 (RL-90, mô tả).
 
 **Quy ước trung thực (RL-80):** F1–F3 là **khám phá** (mã vào git sau khi có kết quả) → không gọi "pre-registered".
 F4 là kiểm định xác nhận duy nhất trên NERRS ("đăng ký trước, kiểm chứng trong git cục bộ", chưa có mốc bên thứ ba).
@@ -48,7 +48,7 @@ và báo khoảng tin cậy không dựa trên phản hồi từ chính chuỗi 
 5. **Ca thật NB1** (mô tả, không có đáp án): căn mức đưa dự báo NH4 về mức trước bậc ở E1 / E3; bộ ba điều kiện F4
    bật đúng ở E1 / E3 NH4 trên dữ liệu phút nhưng bật nhầm ở E3 COD 0 → 21 (thoát kẹt) (RL-78, RL-79). Trên trung vị
    giờ (F5, có tham chiếu nhiệt độ) v2 bật E1 (dự báo 0,98 × mức trước bậc, trễ 1 h) nhưng bỏ sót E3 vì bậc giờ chỉ
-   ×2,3 < ×3 (RL-F5NB1) → độ phân giải lấy mẫu quyết định cơ chế có thấy sự cố hay không.
+   ×2,3 < ×3 (RL-90) → độ phân giải lấy mẫu quyết định cơ chế có thấy sự cố hay không.
 6. **Khuyến nghị vận hành có cơ sở**: căn mức là *gợi ý* cho người vận hành, không tự động; loại riêng trường hợp
    thoát kẹt; không dùng ACI phản hồi từ chuỗi lỗi để báo độ tin cậy.
 
@@ -71,7 +71,7 @@ tệ hơn" mà không thêm "proxy" (RL-80); "8 loại sự cố độc lập" (
 | 5.2 NERRS (F3) | không cơ chế đạt; (c′) ÷20 −43 / −74 %, hại sham ×2,9–×6,3; (b) chỉ đạt cặp vượt dải; (d) tệ hơn | RL-78, RL-80, `paper2-f3-20261029/verdict.csv`; Hình 3 |
 | 5.3 Căn mức có giới hạn (F4, xác nhận) | G1 đạt rộng, G2 trượt cả 3 mô hình; nguồn bật giả | RL-79, `paper2-f4-20261030/verdict.csv`, `triggers_nerrs.csv`; Hình 3, Bảng 3 |
 | 5.4 NH4 thật (F5) | 0 / 3 trạm; Songdo đạt hai loại đổi thang nhưng hại sham; trôi / kẹt không cứu được; PI80 chỉ đạt ở gap | RL-86, `paper2-f5-20261102/verdict.csv`, `pi_secondary.csv`; Hình 3 |
-| 5.5 Ca NB1 | E1 / E3 theo cơ chế; F4 bật nhầm COD thoát kẹt; F5 giờ: v2 bắt E1, bỏ sót E3 (độ lớn) | RL-78, RL-79, RL-F5NB1 (`paper2-f5nb1-20261104/`); Hình 4 |
+| 5.5 Ca NB1 | E1 / E3 theo cơ chế; F4 bật nhầm COD thoát kẹt; F5 giờ: v2 bắt E1, bỏ sót E3 (độ lớn) | RL-78, RL-79, RL-90 (`paper2-f5nb1-20261104/`); Hình 4 |
 | 6. Thảo luận | vì sao tự động thất bại (thay đổi tự nhiên giống đổi thang; tham chiếu yếu); con người trong vòng lặp; khoảng tin cậy | RL-79 (phân tích bật giả), RL-86 |
 | 7. Hạn chế | xem §7 dưới | RL-76…86 mục "Hạn chế" |
 | 8. Kết luận + khuyến nghị vận hành | phát hiện tự động, căn mức sau xác nhận, không ACI phản hồi từ chuỗi lỗi | RL-79, RL-86 |
