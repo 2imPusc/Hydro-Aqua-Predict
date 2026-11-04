@@ -1356,6 +1356,7 @@ def stage_nb1(out: Path, _args) -> None:
     base as the detectors.  Writes to a fresh run dir (default ``NB1_RUN_NAME``); the scored run is untouched."""
     from experiments.nh4_step_0731 import HISTORY
 
+    out.mkdir(parents=True, exist_ok=True)  # files themselves are write-once (_write_new)
     fr = nb1_frame_h()
     cal = fr[NB1_CAL[0]:NB1_CAL[1]]
     params = calibrate_h([cal["NH4"]])
