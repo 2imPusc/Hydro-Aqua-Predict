@@ -47,7 +47,7 @@ MARKER = dict(zip(MECH_ORDER, ["o", "s", "D", "^", "v", "P", "X"]))
 INK, INK2, MUTED, GRID, BASE, SURFACE = "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7", "#fcfcfb"
 OBS_COLOR = "#52514e"
 
-BENEFIT_MIN, HARM_BUDGET, HARM_BUDGET_F4 = 0.30, 0.05, 0.10
+BENEFIT_MIN, HARM_BUDGET, HARM_BUDGET_F4, HARM_CLIP = 0.30, 0.05, 0.10, 2.0
 
 
 def style() -> None:
@@ -140,7 +140,7 @@ def fig_fault_library(hist: pd.DataFrame, catalog: dict) -> tuple[plt.Figure, pd
 
     panels = [
         ("NH4", "2026-07-30 14:00", "2026-08-01 14:00", "2026-07-31 14:06", True,
-         f"E1 31/07: đổi thang ×{factor('E1_20260731', 'NH4') or np.nan:.3f} (÷20) trong 1 mẫu"),
+         f"E1 31/07: đổi thang ÷{1 / (factor('E1_20260731', 'NH4') or np.nan):.1f} trong 1 mẫu".replace(".", ",")),
         ("NH4", "2026-09-15 12:00", "2026-09-17 18:00", "2026-09-16 15:00", True,
          "E3 16/09: đổi thang ×6,7 (sau bảo dưỡng)"),
         ("COD", "2026-06-01", "2026-10-14", None, False, "COD: trần 558,8 và kẹt đúng 0,0 (nhiều tuần)"),
@@ -182,7 +182,7 @@ def fig_detectors(tab: pd.DataFrame) -> plt.Figure:
     ax.set_xlabel("Tỉ lệ báo động trên cửa sổ không sự cố ghép cặp (sham)")
     ax.set_ylabel("Trễ phát hiện trung vị (h, symlog)")
     ax.set_title("Phát hiện: đột ngột thì nhanh, chậm thì muộn (cỡ điểm = vượt sham)", loc="left")
-    ax.legend(loc="upper right", fontsize=7.5)
+    ax.legend(loc="lower left", fontsize=7.5)
     return fig
 
 
@@ -191,21 +191,27 @@ def fig_benefit_harm(tab: pd.DataFrame) -> plt.Figure:
     fig, axes = plt.subplots(1, len(exps), figsize=(2.3 * len(exps) + 0.6, 3.6), sharey=True, sharex=True)
     axes = np.atleast_1d(axes)
     for ax, e in zip(axes, exps):
-        ax.set_xscale("symlog", linthresh=0.05)
-        ax.axvspan(-0.05, HARM_BUDGET, ymin=0, ymax=1, color=GRID, alpha=0.0)
-        ax.fill_between([-0.02, HARM_BUDGET], BENEFIT_MIN, 1.0, color="#cde2fb", alpha=0.6, lw=0, zorder=0)
+        ax.set_xscale("symlog", linthresh=0.01, linscale=0.5)
+        ax.fill_between([-0.005, HARM_BUDGET], BENEFIT_MIN, 1.0, color="#cde2fb", alpha=0.6, lw=0, zorder=0)
         ax.axhline(BENEFIT_MIN, color=MUTED, ls="--", lw=0.8)
         ax.axvline(HARM_BUDGET, color=MUTED, ls="--", lw=0.8)
         ax.axvline(HARM_BUDGET_F4, color=MUTED, ls=":", lw=0.8)
         ax.axhline(0, color=BASE, lw=0.8)
         d = tab[tab["experiment"] == e]
         for _, r in d.iterrows():
-            ax.scatter(min(r["harm"], 5.0), r["benefit"], marker=MARKER[r["mech"]], s=60, facecolor=COLOR[r["mech"]],
+            x = min(r["harm"], HARM_CLIP)
+            ax.scatter(x, r["benefit"], marker=MARKER[r["mech"]], s=60, facecolor=COLOR[r["mech"]],
                        edgecolor=SURFACE, linewidth=1.2, zorder=3)
+            if r["harm"] > HARM_CLIP:
+                ax.annotate(f"→ {r['harm']:.1f}".replace(".", ","), (x, r["benefit"]), xytext=(-8, 8),
+                            textcoords="offset points", fontsize=6.5, color=INK2, ha="right")
         ax.set_title(e, loc="left", fontsize=9)
-        ax.set_xlim(-0.02, 5.0)
+        ax.set_xlim(-0.005, HARM_CLIP * 1.3)
+        ax.set_xticks([0, 0.05, 0.5, 2])
+        ax.set_xticklabels(["0", "5 %", "50 %", "200 %"], fontsize=7)
+        ax.minorticks_off()
         ax.set_ylim(-0.6, 1.0)
-        ax.set_xlabel("Hại trên sham (tỉ lệ)")
+        ax.set_xlabel("Hại trên sham (MAE tăng)")
     axes[0].set_ylabel("Lợi ích ÷20, 0–24 h, h = 1 h")
     handles = [plt.Line2D([], [], ls="", marker=MARKER[m], markersize=7, markerfacecolor=COLOR[m],
                           markeredgecolor=SURFACE, label=MECH_LABEL[m]) for m in MECH_ORDER if m in set(tab["mech"])]
