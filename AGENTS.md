@@ -101,6 +101,13 @@ volume. Run only one research-map stack (docker or `dev-local.ps1`) at a time.
   `scripts/run_hazard_job.ps1 -Job hazards|storms` (`MARINE_ENABLED=true` for these jobs only) into
   `runtime/hazard-shadow/` (append-only); one status line per run in `runtime/logs/hazard-jobs.log`.
   Install/remove: `scripts/install_hazard_tasks.ps1 [-Remove]`. Enabled 2026-10-24 (owner decision).
+- `HAP-HealthCheck` — **not installed yet** (needs owner approval). Hourly `scripts/health_check.py`
+  (pythonw, runs on battery, does not wake): docker `research-map-*-1` up, snapshot files < 2 h old,
+  `shadow-runner.log` < 20 min, `hazard-jobs.log` < 2 h, 7-day snapshot coverage ≥ 0.9 (both sources),
+  yesterday's sensor coverage ≥ 0.9 (judged from 07:00 local), `HAP-*` task state/last result.
+  One JSON line per run in `runtime/logs/health.log`; exit 0 ok / 1 warn / 2 fail; 30 s popup on FAIL or a new WARN.
+  Manual: `python scripts/health_check.py --no-notify`. Install/remove: `scripts/install_health_check_task.ps1 [-Remove]`
+  (`-FixDockerStaleSockets` adds the opt-in Docker `run` dir rename, see `docs/guide/06-runbook.md`).
 - DATN's `DATN-WeatherSnapshot-06M26042804` is **disabled** since the cut-over (2026-10-10). Do not re-enable.
 
 CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests, frontend build.
