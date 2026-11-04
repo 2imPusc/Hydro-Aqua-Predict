@@ -50,6 +50,7 @@ ECMWF_OPENDATA_DIR = HAZARD_DATA_DIR / "ecmwf-opendata"  # real-time ECMWF TC tr
 REFERENCES_DIR = DATA_DIR / "references"  # local text copies of cited sources (write-once)
 VN_PUBLIC_DIR = DATA_DIR / "vn_public"  # public Vietnamese sources, one subfolder per source + SOURCES.md (write-once)
 VN_SYNOP_DIR = DATA_DIR / "vn_synop"  # 4TA SYNOP surface obs, 172 VN stations 3-hourly 2000-2025: raw/ archive + derived/ parquet (write-once)
+WEATHER_PREVIOUS_RUNS_DIR = DATA_DIR / "weather_previous_runs"  # Open-Meteo Previous Runs point downloads, one subfolder per run + manifest (write-once)
 
 
 def clean_data(region: str) -> Path:

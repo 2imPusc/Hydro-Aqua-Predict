@@ -1,0 +1,103 @@
+{
+ "name": "weather_bias_correction",
+ "version": "v0",
+ "active": false,
+ "status": "proposal only; weather is observation-only and must not drive alerts (AGENTS.md rule 4)",
+ "source_run": "wx-bias-20261104",
+ "preregistration": "experiments/wx_bias_preregistration.json",
+ "scope": "SYNOP coastal stations 48833/48826/48839/48828/48834; transfer to NB1 not validated",
+ "decisions": [
+  {
+   "rule": "rain6h_10mm",
+   "candidate": "additive",
+   "verdict": "no-go",
+   "reason": "dCSI=+0.003 (>=0.05: False); FB 1.32->1.35 (closer to 1: False); FAR 0.79->0.78 (ok: True)"
+  },
+  {
+   "rule": "rain6h_10mm",
+   "candidate": "quantile_mapping",
+   "verdict": "no-go",
+   "reason": "dCSI=+0.013 (>=0.05: False); FB 1.32->1.46 (closer to 1: False); FAR 0.79->0.78 (ok: True)"
+  },
+  {
+   "rule": "wind_35kmh",
+   "candidate": "additive",
+   "verdict": "no-go",
+   "reason": "dCSI=+0.008 (>=0.05: False); FB 1.50->1.24 (closer to 1: True); FAR 0.53->0.48 (ok: True)"
+  },
+  {
+   "rule": "wind_35kmh",
+   "candidate": "quantile_mapping",
+   "verdict": "no-go",
+   "reason": "dCSI=+0.027 (>=0.05: False); FB 1.50->1.02 (closer to 1: True); FAR 0.53->0.42 (ok: True)"
+  },
+  {
+   "rule": "wind_bf6",
+   "candidate": "additive",
+   "verdict": "no-go",
+   "reason": "dCSI=-0.114 (>=0.05: False); FB 1.01->0.50 (closer to 1: False); FAR 0.39->0.25 (ok: True)"
+  },
+  {
+   "rule": "wind_bf6",
+   "candidate": "quantile_mapping",
+   "verdict": "no-go",
+   "reason": "dCSI=-0.046 (>=0.05: False); FB 1.01->0.66 (closer to 1: False); FAR 0.39->0.28 (ok: True)"
+  },
+  {
+   "rule": "wind_bf8",
+   "candidate": "additive",
+   "verdict": "no-go",
+   "reason": "dCSI=+0.004 (>=0.05: False); FB 1.42->0.87 (closer to 1: True); FAR 0.84->0.79 (ok: True)"
+  },
+  {
+   "rule": "wind_bf8",
+   "candidate": "quantile_mapping",
+   "verdict": "no-go",
+   "reason": "dCSI=-0.053 (>=0.05: False); FB 1.42->5.31 (closer to 1: False); FAR 0.84->0.95 (ok: False)"
+  },
+  {
+   "rule": "rain72h_100mm",
+   "candidate": "additive",
+   "verdict": "no-go",
+   "reason": "dCSI=+0.010 (>=0.05: False); FB 1.27->1.32 (closer to 1: False); FAR 0.71->0.71 (ok: True)"
+  },
+  {
+   "rule": "rain72h_100mm",
+   "candidate": "quantile_mapping",
+   "verdict": "no-go",
+   "reason": "dCSI=-0.019 (>=0.05: False); FB 1.27->2.25 (closer to 1: False); FAR 0.71->0.79 (ok: False)"
+  }
+ ],
+ "continuous_secondary": {
+  "per_station": {
+   "48826": {
+    "mae_raw": 1.0530253555967841,
+    "mae_additive": 1.0750346436273495,
+    "reduction": -0.020901004817772906
+   },
+   "48828": {
+    "mae_raw": 1.7389821289821288,
+    "mae_additive": 1.7785187084633642,
+    "reduction": -0.022735471988074574
+   },
+   "48833": {
+    "mae_raw": 1.3449913387775305,
+    "mae_additive": 1.23224215227335,
+    "reduction": 0.08382893127524438
+   },
+   "48834": {
+    "mae_raw": 1.8077934446505877,
+    "mae_additive": 1.8108989855438584,
+    "reduction": -0.0017178626808611597
+   },
+   "48839": {
+    "mae_raw": 1.7349455580301905,
+    "mae_additive": 1.669695401717479,
+    "reduction": 0.03760933938860578
+   }
+  },
+  "stations_ge_10pct": 0,
+  "verdict": "no-go"
+ },
+ "corrections": []
+}
