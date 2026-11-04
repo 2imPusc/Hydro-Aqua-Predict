@@ -1,0 +1,201 @@
+{
+  "created_utc": "2026-11-04T02:51:15+00:00",
+  "run": "synop-qc-hpqn-20261104c",
+  "script": "experiments/synop_qc.py",
+  "source": "vn_synop\\derived\\synop_3h_v2.parquet",
+  "source_sha256": "23709e3f8de41726db42b276b35cabeea113ef2f3334e232623ae871256fa51c",
+  "wind_qc_rule": {
+    "range": "wspd_ms > 60.0 -> invalid (decisions #30)",
+    "spike": "wspd_ms >= 20.0 and max(valid neighbours of the same station within +-6.0 h) < 0.5 * value (no neighbour = 0), unless an IBTrACS centre is within 300.0 km within +-12.0 h -> invalid",
+    "code": "experiments/synop_storm.py: flag_wind, storm_near"
+  },
+  "licence_vi": "Nguồn và giấy phép chưa xác nhận: chỉ dùng trong hệ thống, không đưa số SYNOP vào bài báo.",
+  "storm_calibration": {
+    "open_sea": [
+      "48839",
+      "48834",
+      "48828"
+    ],
+    "coastal": [
+      "48829",
+      "48836",
+      "48838"
+    ],
+    "sheltered": [
+      "48833",
+      "48837",
+      "48/50",
+      "48826",
+      "48/60"
+    ],
+    "note": "all periods usable for storm pairing because the model is evaluated at the obs times; 4-per-day periods sample the peak more coarsely"
+  },
+  "open_meteo_bias_2024_2025": {
+    "48/50": {
+      "name": "Quang Ha",
+      "group": "sheltered",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.506,
+        "t2m_c": 0.506,
+        "rh_pct": 0.505,
+        "ps_hpa": 0.506,
+        "rain6h_mm": 0.495
+      },
+      "usable": false
+    },
+    "48/60": {
+      "name": "Uong Bi",
+      "group": "sheltered",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.506,
+        "t2m_c": 0.506,
+        "rh_pct": 0.195,
+        "ps_hpa": 0.195,
+        "rain6h_mm": 0.498
+      },
+      "usable": false
+    },
+    "48826": {
+      "name": "Phu Lien",
+      "group": "sheltered",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.996,
+        "t2m_c": 0.995,
+        "rh_pct": 0.994,
+        "ps_hpa": 0.995,
+        "rain6h_mm": 0.496
+      },
+      "usable": true
+    },
+    "48828": {
+      "name": "Hon Dau",
+      "group": "open_sea",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.822,
+        "t2m_c": 0.821,
+        "rh_pct": 0.82,
+        "ps_hpa": 0.822,
+        "rain6h_mm": 0.497
+      },
+      "usable": true
+    },
+    "48829": {
+      "name": "Van Ly",
+      "group": "coastal",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.821,
+        "t2m_c": 0.821,
+        "rh_pct": 0.82,
+        "ps_hpa": 0.821,
+        "rain6h_mm": 0.498
+      },
+      "usable": true
+    },
+    "48833": {
+      "name": "Bai Chay",
+      "group": "sheltered",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.997,
+        "t2m_c": 0.997,
+        "rh_pct": 0.996,
+        "ps_hpa": 0.996,
+        "rain6h_mm": 0.495
+      },
+      "usable": true
+    },
+    "48834": {
+      "name": "Co To",
+      "group": "open_sea",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.997,
+        "t2m_c": 0.997,
+        "rh_pct": 0.997,
+        "ps_hpa": 0.997,
+        "rain6h_mm": 0.498
+      },
+      "usable": true
+    },
+    "48836": {
+      "name": "Cua Ong",
+      "group": "coastal",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.998,
+        "t2m_c": 0.998,
+        "rh_pct": 0.998,
+        "ps_hpa": 0.997,
+        "rain6h_mm": 0.498
+      },
+      "usable": true
+    },
+    "48837": {
+      "name": "Tien Yen",
+      "group": "sheltered",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.996,
+        "t2m_c": 0.996,
+        "rh_pct": 0.996,
+        "ps_hpa": 0.996,
+        "rain6h_mm": 0.497
+      },
+      "usable": true
+    },
+    "48838": {
+      "name": "Mong Cai",
+      "group": "coastal",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.998,
+        "t2m_c": 0.997,
+        "rh_pct": 0.997,
+        "ps_hpa": 0.997,
+        "rain6h_mm": 0.496
+      },
+      "usable": true
+    },
+    "48839": {
+      "name": "Bach Long Vi",
+      "group": "open_sea",
+      "valid_frac_of_8_slots": {
+        "wspd_ms": 0.982,
+        "t2m_c": 0.982,
+        "rh_pct": 0.982,
+        "ps_hpa": 0.981,
+        "rain6h_mm": 0.489
+      },
+      "usable": true
+    }
+  },
+  "eight_per_day_from_month": {
+    "48839": "2000-01",
+    "48834": "2020-06",
+    "48828": "2025-10",
+    "48829": "2025-10",
+    "48836": "2020-06",
+    "48838": "2000-01",
+    "48833": "2000-01",
+    "48837": "2000-01",
+    "48/50": null,
+    "48826": "2000-01",
+    "48/60": null
+  },
+  "eight_per_day_periods": {
+    "48839": "2000-01..2024-08; 2024-10..2025-12",
+    "48834": "2020-06..2025-12",
+    "48828": "2023-03..2024-12; 2025-10..2025-12",
+    "48829": "2023-03..2024-12; 2025-10..2025-12",
+    "48836": "2020-06..2025-12",
+    "48838": "2000-01..2025-12",
+    "48833": "2000-01..2025-12",
+    "48837": "2000-01..2025-12",
+    "48/50": "",
+    "48826": "2000-01..2025-12",
+    "48/60": ""
+  },
+  "notes": [
+    "rain6h_mm is reported only at 00/06/12/18 UTC, so its share of 8 slots is ~0.5 by design",
+    "wdir is empty whenever wspd_ms <= 2 (calm / light wind); not a gap"
+  ],
+  "flag_counts": {
+    "range_gt60": 72,
+    "spike": 68
+  }
+}
