@@ -153,8 +153,10 @@ def aci_amp_path(cal_norm, issued, known, score, amp, floor: float, alpha: float
 
 
 def methods_for_group(cal: pd.DataFrame, block: pd.DataFrame, floor: float, horizon: int, stride: int,
-                      kind: str, alpha: float = ALPHA) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+                      kind: str, alpha: float = ALPHA, gamma: float | None = None) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     """Intervals for one (model, station, horizon).  ``kind`` is ``quantile`` or ``point``.
+
+    ``gamma`` overrides the primary step (default ``gamma_primary(horizon, stride)``; RL-T4FIX sensitivity).
 
     Frames hold ``y``, ``amp``, ``issued_at``, ``known_at`` and either ``lo``/``hi``/``point`` or ``point``.
     """
@@ -162,7 +164,8 @@ def methods_for_group(cal: pd.DataFrame, block: pd.DataFrame, floor: float, hori
     y, y_cal = block["y"].to_numpy(), cal["y"].to_numpy()
     issued, kn = block["issued_at"].to_numpy(), block["known_at"].to_numpy()
     amp = block["amp"].to_numpy()
-    gamma, literal = gamma_primary(horizon, stride), gamma_literal(horizon)
+    gamma = gamma_primary(horizon, stride) if gamma is None else gamma
+    literal = gamma_literal(horizon)
     ok_cal = np.isfinite(cal["amp"].to_numpy())
     cal_scale = np.maximum(cal["amp"].to_numpy()[ok_cal], floor)
 
@@ -316,7 +319,7 @@ def _load_bench_nb1(origins: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.Series,
     return ridge, series[~series.index.duplicated()], path
 
 
-def _nb1_frame(fm: pd.DataFrame, ridge_b5d: pd.DataFrame, series: pd.Series) -> pd.DataFrame:
+def _nb1_frame(fm: pd.DataFrame, ridge_b5d: pd.DataFrame, series: pd.Series, latency=pd.Timedelta(0)) -> pd.DataFrame:
     keys = ["issued_at", "horizon_minutes"]
     if fm.duplicated(keys).any():
         raise ValueError("duplicate_t1_rows")
@@ -324,18 +327,26 @@ def _nb1_frame(fm: pd.DataFrame, ridge_b5d: pd.DataFrame, series: pd.Series) -> 
     frame = fm.merge(join, on=keys, how="left", validate="one_to_one")
     if frame["valid_at"].isna().any() or not np.allclose(frame["actual"], frame["actual_bench"]):
         raise ValueError("t1_bench_join_mismatch")
-    frame["split"], frame["known_at"] = frame["split"].astype(str), known_at(frame)
+    frame["split"], frame["known_at"] = frame["split"].astype(str), known_at(frame, latency)
     frame["y"], frame["lo"], frame["hi"], frame["point"] = frame["actual"], frame["q10"], frame["q90"], frame["q50"]
     frame["amp"] = trailing_amplitude(series, frame["issued_at"], "24h", "range", NB1_MIN_COUNT)
     return frame
 
 
+def effective_lag(horizon: int, stride: int, latency=pd.Timedelta(0)) -> int:
+    """Origins until an outcome is usable on a ``stride`` grid: ``ceil((h + latency) / stride)``, at least 1."""
+    minutes = horizon + pd.Timedelta(latency).total_seconds() / 60.0
+    return max(1, math.ceil(minutes / stride - 1e-9))
+
+
 def _nb1_scenario(frame: pd.DataFrame, ridges: dict[str, pd.DataFrame], cal_rows: pd.DataFrame, block: pd.DataFrame,
-                  model: str, floor: float, with_ridge: bool) -> list[pd.DataFrame]:
+                  model: str, floor: float, with_ridge: bool, gamma_latency=None) -> list[pd.DataFrame]:
+    """``gamma_latency`` (RL-T4FIX sensitivity): gamma = STEP_PER_LAG / effective_lag(h, stride, gamma_latency)."""
     out = []
     for h in HORIZONS:
         cal, ev = cal_rows[cal_rows["horizon_minutes"] == h], block[block["horizon_minutes"] == h]
-        intervals = methods_for_group(cal, ev, floor, h, STRIDE_NB1, "quantile")
+        g = None if gamma_latency is None else STEP_PER_LAG / effective_lag(h, STRIDE_NB1, gamma_latency)
+        intervals = methods_for_group(cal, ev, floor, h, STRIDE_NB1, "quantile", gamma=g)
         out.append(score_rows(ev, intervals, {"model": model}))
         if not with_ridge:
             continue
@@ -345,11 +356,13 @@ def _nb1_scenario(frame: pd.DataFrame, ridges: dict[str, pd.DataFrame], cal_rows
             ev_r = ev.assign(point=lookup.reindex(ev["issued_at"]).to_numpy())
             if cal_r["point"].isna().any() or ev_r["point"].isna().any():
                 raise ValueError(f"ridge_missing:{name}:{h}")
-            out.append(score_rows(ev_r, methods_for_group(cal_r, ev_r, floor, h, STRIDE_NB1, "point"), {"model": name}))
+            out.append(score_rows(ev_r, methods_for_group(cal_r, ev_r, floor, h, STRIDE_NB1, "point", gamma=g), {"model": name}))
     return out
 
 
-def evaluate_nb1(root: Path) -> dict:
+def evaluate_nb1(root: Path, latency=pd.Timedelta(0), gamma_latency=None, with_s1: bool = True) -> dict:
+    """NB1 rows.  ``latency`` = ingest delay added to ``known_at`` (calibration leak filter and ACI feedback);
+    defaults reproduce RL-81.  ``gamma_latency`` / ``with_s1`` are RL-T4FIX options."""
     t1 = paths.EXPERIMENT_OUTPUT_DIR / "paper1-t1-20261028"
     files = {m: t1 / f"fm-Temperature-{m}-stride15.parquet" for m in ("chronos-2-small", "chronos-2-base")}
     cols = ["split", "fold", "issued_at", "horizon_minutes", "actual", "q10", "q50", "q90"]
@@ -362,22 +375,22 @@ def evaluate_nb1(root: Path) -> dict:
     rows, info = [], {"bench_sha256": _sha256(bench_path), "t1_sha256": {m: _sha256(p) for m, p in files.items()}}
     for model, path in files.items():
         fm = small if model == "chronos-2-small" else pd.read_parquet(path, columns=cols)
-        frame = _nb1_frame(fm, ridges[RIDGE_B5D], series)
+        frame = _nb1_frame(fm, ridges[RIDGE_B5D], series, latency)
         lockbox = frame[frame["split"] == "lockbox"]
         rolling = frame[frame["split"] == "rolling"].assign(prediction=lambda d: d["q50"])
-        cal, dropped = calibration_residuals(rolling, NB1_K_FOLDS, lockbox["issued_at"].min())
+        cal, dropped = calibration_residuals(rolling, NB1_K_FOLDS, lockbox["issued_at"].min(), latency)
         floor = AMP_FLOOR_FRAC * float(np.nanmedian(cal["amp"]))
         info[model] = {"calibration_folds": sorted(int(f) for f in cal["fold"].unique()), "n_cal": len(cal),
                        "rows_dropped_known_after_lockbox_start": dropped, "floor": floor,
                        "lockbox_amp_nan": int(lockbox["amp"].isna().sum())}
         with_ridge = model == "chronos-2-small"
-        rows += [r.assign(scenario="primary") for r in _nb1_scenario(frame, ridges, cal, lockbox, model, floor, with_ridge)]
-        if with_ridge:
+        rows += [r.assign(scenario="primary") for r in _nb1_scenario(frame, ridges, cal, lockbox, model, floor, with_ridge, gamma_latency)]
+        if with_ridge and with_s1:
             ev = rolling[rolling["fold"].isin([3, 4, 5])]
-            cal_s1, drop_s1 = calibration_residuals(rolling[rolling["fold"].isin([1, 2])], 2, ev["issued_at"].min())
+            cal_s1, drop_s1 = calibration_residuals(rolling[rolling["fold"].isin([1, 2])], 2, ev["issued_at"].min(), latency)
             floor_s1 = AMP_FLOOR_FRAC * float(np.nanmedian(cal_s1["amp"]))
             info["S1"] = {"n_cal": len(cal_s1), "dropped": drop_s1, "floor": floor_s1}
-            rows += [r.assign(scenario="S1") for r in _nb1_scenario(frame, ridges, cal_s1, ev, model, floor_s1, True)]
+            rows += [r.assign(scenario="S1") for r in _nb1_scenario(frame, ridges, cal_s1, ev, model, floor_s1, True, gamma_latency)]
     out = add_outcomes(pd.concat(rows, ignore_index=True))
     out["regime"] = "large"
     out["station"] = "NB1"

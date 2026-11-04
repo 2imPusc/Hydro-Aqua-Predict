@@ -1,0 +1,32 @@
+{
+ "step": "paper1-t4fix",
+ "run_name": "paper1-t4fix-20261104",
+ "amends": "experiments/paper1_t4_preregistration.json (RL-81, run paper1-t4-20261102), section causality.known_at, NB1 only",
+ "written_before_any_rerun_output": true,
+ "prior_exposure": [
+  "All RL-81 NB1 cells, CIs and sensitivities are known (coverage 0.800/0.800/0.799/0.792/0.772/0.787, Winkler ratio 0.81-0.98, 6/6 pass).",
+  "Checked before writing (no coverage computed): on bench rolling rows actual_at - valid_at is 0 s at q01-q99 (extremes +-120 s = merge tolerance); the bench writes actual_at only for split == rolling (forecast_sensor_v2._prediction_block), so it is NaT on the whole lockbox by design."
+ ],
+ "problem": "RL-81 known_at = max(valid_at, actual_at) = valid_at on the NB1 lockbox. On the 15-min origin grid every valid_at is itself an origin, and eligibility is known_at <= issued_at, so the outcome at time t fed the ACI / aci_amp state of the origin issued at t. Reconstructing actual_at would change nothing (it equals valid_at to the minute); the real gap is that a reading is not in the system at its sensor timestamp.",
+ "rule": {
+  "nb1_known_at": "max(valid_at, actual_at) + L, NaT actual_at -> valid_at; L = 15 min (primary). Applied to the calibration leak filter (forecast_conformal.calibration_residuals, drop known_at >= first lockbox issued_at) and to the ACI / aci_amp feedback, scenario S1 included.",
+  "why_15_min": "Design bound of the live pipeline, not a measurement: the shadow runner polls LatestDataByDevice each minute and refills the day's minutes from /Datums/DataByDate every 15 min (AGENTS.md, HAP-ShadowRunner), so a reading taken at t is in the system by t + 15 min when the pipeline is healthy. No ledger records wall-clock receipt time (forecasts.jsonl, outcomes.jsonl, runner.log, live-cache hold sensor timestamps only).",
+  "grid_note": "Origins and valid times are on a 15-min grid, so any L in (0, 15] min gives the same eligibility (the outcome enters at the next origin, lag + 1); L = 1 min is run to show this.",
+  "gamma": "unchanged: gamma = 0.075 / max(1, ceil(h / 15)) as pre-registered, so the comparison isolates known_at",
+  "cdmo": "not re-run. CDMO already uses issued_at + h, origins every 360 min; NERRS is a batch download with no live claim.",
+  "t4c": "not re-run: T4c (RL-85) is CDMO only and already uses known_at = issued_at + h."
+ },
+ "variants": {
+  "rl81_control_latency_0": "L = 0; must reproduce the RL-81 h3_cells_nb1.csv (n equal, coverage / frac_infinite / Winkler ratio within 1e-9, same pass flags), else the run aborts",
+  "primary_latency_15min": "PRIMARY, decides the T4-fix verdict",
+  "latency_1min": "sensitivity: any positive delay (expected identical to primary on the grid)",
+  "latency_60min": "sensitivity",
+  "latency_1440min_daily_collector": "sensitivity: offline daily collector (HAP-SensorCollector) as an approximate upper bound",
+  "latency_15min_gamma_effective_lag": "sensitivity: L = 15 min and gamma = 0.075 / ceil((h + 15) / 15)"
+ },
+ "cells_and_verdict": "Identical to RL-81: chronos-2-small + cqr_aci_amp vs ridge B5D + ridge_aci_amp on the lockbox, 6 horizons, large regime only; cell passes if n >= 50, coverage in [0.75, 0.85], frac_infinite <= 0.01, Winkler ratio <= 1.05. NB1 verdict 'fail' if any cell fails, else 'not_fully_testable_large_only_pass'.",
+ "what_can_change": "Only the 6 NB1 cells and the NB1 sub-verdict. The RL-81 overall H3 verdict is 'rejected' because CDMO fails (23/36) and CDMO is untouched, so the overall verdict cannot flip. RL-85 cannot change.",
+ "sensitivities_per_variant": "The RL-81 NB1 sensitivity list (literal gamma, sym, ridge nopH, ridge B4D, base, S1 where run) plus two descriptive rows added here: ridge + plain ACI vs ridge + aci_amp, and Chronos + cqr_aci_amp vs ridge + plain ACI (RL-81 post-hoc remark). None decides the verdict.",
+ "outputs": "compare_cells.csv (variant x horizon, deltas vs RL-81), h3_cells_nb1_<variant>.csv, sensitivity.csv, verdict.json, intervals-nb1-primary.parquet, NOTES.md, manifest.json",
+ "post_hoc_rule": "Anything decided after seeing the re-run is labelled post-hoc in NOTES.md and RL-T4FIX."
+}

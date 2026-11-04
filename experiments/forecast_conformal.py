@@ -140,23 +140,31 @@ def _sorted_quantile(scores, alpha: float) -> float:
     return float(scores[k - 1])
 
 
-def known_at(df: pd.DataFrame) -> pd.Series:
-    """Time at which an origin's actual is observed: ``max(valid_at, actual_at)``.
+def known_at(df: pd.DataFrame, latency=pd.Timedelta(0)) -> pd.Series:
+    """Time at which an origin's actual is usable: ``max(valid_at, actual_at) + latency``.
 
-    ``actual_at`` is missing (NaT) for the H1.2 lockbox rows; ``valid_at`` is
-    then used, which is still never earlier than the observation time.
+    ``actual_at`` is missing (NaT) for the H1.2 lockbox rows (the bench writes it
+    for rolling folds only); ``valid_at`` is then used (on rolling rows the two
+    agree to the minute).  ``latency`` is the ingest delay between the sensor
+    timestamp and the reading being in the system (default 0 = old behaviour;
+    RL-T4FIX uses 15 min for NB1).
     """
+    latency = pd.Timedelta(latency)
+    if latency < pd.Timedelta(0):
+        raise ValueError("negative_latency")
     later = df["actual_at"].notna() & (df["actual_at"] > df["valid_at"])
-    return df["valid_at"].where(~later, df["actual_at"])
+    return df["valid_at"].where(~later, df["actual_at"]) + latency
 
 
-def calibration_residuals(rolling: pd.DataFrame, k_folds: int, lockbox_start) -> tuple[pd.DataFrame, int]:
+def calibration_residuals(rolling: pd.DataFrame, k_folds: int, lockbox_start,
+                          latency=pd.Timedelta(0)) -> tuple[pd.DataFrame, int]:
     """Rolling rows usable for calibration: known before the lockbox, last ``k_folds`` folds.
 
-    Returns ``(rows_with_residual_column, n_dropped_for_leakage)``.
+    ``latency`` is passed to :func:`known_at`, so the leak filter and the ACI
+    feedback use the same clock.  Returns ``(rows_with_residual_column, n_dropped_for_leakage)``.
     """
     rolling = rolling[rolling["split"] == "rolling"] if "split" in rolling else rolling
-    safe = known_at(rolling) < lockbox_start
+    safe = known_at(rolling, latency) < lockbox_start
     kept = rolling[safe]
     folds = sorted(kept["fold"].unique())[-k_folds:]
     kept = kept[kept["fold"].isin(folds)].copy()
