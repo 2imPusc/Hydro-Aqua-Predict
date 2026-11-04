@@ -42,6 +42,7 @@ def test_classify_by_scoring_matches_golden(species, subset):
     out = _classify_by_scoring(_rule_frame(species), want["params"], species)
     assert list(out["suitability_score"]) == want["score"]
     assert [int(v) for v in out["suitability_label"]] == want["label"]
+    assert out["suitability_label"].dtype.kind == "i"
     assert list(out["suitability_name"]) == want["name"]
     assert list(out["classification_method"]) == want["method"]
 
