@@ -63,6 +63,10 @@ FORECAST_SHADOW_DIR = RUNTIME_DIR / "forecast-shadow"
 HAZARD_SHADOW_DIR = RUNTIME_DIR / "hazard-shadow"  # per-station hazard alerts, append-only JSONL
 ALERT_CONFIG_DIR = RUNTIME_DIR / "alert-config"  # admin alert-tier versions, append-only (decisions #20)
 EVENTS_DIR = RUNTIME_DIR / "events"  # field event log (ground truth), one write-once JSON per event; second API write path
+LOGS_DIR = RUNTIME_DIR / "logs"  # scheduled-job logs (shadow-runner.log, hazard-jobs.log), append-only
+SHADOW_RUNNER_LOG = LOGS_DIR / "shadow-runner.log"
+HAZARD_JOBS_LOG = LOGS_DIR / "hazard-jobs.log"
+HEALTH_LOG = LOGS_DIR / "health.log"  # scripts/health_check.py: one JSON line per run, append-only
 ARTIFACTS_DIR = _env_path("HAP_ARTIFACTS_DIR", PROJECT_ROOT / "artifacts")
 EXPERIMENT_OUTPUT_DIR = ARTIFACTS_DIR / "experiments"
 # As-issued weather capture for B5 (append-only JSONL; docs/guide/22): the hourly scheduled task and,
