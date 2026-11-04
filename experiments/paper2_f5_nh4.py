@@ -107,6 +107,9 @@ SENSITIVITY (ridge only, same code with a flag): stuck >= 3 h in the clean filte
 NB1 (``stage_nb1``, illustration only, outside the rule): NB1 NH4 hourly medians (``sensor-history-20261024``), detector
 thresholds from NB1 2026-06-01..2026-07-30 (pre-E1) with the same FA rule, Chronos-2 small (no NB1 ridge),
 around E1 31/07 14:00 and E3 16/09 15:00: mean 1-h forecast level 0-24 h after per mechanism vs observed pre / post.
+RL-F5NB1 fix (2026-11-04): the first NB1 run (RL-86, in ``RUN_NAME``) passed no reference channel, so v2 / v3 could
+never qualify.  ``nb1_inputs`` now passes NB1 hourly water temperature as the F4 reference (NB1 has no salinity) and
+v2c is calibrated on the same pre-E1 base; the stage writes to a fresh run dir ``NB1_RUN_NAME`` with its own manifest.
 
 AMENDMENT 1 (owner decision 2026-11-02, after the registration, BEFORE any scoring; ``preregistration_amendment.json``
 with its own git head, ``AMENDMENT_DECISIONS``): (A) v2 / v3 keep the a-priori F4 thresholds and remain the
@@ -124,7 +127,7 @@ Stages (write-once run dir ``paths.EXPERIMENT_OUTPUT_DIR / RUN_NAME``; ``--outpu
     python -I experiments/paper2_f5_nh4.py amend       # preregistration_amendment.json (v2c, before scoring)
     python -I experiments/paper2_f5_nh4.py score --model ridge|chronos2 [--sensitivity NAME]
     python -I experiments/paper2_f5_nh4.py evaluate
-    python -I experiments/paper2_f5_nh4.py nb1
+    python -I experiments/paper2_f5_nh4.py nb1         # -> NB1_RUN_NAME (descriptive, no prereg needed)
 """
 from __future__ import annotations
 
@@ -1325,27 +1328,48 @@ def stage_evaluate(out: Path, _args) -> None:
         _write_new(out / f"detection{sfx}.csv", detection_summary(res))
 
 
-def nb1_hourly() -> pd.Series:
-    from experiments.paper2_faults import load_history
+NB1_RUN_NAME = "paper2-f5nb1-20261104"  # RL-F5NB1: re-run of the NB1 illustration with the temperature reference
+NB1_EVENTS_H = (("E1_NH4", "2026-07-31 14:00"), ("E3_NH4", "2026-09-16 15:00"))
+NB1_CAL = ("2026-06-01", "2026-07-30 23:00")
 
-    return load_history()["NH4"].resample("1h").median()
+
+def nb1_frame_h() -> pd.DataFrame:
+    """NB1 hourly medians of NH4 and water temperature (F4 reference channel; NB1 has no salinity)."""
+    from experiments import paper2_faults
+
+    h = paper2_faults.load_history()[["NH4", "Temperature"]].resample("1h").median()
+    return h.rename(columns={"Temperature": "temp"})
+
+
+def nb1_inputs(win: pd.DataFrame, params: dict, v2c: dict | None = None) -> tuple[dict, "F5Inputs"]:
+    """Detectors + mechanism inputs on an NB1 window, temperature passed as the F4 reference (RL-86 bug: ref=None,
+    so v2 / v3 could never qualify).  Refuses a window without ``temp``."""
+    if "temp" not in win.columns:
+        raise KeyError("nb1_needs_temperature_reference")
+    det = detect_h(win["NH4"], params)
+    return det, F5Inputs(win["NH4"], flags_h(det), change_points_h(det["step"]), ref=win[["temp"]], v2c=v2c)
 
 
 def stage_nb1(out: Path, _args) -> None:
-    """Illustration (no truth): Chronos-2 around NB1 E1 / E3 per mechanism."""
-    _require_prereg(out)
-    x = nb1_hourly()
-    params = calibrate_h([x["2026-06-01":"2026-07-30 23:00"]])
+    """Illustration (no truth, no verdict, descriptive): Chronos-2 around NB1 E1 / E3 per mechanism.
+    RL-F5NB1: temperature is the reference channel (RL-86 ran with ref=None); v2c calibrated on the same pre-E1
+    base as the detectors.  Writes to a fresh run dir (default ``NB1_RUN_NAME``); the scored run is untouched."""
+    from experiments.nh4_step_0731 import HISTORY
+
+    out.mkdir(parents=True, exist_ok=True)  # files themselves are write-once (_write_new)
+    fr = nb1_frame_h()
+    cal = fr[NB1_CAL[0]:NB1_CAL[1]]
+    params = calibrate_h([cal["NH4"]])
+    v2c_full = calibrate_v2c(cal.assign(sal=np.nan), params)
+    v2c = {k: v2c_full[k] for k in ("ratio", "ref_scale")}
     fm = load_fm("chronos2")
-    rows = []
-    for name, t in (("E1_NH4", "2026-07-31 14:00"), ("E3_NH4", "2026-09-16 15:00")):
+    rows, cp_rows, trig_rows = [], [], []
+    for name, t in NB1_EVENTS_H:
         t = pd.Timestamp(t)
-        win = pd.DataFrame({"NH4": x[t - WIN_BEFORE:t + WIN_AFTER]})
-        win["temp"], win["sal"] = np.nan, np.nan
-        det = detect_h(win["NH4"], params)
-        inp = F5Inputs(win["NH4"], flags_h(det), change_points_h(det["step"]), ref=None)
+        win = fr[t - WIN_BEFORE:t + WIN_AFTER]
+        det, inp = nb1_inputs(win, params, v2c)
         origins = origin_times(t)
-        fc = forecasts_h("chronos2", fm, inp, win[["temp", "sal"]], origins, MECHS)
+        fc = forecasts_h("chronos2", fm, inp, win[["temp"]], origins, MECHS)
         post = (origins >= t) & (origins < t + pd.Timedelta(hours=24))
         pre = float(win["NH4"][t - pd.Timedelta(hours=24):t - pd.Timedelta(hours=1)].median())
         obs_post = float(win["NH4"][t:t + pd.Timedelta(hours=23)].median())
@@ -1354,8 +1378,22 @@ def stage_nb1(out: Path, _args) -> None:
                 continue
             rows.append({"event": name, "mech": m, "mean_fc_post24": float(np.nanmean(fc[(m, 60)][0][post])),
                          "obs_pre24_median": pre, "obs_post24_median": obs_post, "n_cp": len(inp.cps)})
+        for i, s in enumerate(inp.cps):
+            cp_rows.append({"event": name, "i": i, **{k: s[k] for k in ("alarm", "cp", "shift", "jump_frac", "instant",
+                            "magnitude", "ref_dtemp", "ref_available", "ref_quiet")},
+                            **{f"qual_{v}": i in inp.qual[v] for v in (*VARIANTS, "v2c")}})
+        trig_rows.append({"event": name, "onset": t, **inp.trigger_info(t, origins[-1])})
     _write_new(out / "nb1_illustration.csv", pd.DataFrame(rows))
-    _write_new(out / "nb1_thresholds.json", {k: v for k, v in params.items() if not k.endswith("_curve")})
+    _write_new(out / "nb1_changepoints.csv", pd.DataFrame(cp_rows))
+    _write_new(out / "nb1_triggers.csv", pd.DataFrame(trig_rows))
+    _write_new(out / "nb1_thresholds.json", {k: v for k, v in params.items() if not k.endswith("_curve")}
+               | {"v2c": v2c_full, "reference": "temp (hourly median Temperature); no salinity at NB1"})
+    _write_new(out / "manifest.json", {
+        "run": out.name, "stage": "nb1", "script": SCRIPT, "git_head": git_head(),
+        "created": pd.Timestamp.now(tz="UTC").isoformat(), "parent_run": RUN_NAME,
+        "status": "descriptive illustration, no verdict, not pre-registered (none needed)",
+        "inputs": [{"path": str(HISTORY), "sha256": _sha(HISTORY)}],
+        "outputs": {p.name: _sha(p) for p in sorted(out.glob("nb1_*"))}})
 
 
 STAGES = {"calibrate": stage_calibrate, "timing": stage_timing, "prereg": stage_prereg, "amend": stage_amend, "score": stage_score,
@@ -1372,7 +1410,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--skip-fm", action="store_true")
     ap.add_argument("--max", type=int, default=None)
     args = ap.parse_args(argv)
-    out = args.output or paths.EXPERIMENT_OUTPUT_DIR / RUN_NAME
+    out = args.output or paths.EXPERIMENT_OUTPUT_DIR / (NB1_RUN_NAME if args.stage == "nb1" else RUN_NAME)
     STAGES[args.stage](out, args)
     return 0
 

@@ -1058,3 +1058,18 @@ Mẫu: **Câu hỏi** · **Thiết lập** (dữ liệu, phương pháp, gate) �
 - **Sai lệch:** lần tải đầu dừng ở file 35 vì phản hồi rỗng; thêm retry rồi chạy tiếp (bỏ qua file đã có, không ghi đè). Thêm output phụ `best_match_identity.csv`. Một lần chạy thử trong bộ nhớ trên dữ liệu tải dở (34/90 file, không ghi gì) trước khi chạy chính; phán quyết thử khác ở đúng một cặp (gió 35 km/h × QM: go trên dữ liệu dở, no-go trên đủ). Sau lần thử không sửa tiêu chí hay `evaluate_preregistered`; chỉ thêm retry tải và output mô tả `best_match_identity.csv`. Ứng viên cộng bị chặn dưới ở 0 (đăng ký ghi phép trừ thuần) — chỉ ảnh hưởng mưa / gió gần 0.
 - **Số RL:** số tạm "RL-WXBIAS"; đánh số khi merge.
 - **Artifact:** `wx-bias-20261104/` (`pairs.parquet`, `scores_station_model_var_lead_season.csv`, `contingency.csv`, `wind_dailymax_contingency.csv`, `wind_tier_mapping.csv`, `wind_quantiles.csv`, `coverage.csv`, `best_match_identity.csv`, `verdict.json`, `weather_bias_correction.v0.json`, `preregistration.json`, 4 hình, manifest sha256); `tests/test_wx_bias.py` (11 test).
+## RL-F5NB1 · 2026-11-04 · Bài báo 2 / F5: chạy lại minh họa NB1 có tham chiếu nhiệt độ
+
+- **Câu hỏi:** khi stage `nb1` của F5 có tham chiếu nhiệt độ (RL-86 chạy với `ref=None`, lỗi mã), F4 v2 / v3 có bật ở E1 / E3 NH4 NB1 không?
+- **Thiết lập:** `experiments/paper2_f5_nh4.py nb1` (commit `c2fc708`, `ec5eabf`): `nb1_inputs` truyền trung vị giờ `Temperature` làm tham chiếu (NB1 không có độ mặn), v2c hiệu chỉnh trên nền trước E1 như detector; Chronos-2 small, 2 luồng. Stage mô tả, không đáp án, không phán quyết → **không cần đăng ký trước**. Ghi vào thư mục mới, không đụng `paper2-f5-20261102/`. 4 test mới.
+- **Kết quả:** **E1:** v1 / v2 / v3 / v2c bật tại 31/07 15:00 (trễ 1 h; dịch ÷16,9; nhiệt độ đổi 0,05 °C); v2 đưa dự báo 0–24 h về 102,3 so với mức trước bậc 104,4 (0,98×), v3 0,76× (giảm dần), (a) 11,2, (c′) 103,4. **E3:** không biến thể nào bật — do điều kiện (iii) độ lớn, không phải tham chiếu: trên trung vị giờ, điểm đổi 15:00 chỉ dịch ×2,3 (< ×3), nhiệt độ đổi 0,35 °C (yên); 5 điểm đổi sau (18–21/09) đều < ×3 và có nhiệt độ đổi ≥ 0,5 °C. F4 (phút, RL-79) có bật E3 → khác biệt do độ phân giải giờ. v2c NB1 = ngưỡng F4 (0 bật / 57,8 ngày) = v2. (a) / (b) / (c′) trùng lượt RL-86.
+- **Kết luận:** thay câu "v2 / v3 không bật vì … không truyền nhiệt độ" của RL-86: trên NB1 giờ, căn mức có giới hạn nhận đúng E1 nhưng bỏ sót E3 vì độ lớn; không chỉnh ngưỡng. Không đổi kết luận F5.
+- **Hạn chế:** NB1 không có đáp án; chỉ một kênh tham chiếu; trung vị giờ làm mờ bậc trong giờ.
+- **Số RL:** số tạm "RL-F5NB1", đánh số khi merge.
+- **Artifact:** `paper2-f5nb1-20261104/` (NOTES.md, `nb1_illustration.csv`, `nb1_changepoints.csv`, `nb1_triggers.csv`, `nb1_thresholds.json`, manifest sha256); `tests/test_paper2_f5_nh4.py` (+4 test).
+
+## RL-P2FIG · 2026-11-04 · Bài báo 2: dàn ý và hình
+
+- **Việc:** `docs/papers/paper2/outline.md` (tên, luận điểm, đóng góp kể cả âm, dàn ý theo RL, hình / bảng, phương án có / không TAFAS–FSNet, nơi nộp, đe dọa tính hợp lệ). `experiments/paper2_figures.py` chỉ đọc artifact F1–F5 → `paper2-figures-20261104b/` (lượt `paper2-figures-20261104/` cắt mất một điểm, bỏ). Không có kết quả mới.
+- **Khuyến nghị:** không thêm TAFAS / FSNet (phương án A); chủ dự án quyết.
+- **Số RL:** số tạm "RL-P2FIG".
