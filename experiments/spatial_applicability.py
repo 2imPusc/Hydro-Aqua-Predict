@@ -26,6 +26,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from core import paths  # noqa: E402
+from hap_shared.suitability_scorer import legacy_cobia_hsi, legacy_hsi_label  # noqa: E402
 
 REGION_PATHS = {
     "haiphong": paths.clean_data("haiphong"),
@@ -115,31 +116,15 @@ def station_catalog(frame: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def cobia_hsi(row: pd.Series) -> float:
-    """Small, explicit reproduction of the existing cobia HSI scoring shape."""
-    scores: list[float] = []
-    for name, rule in COBIA_RULES.items():
-        value = pd.to_numeric(row.get(name), errors="coerce")
-        if pd.isna(value):
-            continue
-        if rule[0] == "range":
-            low, high = rule[1], rule[2]
-            score = value / low if value < low else (2 * high - value) / high if value > high else 1.0
-        elif rule[0] == "min":
-            score = min(1.0, value / rule[1])
-        else:
-            score = 1.0 - value / rule[1]
-        scores.append(float(np.clip(score, 0.0, 1.0)))
-    return float(np.mean(scores)) if scores else np.nan
+    """Small, explicit reproduction of the existing cobia HSI scoring shape (one row).
+
+    Same rules as ``COBIA_RULES``; scoring lives in ``hap_shared.suitability_scorer.LEGACY_COBIA_HSI``.
+    """
+    return float(legacy_cobia_hsi(row.to_frame().T).iloc[0])
 
 
 def hsi_label(value: float) -> str:
-    if value >= .85:
-        return "very_suitable"
-    if value >= .75:
-        return "suitable"
-    if value >= .5:
-        return "less_suitable"
-    return "not_suitable"
+    return legacy_hsi_label(value)
 
 
 def legacy_local_radius(period: pd.DataFrame, anchor: str, *, max_dist_km: float = 30.0, bin_km: float = 1.0, alpha: float = .6) -> float:
@@ -204,7 +189,7 @@ def hsi_water_path_pairs(frame: pd.DataFrame, *, max_distance_km: float = 5.0) -
     from core.spatial_overlay import water_path_distances
     coordinates = pd.read_csv(paths.STATION_COORDINATES, usecols=["Station", "Lat", "Lon"])
     work = frame.copy()
-    work["hsi"] = work.apply(cobia_hsi, axis=1)
+    work["hsi"] = legacy_cobia_hsi(work)
     work = work.dropna(subset=["hsi"]).merge(coordinates, on="Station", how="inner", validate="many_to_one")
     station_points = coordinates.set_index("Station")
     distance_lookup: dict[tuple[str, str], float] = {}
@@ -457,7 +442,7 @@ def observed_hsi_radius_diagnostic(frame: pd.DataFrame, *, max_dist_km: float = 
     if not needed.intersection(frame.columns):
         return pd.DataFrame(), pd.DataFrame()
     work = frame.copy()
-    work["hsi"] = work.apply(cobia_hsi, axis=1)
+    work["hsi"] = legacy_cobia_hsi(work)
     radius_rows, accepted_rows = [], []
     for observed_at, period in work.groupby("observed_at", sort=True):
         period = period.dropna(subset=["hsi"]).reset_index(drop=True)

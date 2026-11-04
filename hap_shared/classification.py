@@ -15,14 +15,11 @@ from pathlib import Path
 
 from hap_shared.species import SPECIES, DEFAULT_SPECIES
 from hap_shared.scoring import score_param, score_to_label
+from hap_shared.suitability_scorer import RULE_LABEL_NAMES, SuitabilityScorer, rule_config
 
 MODEL_DIR = Path(__file__).resolve().parent / "thresholds"
 
-LABEL_NAMES = {
-    0: 'Chưa phù hợp',
-    1: 'Phù hợp',
-    2: 'Rất phù hợp',
-}
+LABEL_NAMES = RULE_LABEL_NAMES
 
 LABEL_COLORS = {
     0: '#d73027',   # do
@@ -150,46 +147,19 @@ def classify_grid(grid_df: pd.DataFrame, available_params: list,
 
 def _classify_by_scoring(grid_df: pd.DataFrame, available_params: list,
                           species: str) -> pd.DataFrame:
-    """Rule-based classification using breakpoints + weighted scoring."""
-    thresholds = _load_thresholds(species)
+    """Rule-based classification using breakpoints + weighted scoring.
 
-    usable_params = [p for p in available_params if p in thresholds]
-    if not usable_params:
-        grid_df = grid_df.copy()
-        grid_df['suitability_score'] = 0.5
-        grid_df['suitability_label'] = 1
-        grid_df['suitability_name'] = LABEL_NAMES[1]
-        grid_df['classification_method'] = 'scoring'
-        return grid_df
-
-    # Tinh trong so (re-normalize cho tap con params co san)
-    max_rank = max(thresholds[p]['importance_rank'] for p in usable_params)
-    raw_weights = {}
-    for p in usable_params:
-        rank = thresholds[p]['importance_rank']
-        raw_weights[p] = max_rank + 1 - rank
-    total_w = sum(raw_weights.values())
-    weights = {p: w / total_w for p, w in raw_weights.items()}
-
-    # Tinh diem cho tung o
-    scores = np.zeros(len(grid_df))
-    for p in usable_params:
-        bps = thresholds[p]['breakpoints']
-        w = weights[p]
-        vals = grid_df[p].values
-        param_scores = np.array([_score_param(v, bps) for v in vals])
-        scores += param_scores * w
-
-    # Use species-specific label thresholds
-    spec = SPECIES[species]
-    label_thresholds = spec.get('label_thresholds')
-    labels = np.array([_score_to_label(s, label_thresholds) for s in scores])
+    Thin wrapper over ``SuitabilityScorer`` with ``species_rule_config`` (H4.2, decisions #H42).
+    """
+    config = rule_config(_load_thresholds(species), SPECIES[species].get('label_thresholds'),
+                         name=f"rule:{species}")
+    result = SuitabilityScorer(config).score(grid_df, criteria=available_params)
 
     grid_df = grid_df.copy()
-    grid_df['suitability_score'] = scores
-    grid_df['suitability_label'] = labels
-    grid_df['suitability_name'] = [LABEL_NAMES[l] for l in labels]
-    grid_df['classification_method'] = 'scoring'
+    grid_df['suitability_score'] = result.score.to_numpy()
+    grid_df['suitability_label'] = result.label.to_numpy()
+    grid_df['suitability_name'] = result.label_name.to_numpy()
+    grid_df['classification_method'] = result.method
 
     return grid_df
 
