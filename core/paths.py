@@ -49,6 +49,7 @@ CMEMS_DIR = DATA_DIR / "cmems"  # Copernicus Marine point/area extracts (write-o
 ECMWF_OPENDATA_DIR = HAZARD_DATA_DIR / "ecmwf-opendata"  # real-time ECMWF TC track files (write-once)
 REFERENCES_DIR = DATA_DIR / "references"  # local text copies of cited sources (write-once)
 VN_PUBLIC_DIR = DATA_DIR / "vn_public"  # public Vietnamese sources, one subfolder per source + SOURCES.md (write-once)
+VN_SYNOP_DIR = DATA_DIR / "vn_synop"  # 4TA SYNOP surface obs, 172 VN stations 3-hourly 2000-2025: raw/ archive + derived/ parquet (write-once)
 
 
 def clean_data(region: str) -> Path:

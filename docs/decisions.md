@@ -175,3 +175,9 @@ Mỗi mục gồm: ngày, quyết định, lý do, hệ quả. Mục mới thêm
 - **Quyết định:** mở rộng tệp alert-config có phiên bản bằng mục `ood_flags` (schema 2) thay vì làm cấu hình riêng, để dùng lại xem trước, lý do bắt buộc, lưu phiên bản, khôi phục và kiểm tra hợp lệ. Chỉ `enabled` sửa được; danh sách chỉ số và nhãn bị khóa. Mặc định TSS tắt cho tới khi xử lý xong vấn đề cơ sở TSS. Chủ dự án yêu cầu 26/10.
 - **Lý do:** cờ luôn bật vì một chỉ số có vấn đề cơ sở đo (TSS) làm mất giá trị cảnh báo của các chỉ số khác.
 - **Hệ quả:** nút tắt chỉ đổi phần hiển thị, không đổi phần ghi log; cấu hình hỏng thì bật hết. Cổng loại kết quả của mô hình ngữ cảnh DO / độ mặn không phụ thuộc nút này — muốn đổi cần quyết định riêng.
+
+## #30 — 2026-11-04 · Nhập bộ SYNOP 4TA (172 trạm khí tượng, 3 giờ, 2000–2025)
+
+- **Quyết định:** lưu nguyên bản `4TA.rar` vào `data/vn_synop/raw/` (`paths.VN_SYNOP_DIR`, kèm `manifest.json` sha256) và dựng `derived/synop_3h_v2.parquet` cho cả 172 trạm bằng `scripts/import_vn_synop.py` (13.028.656 dòng, 75.748 kỳ, không trùng). Giá trị giữ nguyên; QC chỉ thêm cột `qc_flags` theo dải vật lý (gió > 60 m/s, nhiệt, ẩm, mưa ngoài dải; khí áp là áp trạm nên dải 500–1060 hPa — `v1` dùng 900 và gắn cờ nhầm trạm vùng cao, giữ lại không dùng). Thời gian trong file là giờ địa phương (`obs_local`), thêm `obs_utc` = −7 h. Không ghi đè: đổi cách xử lý thì tăng `VERSION`. Chủ dự án duyệt 04/11.
+- **Lý do:** 26 năm quan trắc gió, mưa, nhiệt tại 11 trạm ven biển HP/QN dùng để hiệu chỉnh mô hình gió bão và ngưỡng bậc cảnh báo, đo sai số Open-Meteo 2024–2025 và làm khí hậu nắng nóng / gió mùa. Có giá trị gió 61–98 m/s vào ngày lặng, nhiều khả năng lỗi giải mã nhóm dddff.
+- **Hệ quả:** bộ này dừng 04/12/2025, không trùng sensor NB1 (từ 29/05/2026), nên không thay bản tin thật cho T5 / H2.2 và không làm bậc quan trắc NB1. Nguồn gốc và giấy phép chưa xác nhận: chỉ dùng trong hệ thống; chưa dùng làm số liệu trong bài báo cho tới khi rõ nguồn.

@@ -54,7 +54,7 @@ Copy-Item .env.example .env   # repo root; fill TK_DHTB / MK_DHTB / MONGODB_URI
 Run everything from the repo root with the root `.venv`.
 
 ```powershell
-.venv\Scripts\python -m pytest -q                       # 1062 tests; requires_data ones skip without data/
+.venv\Scripts\python -m pytest -q                       # 1067 tests; requires_data ones skip without data/
 .venv\Scripts\python core\report.py --station 06M26042804
 .venv\Scripts\streamlit run app\demo_app.py             # http://localhost:8501
 .venv\Scripts\python core\shadow_runner.py --station 06M26042804 --interval-seconds 60
@@ -153,6 +153,10 @@ CI: `.github/workflows/ci.yml` runs core tests + isolation check, backend tests,
 - **VN2000 meridian is per province** (QN 107°45', HP 105°45', TB 105°30').
   `hap_shared/preprocessing.vn2000_to_wgs84` hardcodes 107°45' — wrong for HP data
   (~120 km shift). Only `experiments/prep_exogenous.py` calls it today; fix before reuse.
+- **SYNOP 4TA** (`paths.VN_SYNOP_DIR`, decisions #30): 172 met stations, 3-hourly, 2000-01-01 → 2025-12-04,
+  times local (UTC+7). Ends before the NB1 sensor starts, so it is history/calibration only, not live
+  weather. `wspd_ms` 61–98 on calm days is flagged in `qc_flags` (likely decode error). Licence unconfirmed:
+  system use only, not paper data yet.
 - Inland stations `06M26042801/02` (Hưng Yên) are out of scope for marine aquaculture.
 - QN PO4 values are LOQ-censored constants — screen out before computing forecast skill.
 - Imputed parameters (DO, Salinity, PO4…) are model guesses; reports must show the
