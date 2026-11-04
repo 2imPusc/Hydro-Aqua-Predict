@@ -1,0 +1,41 @@
+{
+  "run": "wx-bias (RL-WXBIAS, task 2.2)",
+  "script": "experiments/wx_bias.py",
+  "git_head": "858b41952675d5ac8729797495a7cfffdaeacbba",
+  "created": "2026-11-04T02:45:07Z",
+  "status": "registered before any Previous Runs forecast was downloaded or scored (only a 3-day availability probe was made)",
+  "purpose": "Go/no-go on proposing a (still inactive) correction of the Open-Meteo forecast rain / wind used by the advisory rules. Everything else in the run is descriptive.",
+  "truth": {
+    "file": "paths.VN_SYNOP_DIR / derived/synop_3h_v2.parquet (decisions #30)",
+    "stations": {"48833": "Bai Chay", "48826": "Phu Lien", "48839": "Bach Long Vi", "48828": "Hon Dau", "48834": "Co To"},
+    "qc": "per variable: a row is dropped for variable v only when qc_flags contains 'v;'. No hz-cal QC list existed when registered.",
+    "rain6h": "rain6h_mm at 00/06/12/18 UTC = total over the 6 h ending at obs_utc",
+    "rain24h": "rain24h_mm at 12 UTC only (19 local, VN climate day); it equals the sum of the four preceding rain6h (checked >= 99 %)",
+    "rain72h": "sum of three consecutive 12 UTC rain24h; all three needed",
+    "wind": "wspd_ms, 10-min mean, all 8 synoptic hours"
+  },
+  "forecast": {
+    "source": "previous-runs-api.open-meteo.com, *_previous_day1..7, timezone=UTC, wind_speed_unit=ms",
+    "models": {"best_match": "core/weather.py (no models=) -> weather_advisory rain/wind rule", "ecmwf_ifs025": "core/hazard_runner.py FORECAST_MODEL -> Beaufort tiers", "gfs_seamless": "secondary"},
+    "alignment": "instantaneous vars at obs_utc; precipitation hour h = total of the preceding hour, so the window ending at H uses hours H-5..H (6 h) / H-23..H (24 h); all hours of a window must be non-null; one lead N for the whole window"
+  },
+  "split": {"fit": "valid time < 2025-01-01 (from first available forecast, ~2024-02/03)", "test": "2025-01-01 .. 2025-12-04"},
+  "candidates": {
+    "additive": "per station x model x lead x variable: forecast - mean(fc - obs) on fit",
+    "quantile_mapping": "per station x model x lead x variable: empirical CDF mapping fc->obs on fit, 1st..99th + 99.5/99.9 percentiles, constant shift beyond the top fitted quantile, clipped at 0"
+  },
+  "primary_rules": [
+    {"id": "rain6h_10mm", "rule": "weather_advisory WATCH: rain 6 h >= 10 mm", "model": "best_match", "variable": "rain6h", "threshold": 10.0},
+    {"id": "wind_35kmh", "rule": "weather_advisory WATCH: wind >= 35 km/h = 9.72 m/s (on 3-hourly matched samples)", "model": "best_match", "variable": "wind", "threshold": 9.7222},
+    {"id": "wind_bf6", "rule": "storm_advisory / hazard_runner tier 1: Beaufort 6 >= 10.8 m/s", "model": "ecmwf_ifs025", "variable": "wind", "threshold": 10.8},
+    {"id": "wind_bf8", "rule": "tier 2: Beaufort 8 >= 17.2 m/s", "model": "ecmwf_ifs025", "variable": "wind", "threshold": 17.2},
+    {"id": "rain72h_100mm", "rule": "disease_risk heavy_rain_flag: 3-day rain >= 100 mm", "model": "best_match", "variable": "rain72h", "threshold": 100.0}
+  ],
+  "leads": {"rain6h_10mm": [1, 2, 3], "wind_35kmh": [1, 2, 3], "wind_bf6": [1, 2, 3, 4, 5], "wind_bf8": [1, 2, 3, 4, 5], "rain72h_100mm": [1, 2, 3]},
+  "pooling": "test samples pooled over the 5 stations and over the rule's leads (each lead counted separately)",
+  "min_events": "observed events in the pooled test sample >= 30, else the rule is 'insufficient' (no-go, descriptive only)",
+  "go_rule_per_rule_and_candidate": "go if ALL: CSI_corr - CSI_raw >= 0.05; |FB_corr - 1| < |FB_raw - 1|; FAR_corr <= FAR_raw + 0.02",
+  "continuous_secondary": "additive wind: test MAE pooled leads 1-3 reduced >= 10 % at >= 4 of 5 stations (model best_match) -> 'go' for an additive wind term",
+  "decision": "A correction is proposed as a versioned config (active=false) only for (rule, candidate) pairs that are 'go'. Otherwise the config records 'no-go' with the reason. Never activated here; weather stays observation-only (AGENTS.md rule 4). Transfer from coastal SYNOP stations to NB1 is NOT validated by this test.",
+  "sensitivity_descriptive": ["tail mapping with and without 2024-09-06..2024-09-08 (Yagi) in the fit", "per-station and per-model results", "season DJF/MAM/JJA/SON"]
+}
