@@ -1,10 +1,10 @@
 """Paper 2 figures: table builders read the right rows; figures render from small synthetic artifacts."""
-import matplotlib
+import pytest
 
+matplotlib = pytest.importorskip("matplotlib")  # requirements-experiments.txt only; CI installs requirements.txt
 matplotlib.use("Agg")
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-import pytest  # noqa: E402
 
 from experiments import paper2_figures as pf  # noqa: E402
 

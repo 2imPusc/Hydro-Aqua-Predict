@@ -29,8 +29,8 @@ mức có giới hạn, thích nghi lúc chạy dạng proxy, ACI) trên hàng n
 MOF (Hàn Quốc), với cả ridge và mô hình nền tảng (Chronos-Bolt, Chronos-2). Kết quả chính là âm và nhất quán: căn mức
 tại điểm đổi sửa được đổi thang (giảm MAE 0–24 h 43–94 %) nhưng mọi bản tự động — kể cả bản có giới hạn đăng ký trước
 — gây hại trên dữ liệu không sự cố vượt ngân sách (thay đổi tự nhiên trông giống đổi thang); mặt nạ QC chỉ giúp khi
-giá trị lỗi vượt dải; không cơ chế nào cứu được trôi chậm hay kẹt trong 24 h đầu; proxy thích nghi luôn tệ hơn bỏ
-qua. Khuyến nghị vận hành: phát hiện tự động + **căn mức chỉ sau xác nhận của người vận hành** (nhật ký bảo dưỡng),
+giá trị lỗi vượt dải; không cơ chế nào cứu được trôi chậm hay kẹt trong 24 h đầu; proxy thích nghi đơn giản tệ hơn
+bỏ qua ở mọi loại sự cố có đổi giá trị. Khuyến nghị vận hành: phát hiện tự động + **căn mức chỉ sau xác nhận của người vận hành** (nhật ký bảo dưỡng),
 và báo khoảng tin cậy không dựa trên phản hồi từ chính chuỗi lỗi.
 
 ## 3. Đóng góp (trung thực cả phần âm)
