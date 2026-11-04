@@ -388,3 +388,50 @@ def test_amend_refuses_after_scoring(tmp_path):
     (tmp_path / "results_ridge.csv").write_text("x\n", encoding="utf-8")
     with pytest.raises(RuntimeError):
         f5.stage_amend(tmp_path, None)
+
+
+# ----------------------------------------------------------------------------------------- NB1 stage (RL-F5NB1)
+
+def _nb1_case(temp_step=0.0):
+    fr = _frame(n=24 * 60)
+    t = fr.index[24 * 45]
+    params = f5.calibrate_h([fr["NH4"][:24 * 40]])
+    win = f5.inject_nh4(fr, "scale_down", t, 0.5)[0][["NH4", "temp"]].copy()
+    win.loc[t:, "temp"] += temp_step
+    _, inp = f5.nb1_inputs(win, params)
+    near = [s for s in inp.cps if t - pd.Timedelta(hours=1) <= s["alarm"] <= t + pd.Timedelta(hours=24)]
+    return t, inp, near
+
+
+def test_nb1_inputs_pass_temperature_reference():
+    t, inp, near = _nb1_case()
+    assert near, "the /20 step must raise a change point"
+    s = near[0]
+    assert s["ref_available"] == 1 and np.isfinite(s["ref_dtemp"]) and s["ref_quiet"]
+    assert s["instant"] and s["magnitude"]
+    assert inp.cps.index(s) in inp.qual["v2"] and inp.cps.index(s) in inp.qual["v3"]
+
+
+def test_nb1_inputs_temperature_step_blocks_v2():
+    _, inp, near = _nb1_case(temp_step=2.0)
+    s = near[0]
+    assert s["ref_available"] == 1 and s["ref_dtemp"] >= f5.REF_THRESHOLDS["temp"] and not s["ref_quiet"]
+    assert inp.cps.index(s) not in inp.qual["v2"]
+
+
+def test_nb1_inputs_refuse_without_temperature():
+    fr = _frame(n=24 * 10)
+    params = f5.calibrate_h([fr["NH4"]])
+    with pytest.raises(KeyError):
+        f5.nb1_inputs(fr[["NH4"]], params)
+
+
+def test_nb1_frame_hourly_keeps_temperature(monkeypatch):
+    from experiments import paper2_faults
+
+    idx = pd.date_range("2026-07-01", periods=180, freq="min")
+    hist = pd.DataFrame({"NH4": np.arange(180.0), "Temperature": 30 + np.arange(180) / 60, "COD": 1.0}, index=idx)
+    monkeypatch.setattr(paper2_faults, "load_history", lambda: hist)
+    fr = f5.nb1_frame_h()
+    assert list(fr.columns) == ["NH4", "temp"] and len(fr) == 3
+    assert fr["temp"].iloc[1] == pytest.approx(hist["Temperature"].iloc[60:120].median())
