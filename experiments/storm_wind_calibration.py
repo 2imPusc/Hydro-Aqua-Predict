@@ -27,7 +27,7 @@ from experiments.storm_hindcast import load_tracks  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 PREREG = Path(__file__).resolve().parent / "storm_wind_calibration_preregistration.json"
-DEFAULT_CONFIG = REPO / "config" / "alert_tiers.default.json"
+DEFAULT_CONFIG = paths.ALERT_CONFIG_DEFAULT
 RADIUS_KM = 300.0
 NEAR_KM = 100.0
 TRAIN = (2000, 2019)
