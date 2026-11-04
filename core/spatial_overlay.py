@@ -16,6 +16,7 @@ from shapely.geometry import Point, Polygon, box, mapping, shape
 from shapely.ops import nearest_points, transform, unary_union
 
 from core import paths
+from hap_shared.suitability_scorer import legacy_cobia_hsi, legacy_hsi_label
 
 
 WATER_SHAPEFILE = paths.WATER_SHAPEFILE
@@ -292,36 +293,15 @@ def _clip_bands_to_one_water_mask(bands: list[tuple[dict[str, Any], Any]]) -> li
 
 
 def _legacy_hsi(row: pd.Series) -> float:
-    """The cobia HSI shape used by the original aqua-forecast radius demo."""
-    rules = {
-        "DO": ("min", 6.0), "Temperature": ("range", 24.0, 28.0),
-        "pH": ("range", 8.0, 8.5), "Salinity": ("range", 27.0, 33.0),
-        "NH3": ("max", .1), "TSS": ("max", 50.0),
-    }
-    scores = []
-    for name, rule in rules.items():
-        value = pd.to_numeric(row.get(name), errors="coerce")
-        if pd.isna(value):
-            continue
-        if rule[0] == "range":
-            low, high = rule[1], rule[2]
-            score = value / low if value < low else (2 * high - value) / high if value > high else 1.0
-        elif rule[0] == "min":
-            score = min(1.0, value / rule[1])
-        else:
-            score = 1.0 - value / rule[1]
-        scores.append(float(np.clip(score, 0, 1)))
-    return float(np.mean(scores)) if scores else np.nan
+    """The cobia HSI shape used by the original aqua-forecast radius demo (one row).
+
+    Scoring lives in ``hap_shared.suitability_scorer.LEGACY_COBIA_HSI`` (H4.2).
+    """
+    return float(legacy_cobia_hsi(row.to_frame().T).iloc[0])
 
 
 def _legacy_hsi_label(value: float) -> str:
-    if value >= .85:
-        return "very_suitable"
-    if value >= .75:
-        return "suitable"
-    if value >= .5:
-        return "less_suitable"
-    return "not_suitable"
+    return legacy_hsi_label(value)
 
 
 def _legacy_radius(period: pd.DataFrame, station: str, *, max_distance_km: float = 30.0, bin_km: float = 1.0, alpha: float = .6) -> float:
@@ -374,7 +354,7 @@ def legacy_hsi_demo_overlays() -> tuple[str, list[dict[str, Any]]]:
     period = source.loc[source.Quarter.eq(period_at), columns].copy()
     coordinates = pd.read_csv(STATION_COORDINATES, usecols=["Station", "Lat", "Lon"])
     period = period.merge(coordinates, on="Station", how="left", validate="many_to_one")
-    period["hsi"] = period.apply(_legacy_hsi, axis=1)
+    period["hsi"] = legacy_cobia_hsi(period)
     period = period.dropna(subset=["Station", "X", "Y", "Lat", "Lon", "hsi"])
     bands = []
     for row in period.itertuples(index=False):
@@ -482,7 +462,7 @@ def build_observed_hsi_partition_demo_overlays(*, max_radius_km: float = 5.0) ->
     period = source.loc[source.Quarter.eq(period_at), columns].copy()
     coordinates = pd.read_csv(STATION_COORDINATES, usecols=["Station", "Lat", "Lon"])
     period = period.merge(coordinates, on="Station", how="inner", validate="many_to_one")
-    period["hsi"] = period.apply(_legacy_hsi, axis=1)
+    period["hsi"] = legacy_cobia_hsi(period)
     period = period.dropna(subset=["Station", "Lat", "Lon", "hsi"])
     if period.empty:
         return "unknown", []
